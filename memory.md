@@ -20,7 +20,7 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 - `skills/.agents/` 已建立编排层说明。
 - `rag/` 当前只有设计占位说明，尚未导入知识资产。
 - 当前没有可执行的业务代码、前端应用、模型服务或正式测试集。
-- 本地项目已初始化 Git 仓库，当前分支为 `main`，远程 `origin` 指向 `https://github.com/abreeezol/ExcavaGuard.git`。由于当前环境无法向 Downloads 下的 `.git/objects` 写入对象，且 GitHub HTTPS/SSH 凭据未就绪，初始提交和推送需要在本机终端完成。
+- 本地项目已初始化 Git 仓库，当前分支为 `main`，远程 `origin` 指向 `https://github.com/abreeezol/ExcavaGuard.git`。远程仓库已完成首次推送，`main` 分支已创建，远程 `HEAD` 指向 `main`。
 
 ## 已确认架构
 
