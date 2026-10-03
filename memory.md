@@ -10,7 +10,7 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 
 ## 当前状态
 
-更新时间：2026-09-22
+更新时间：2026-10-03
 
 - 项目根目录已经建立。
 - `方案与迭代note/初步方案.md` 已记录项目定位、总体架构、MVP 和评测方向。
@@ -19,6 +19,8 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 - 每个 Skill 已预留 `references/`、`scripts/`、`skills/` 和 `tests/`。
 - `skills/.agents/` 已建立编排层说明。
 - `rag/` 当前只有设计占位说明，尚未导入知识资产。
+- 已确认最终主交付形态为独立 Web 多智能体应用，WorkBuddy 专家作为主链路完成后的附加适配项。
+- 已确认 MVP 采用 Next.js + TypeScript 的单体全栈方案，不额外拆分 Python 后端。
 - 当前没有可执行的业务代码、前端应用、模型服务或正式测试集。
 - 本地项目已初始化 Git 仓库，当前分支为 `main`，远程 `origin` 指向 `https://github.com/abreeezol/ExcavaGuard.git`。远程仓库已完成首次推送，`main` 分支已创建，远程 `HEAD` 指向 `main`。
 
@@ -26,16 +28,30 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 
 采用以下组合：
 
-> 多 Agent 协作 + Skill 工具层 + 双知识库 RAG + 确定性规则引擎 + 工程师签发
+> 独立 Web 应用 + 多 Agent 协作 + Skill 工具层 + 双知识库 RAG + 确定性规则引擎 + 工程师签发
 
 职责分配：
 
+- Web 应用：提供对话、文件上传、运行轨迹、证据展开、人工确认和日报预览；
 - Agent：任务理解、动态规划、路由、冲突处理和结果组织；
 - Skill：执行可测试、可复现的具体业务能力；
 - RAG：提供规范和历史案例证据；
 - 规则引擎：完成数值计算与阈值判断；
 - LLM：生成受约束的解释和报告语言；
 - 工程师：确认关键配置、处理冲突并最终签发。
+
+## 已确认应用技术方向
+
+- 主应用采用 Next.js + TypeScript，前端与服务端 Route Handlers 保持在同一代码库。
+- MVP 不单独建设 Python 或 FastAPI 后端；全部 LLM、数据库和文件访问必须在服务端执行。
+- 模型接入优先采用 Vercel AI SDK 或等价的服务端适配层，禁止浏览器直接持有模型密钥。
+- 多 Agent 编排优先采用 LangGraph.js；若首条链路尚不需要框架能力，可先以显式 TypeScript 状态机实现，但必须保持相同的状态与路由契约。
+- 使用 Zod 定义共享状态、Agent 输入输出和 Skill 调用 Schema。
+- Supabase PostgreSQL 保存项目、会话、运行状态、证据、人工确认和审计记录；Supabase Storage 保存原始文件与生成报告。
+- Pinecone 保存规范库和案例库的向量索引，检索结果仍需携带来源元数据和稳定证据 ID。
+- 确定性数据处理、规则计算和报告校验使用 TypeScript 实现；测试优先采用 Vitest，日报优先生成 DOCX。
+- Web 应用是比赛主交付物。WorkBuddy 专家、企业智能体或 MCP 接入只作为主链路稳定后的附加展示，不成为核心业务逻辑的唯一载体。
+- 当前方案依赖远程 LLM、Pinecone 和 Supabase，不再宣称“完全离线静态包”；外部服务不可用时仅允许降级到确定性计算与基础模板草稿。
 
 ## Agent 组成
 
@@ -47,6 +63,8 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 - `审计 Agent`
 
 Supervisor 是唯一总控角色。专业 Agent 不能绕过 Supervisor 改变流程状态，审计 Agent 不能直接修改源事实。
+
+六类 Agent 是单一 Web 应用进程中的逻辑角色，不要求部署六个模型或六个独立服务。它们可以共享同一模型供应商，但必须具有独立职责、提示词、工具白名单、结构化输入输出和终止条件，并通过统一工程状态协作。
 
 ## Skill 组成
 
@@ -101,30 +119,27 @@ ExcavaGuard/
 
 以下内容仍需讨论，不应被 Agent 默认：
 
-- 最终开发语言和前后端框架；
-- 多 Agent 编排框架；
-- 使用本地模型还是远程模型；
-- Embedding 与 rerank 模型；
-- FAISS、Qdrant 或其他向量存储；
+- 最终使用的 LLM、Embedding 与 rerank 模型及版本；
+- LangGraph.js 的具体版本和是否在首条 MVP 链路立即引入；
 - 规范和案例资料的具体来源与授权方式；
 - 项目专项方案与通用规范的优先级配置方式；
 - 真实输入文件格式和字段名称；
 - 日报模板的最终版本；
-- 是否必须完全离线运行；
-- Demo 的部署与打包形式。
+- Web Demo 的托管平台、域名和部署方式；
+- WorkBuddy 附加适配采用个人专家、企业智能体还是 MCP。
 
 ## 待推进事项
 
-1. 确认最小输入数据契约。
-2. 确认项目阈值和规范适用规则。
-3. 为八个 Skill 补充 references、scripts 和 tests。
-4. 定义共享工程状态 Schema。
-5. 定义 Supervisor 的路由、重试和终止规则。
-6. 建设最小规范知识库。
-7. 建设经过脱敏的案例知识库。
+1. 确认最小 CSV 输入数据契约、项目阈值和规范适用规则。
+2. 初始化 Next.js + TypeScript Web 应用并补充根目录 `README.md`。
+3. 定义 Zod 共享状态 Schema、Agent 事件和持久化数据结构。
+4. 实现数据解析、标准化、阈值判断和报告校验等确定性 Skill。
+5. 定义 Supervisor 的路由、重试、退回、终止和人工确认规则。
+6. 建设最小规范知识库与经过脱敏的案例知识库。
+7. 接入服务端 LLM API、Supabase 和 Pinecone。
 8. 跑通正常、超限、数据错误和证据不足四类流程。
-9. 增加审计 Agent 的退回机制。
-10. 开发可视化 Demo 和日报导出能力。
+9. 增加审计 Agent 的退回机制、运行轨迹和日报导出能力。
+10. 主链路稳定后再制作 WorkBuddy 专家或 MCP 适配。
 
 ## 记忆维护规则
 
@@ -144,3 +159,12 @@ ExcavaGuard/
 - 多 Agent 采用 Supervisor、数据治理、判据与规范、风险归因、报告交付和审计六类角色。
 - 暂不创建传统后端代码脚手架，优先完善 Skill、Agent、RAG 和项目文档结构。
 - GitHub 远程仓库确定为 `https://github.com/abreeezol/ExcavaGuard.git`。
+
+### 2026-10-03
+
+- 比赛主交付形态确定为独立 Web 多智能体应用，不依赖 Codex、TRAE 或 WorkBuddy 才能运行。
+- WorkBuddy 专家或企业智能体接入调整为主链路完成后的附加项，用于展示同一核心能力可以被桌面 Agent 调用。
+- MVP 技术方向确定为 Next.js + TypeScript 单体全栈，使用 Route Handlers 承载服务端逻辑，不额外拆分 Python 后端。
+- Agent 采用 Supervisor 与五个专业 Agent 的逻辑多角色结构，在单一应用进程中围绕共享状态协作，不要求多个独立模型服务。
+- 初步基础设施确定为服务端 LLM API、Supabase PostgreSQL/Storage 与 Pinecone；Vercel AI SDK、LangGraph.js、Zod、Vitest 和 DOCX 工具作为优先选型，具体版本待实现时验证。
+- 项目不再以“完全离线静态包”为交付承诺；外部模型或知识库不可用时只保留确定性计算和基础模板降级。

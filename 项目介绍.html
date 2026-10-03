@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基坑智守 · 项目介绍</title>
+<style>
+:root{
+  --ink:#1a1f2e; --ink2:#3d4657; --muted:#6b7488; --line:#e2e6ee;
+  --bg:#ffffff; --soft:#f7f9fc; --soft2:#eef3fa;
+  --brand:#1f3b63; --brand2:#2e5a88; --accent:#c8620f;
+  --ok:#1a7f5a; --warn:#b8860b; --bad:#b32b2b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:15px;line-height:1.75;}
+.wrap{max-width:1100px;margin:0 auto;padding:0 28px 100px;}
+header.hero{background:linear-gradient(135deg,#1f3b63 0%,#2e5a88 100%);color:#fff;padding:42px 0 34px;margin-bottom:32px;}
+header.hero .wrap{padding-bottom:0}
+.hero h1{margin:0 0 6px;font-size:29px;letter-spacing:.5px}
+.hero .sub{font-size:15px;opacity:.92;margin:0 0 16px}
+.hero .meta{font-size:13px;opacity:.78;border-top:1px solid rgba(255,255,255,.25);padding-top:13px;margin-top:4px}
+h2.sec{font-size:21px;color:var(--brand);margin:50px 0 6px;padding-bottom:10px;border-bottom:2px solid var(--brand);font-weight:700}
+.lead{color:var(--muted);font-size:14px;margin:0 0 18px}
+h3{font-size:17px;color:var(--brand2);margin:28px 0 8px;font-weight:700}
+h4{font-size:15px;color:var(--ink);margin:20px 0 6px;font-weight:700}
+p{margin:8px 0}
+ul,ol{margin:8px 0;padding-left:22px}
+li{margin:4px 0}
+table{border-collapse:collapse;width:100%;margin:14px 0 8px;font-size:13.5px}
+th{background:var(--soft2);border:1px solid var(--line);padding:8px 10px;text-align:left;color:var(--brand);font-weight:700}
+td{border:1px solid var(--line);padding:8px 10px;vertical-align:top}
+tbody tr:nth-child(even){background:var(--soft)}
+code{background:#f0f3f8;padding:1px 5px;border-radius:3px;font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace;font-size:12.5px;color:#0d3b66}
+.box{border:1px solid var(--line);border-radius:6px;padding:14px 18px;margin:16px 0;background:var(--soft)}
+.box.k{border-left:4px solid var(--brand2)}
+.box.ok{border-left:4px solid var(--ok);background:#f2faf6}
+.box .t{font-weight:700;margin-bottom:6px;color:var(--brand)}
+.box.ok .t{color:var(--ok)}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11.5px;font-weight:700;vertical-align:middle}
+.t-must{background:#fde8e8;color:var(--bad)}
+.t-core{background:#fff2dd;color:var(--accent)}
+.t-plus{background:#e6f4ee;color:var(--ok)}
+hr{border:0;border-top:1px solid var(--line);margin:38px 0}
+.foot{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+.tocbox{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:14px 18px;margin:18px 0;font-size:13.5px;columns:2;column-gap:36px}
+.tocbox a{color:var(--brand2);text-decoration:none}
+.tocbox a:hover{text-decoration:underline}
+.tocbox div{break-inside:avoid}
+.card{border:1px solid var(--line);border-radius:8px;padding:16px 20px;margin:14px 0;background:var(--soft)}
+.card .h{font-weight:700;color:var(--brand);font-size:15.5px;margin-bottom:6px}
+.card .b{font-size:14.5px;color:var(--ink2)}
+.c3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:16px 0}
+.c2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+@media(max-width:860px){.c3,.c2{grid-template-columns:1fr}}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin:14px 0}
+.flow .step{flex:1 1 150px;border:1px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--soft);font-size:13.5px}
+.flow .step b{display:block;color:var(--brand);font-size:14px;margin-bottom:3px}
+.flow .arr{align-self:center;color:var(--muted);font-size:18px;font-weight:700}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>基坑智守 —— AI 监测日报智能体</h1>
+    <p class="sub">把每天的基坑监测数据，按国标 GB 50497-2019 的三重判据自动整理成一份可签字的监测日报，并结合施工工况对报警条目做出归因分析</p>
+    <div class="meta">浙江大学首届「海之子」杯 AI 智能体挑战计划（校内初赛）｜ 2026-09｜项目介绍</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="tocbox">
+  <div><a href="#s1">1　项目是什么</a></div>
+  <div><a href="#s2">2　为什么做</a></div>
+  <div><a href="#s3">3　数据来源</a></div>
+  <div><a href="#s4">4　要做哪几部分</a></div>
+  <div><a href="#s5">5　创新点</a></div>
+</div>
+
+<!-- ============ 1 ============ -->
+<h2 class="sec" id="s1">1　项目是什么</h2>
+<p class="lead">一句话：一个替监测工程师把当天数据整理成合规日报、并把报警说清楚的 AI 智能体。</p>
+
+<div class="box k">
+  <div class="t">它做的事</div>
+  <p>输入一个基坑项目的<b>当日监测数据</b>（各测点的累计位移量、本次变化量、变化速率）与<b>施工工况记录</b>，输出一份<b>符合 GB 50497-2019 附录 A 法定格式</b>的监测日报：表格逐点填写、超限条目标出、工况可解释的报警写明归因、存疑条目明确提示"信息不足"，编制／审核／签发三栏签字位留给工程师。</p>
+</div>
+
+<div class="c3">
+  <div class="card">
+    <div class="h">替谁干活</div>
+    <div class="b">监测单位的工程师。日报本来就是他的法定职责（GB 50497 强制要求），系统不改变责任归属，只把整理与初判的时间省下来。</div>
+  </div>
+  <div class="card">
+    <div class="h">系统形态</div>
+    <div class="b">RAG 外接知识库 + Skill 工具链的智能体。不微调任何模型权重——能力全部来自规则编译、知识库检索与提示词工程。</div>
+  </div>
+  <div class="card">
+    <div class="h">交付形态</div>
+    <div class="b">双击即用的离线静态包。现场演示就是上传一份 CSV，本地完成全部计算与报告生成，不依赖网络。</div>
+  </div>
+</div>
+
+<!-- ============ 2 ============ -->
+<h2 class="sec" id="s2">2　为什么做</h2>
+<p class="lead">官方事故调查的共同结论：信号都在，缺的是把信号变成判断的那一步。</p>
+
+<h3>2.1 事故不是没有信号，是信号没人翻译</h3>
+<table>
+<thead><tr><th>事故</th><th>调查报告原文</th></tr></thead>
+<tbody>
+<tr><td>杭州湘湖站坍塌（2008，21 死 24 伤）</td><td>监测单位<b>修改监测数据后上报</b>，险情信号被人为抹掉</td></tr>
+<tr><td>北京顺义站坍塌（2021，4 死）</td><td><b>"未发布红色预警信息"</b>；此前<b>长达 50 天未开展监测</b></td></tr>
+<tr><td>上海七宝垮塌事故</td><td>附近居民持续反映异常，但数据层面无人给出判断</td></tr>
+<tr><td>广州沙河站坍塌（2020）</td><td>站点本身撤离成功，但未及时围蔽，3 名路人遇难——判断没有转化为行动指令</td></tr>
+<tr><td>新加坡 Nicoll Highway（2004）</td><td>官方调查报告结论：<b>"对监测数据的解读流于形式"（perfunctory）</b></td></tr>
+</tbody>
+</table>
+
+<h3>2.2 数据量在涨，写日报的还是那一个人</h3>
+<ul>
+<li>大连某单基坑：<b>每月 20–30 万条</b>监测数据；上海全市监管平台存量<b>3.56 亿条</b>；浙江省单项目 <b>127 个测点</b>并行监测。</li>
+<li>规程层面已出现"海量数据"表述——采集与传输实现了自动化，<b>末端的人读不过来</b>。</li>
+</ul>
+
+<h3>2.3 制度补了"真"和"闭环"，还没补"可读"</h3>
+<p>近年政策（广州数据一经上传即固化、深圳报警须闭合处理、上海风险闭环管理）解决了数据<b>真实性</b>与处置<b>闭环</b>问题，但把数据变成<b>人可读的判断</b>这一步仍是纯人工。广州市住建局 2026 年通知明文提出"可提供智能分析、自动报表、风险研判等市场化增值服务"——本项目做的正是这一环。</p>
+
+<!-- ============ 3 ============ -->
+<h2 class="sec" id="s3">3　数据来源</h2>
+<p class="lead">四类来源，各司其职；每个数字标注三级口径之一：实测引用／自算／示意。</p>
+
+<table>
+<thead><tr><th>类别</th><th>来源</th><th>在本系统中的用途</th></tr></thead>
+<tbody>
+<tr><td><b>已提取的真实数值</b></td><td>Sci Rep 2025（真实基坑 3 测点，306 个实测值，σ = 2.6–4.4 mm）；Data in Brief 2020（重庆地铁 9 号线 134 个真实测点月度增量）；PLoS ONE 2024 与 Results in Engineering 2026（分土层位移先验）</td><td>校准合成数据生成器的量级、步长分布与标准差；量级合理性检查</td></tr>
+<tr><td><b>公开数据集</b></td><td>EXCAV-CLAY（332 个基坑案例、2830 个开挖阶段，带工法标签）；Zenodo 隧道多传感器数据集（44 通道、日对齐）；Cambridge Apollo；CrackVisual-2025</td><td>工况—响应先验；跨域验证；表观缺陷视觉模块</td></tr>
+<tr><td><b>规范与政策</b></td><td>GB 50497-2019（强条 3.0.1／8.0.9，附录 A 法定日报格式，9.0.4 工况分析要求）；GB 50911-2013；JGJ 8-2016；住建部令第 37 号；沪深穗地方管理文件</td><td>三重判据（累计值／变化量／变化速率）阈值、日报格式契约、工况台账依据——全部编译为可执行规则代码</td></tr>
+<tr><td><b>合成数据</b></td><td>以上述真实统计量校准的生成器产出，自带完整真值标签（异常类型、工况事件）</td><td>训练与评测的主体数据；对外一律标注"合成"，不冒充真实工程数据</td></tr>
+</tbody>
+</table>
+
+<div class="box k">
+  <div class="t">数据使用的一条边界</div>
+  <p>真实数据不进训练集，只做<b>匹配与校准</b>：分析时按"当前监测数据 ↔ 历史案例库"检索匹配，匹配不到就如实输出"信息不足"，不编造结论。</p>
+</div>
+
+<!-- ============ 4 ============ -->
+<h2 class="sec" id="s4">4　要做哪几部分</h2>
+<p class="lead">四个 Skill 模块 + 三个并列 Agent，全部挂在 RAG 知识库之上；数字计算全部由确定性代码完成，大模型只负责组织语言。</p>
+
+<div class="flow">
+  <div class="step"><b>① 读取 Skill</b>解析上传的 CSV／Excel，统一不规范的点号命名、单位与方向，规范化输出结构化数据</div>
+  <div class="arr">→</div>
+  <div class="step"><b>② 分析 Skill</b>按 GB 50497 三重判据逐点计算；RAG 向量检索匹配最相近的历史案例与工况先验</div>
+  <div class="arr">→</div>
+  <div class="step"><b>③ 归因 Skill</b>报警条目与施工工况台账比对（时间窗／空间窗／量级窗／方向一致性），判定"工况可解释"或"存疑"</div>
+  <div class="arr">→</div>
+  <div class="step"><b>④ 报告 Skill</b>按配置的格式参数渲染 GB 50497 附录 A 法定日报，排序与措辞符合规范要求</div>
+</div>
+
+<h3>4.1 三个并列 Agent</h3>
+<div class="c3">
+  <div class="card">
+    <div class="h">国标 Agent</div>
+    <div class="b">负责规范层。所有判据结论<b>优先采信外接知识库与 Skill 的检索结果</b>，引用必须落到条文号，引用覆盖率要求 100%。</div>
+  </div>
+  <div class="card">
+    <div class="h">真实数据案例 Agent</div>
+    <div class="b">负责经验层。针对当前工况检索历史真实案例，<b>按匹配可信度调整分析结论的强度</b>——匹配不足时结论自动降级为"参考"。</div>
+  </div>
+  <div class="card">
+    <div class="h">复合 Agent</div>
+    <div class="b">负责整合层。编排读取—分析—报告全流程，融合多源数据，处理冲突证据，产出最终日报与证据链。</div>
+  </div>
+</div>
+
+<h3>3.2 六道可靠性防线</h3>
+<table>
+<thead><tr><th>防线</th><th>机制</th></tr></thead>
+<tbody>
+<tr><td>数字与语言分离</td><td>全部数值由确定性代码计算，大模型不碰数字</td></tr>
+<tr><td>强制引用</td><td>每条判断必须给出条文号或数据来源，引用覆盖率 100%</td></tr>
+<tr><td>数值回填校验</td><td>生成的报告文本回填比对，数字不一致即拒绝输出</td></tr>
+<tr><td>多 Agent 交叉</td><td>规范结论与案例结论相互校核，冲突即暴露而非择一隐藏</td></tr>
+<tr><td>弃权机制</td><td>证据不足时明确输出"无法研判／信息不足"，不硬给结论</td></tr>
+<tr><td>模板降级</td><td>断网或知识库不可用时退回纯规则模板输出，功能不中断</td></tr>
+</tbody>
+</table>
+
+<!-- ============ 5 ============ -->
+<h2 class="sec" id="s5">5　创新点</h2>
+
+<div class="card">
+  <div class="h">① 数据只能匹配，不能被编造</div>
+  <div class="b">真实数据不进训练集、不改写、不再分发，只作为检索匹配库与校准标尺；两级匹配失败即输出"信息不足"。在安全场景里，<b>承认不确定比给出假确定更有价值</b>，同时绕开了行业缺乏公开标注数据的现实约束。</div>
+</div>
+
+<div class="card">
+  <div class="h">② 多 Agent 协作，而非"丢给大模型总结"</div>
+  <div class="b">与单一文本总结相比的四点结构优势：<b>数字与语言分离</b>（计算不经模型手）、<b>判据可追溯</b>（每条结论落到条文号）、<b>能解释变化</b>（工况归因写明证据链）、<b>断网可降级</b>（模板兜底）。这四点是"总结工具"在结构上做不到的。</div>
+</div>
+
+<div class="card">
+  <div class="h">③ 输出契约对齐法定格式</div>
+  <div class="b">产出不是自由文本，而是 GB 50497-2019 附录 A 规定的监测日报表（含三栏签字位）。专业性不依赖措辞，依赖格式本身即国标；红色预警不自动发布，最终决定权留给工程师。</div>
+</div>
+
+<div class="card">
+  <div class="h">④ 以深基坑为试点，架构可迁移</div>
+  <div class="b">系统的主干（读取—判据—归因—报告）与场景无关。迁移到隧道沉降、高支模、边坡、市政管网等一切"每天要写日报"的施工场景，只需替换三件东西：规范知识库、点号测项契约、报表格式参数。</div>
+</div>
+
+<hr>
+<p class="foot">基坑智守 项目介绍 ｜ 配套文档：《数据资产清单》《数据用法与训练执行总纲》《落地实施路线图》｜ 数据与规范引用均标注三级口径（实测引用／自算／示意）</p>
+
+</div>
+</body>
+</html>
