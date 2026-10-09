@@ -1,0 +1,8 @@
+{
+  "skill": "guardian-testcase-generation",
+  "status": "skipped",
+  "gate_status": "skipped",
+  "missing_inputs": ["feature", "prd_url"],
+  "reason": "本轮为依据本地已确认方案初始化 Next.js 工程，未提供 Lume feature 或飞书 PRD。按技能早退规则跳过正式 TestCases.yaml 生成。",
+  "local_validation": "初始化工程的接口、配置及注册契约由 tests/*.test.ts 验证；不等同于业务 Skill 或完整 MVP 验收。"
+}

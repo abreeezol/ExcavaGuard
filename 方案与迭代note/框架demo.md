@@ -83,6 +83,22 @@ flowchart TB
 - Zod 负责运行时数据契约；Supabase PostgreSQL/Storage 保存工程状态、会话、文件和审计记录；Pinecone 保存规范与案例向量索引。
 - WorkBuddy 专家、企业智能体或 MCP 接入只作为主链路完成后的附加适配，并复用同一套 Skill、规则和检索能力。
 
+### 2.2 初始化代码范围（2026-10-09）
+
+本轮先建立可启动的应用骨架，不等同于完整 MVP：
+
+- `src/app/`：App Router 页面、布局及 `api/health`、`api/runs` Route Handlers。
+- `src/components/`：工作台空状态、流程说明等界面组件。
+- `src/contracts/`：运行请求、角色与 Skill 标识的 Zod 契约；禁止引用服务端模块。
+- `src/server/agents/`：六类角色及工具白名单的静态注册信息，尚不执行模型或编排。
+- `src/server/skills/`：八个既有 Skill 的契约路径与实现状态；确定性实现仍放在根目录 `skills/<name>/scripts/`。
+- `src/server/integrations/`：LLM、Supabase、Pinecone 的延迟初始化入口，密钥仅在服务端读取。未指定模型前不提供默认模型。
+- `tests/`：接口边界、配置校验和注册信息一致性测试。
+
+`GET /api/health` 只表示应用进程可响应，不代表外部服务可用。`POST /api/runs` 的初始化请求使用 `project_id`、`monitoring_file_id`、`report_date` 三个必填字段；前两项为未来持久化资源的 UUID，日期为有效的 `YYYY-MM-DD`。这些字段仅是接口外壳，尚不验证资源存在性或所有权。
+
+接口拒绝不合法输入；合法请求也返回 HTTP 501、`FEATURE_NOT_IMPLEMENTED`，不分配运行 ID、不写数据库、不执行 Skill、不生成报告。鉴权、项目与文件表、上传、完整共享工程状态及 Supervisor 状态图在后续纵向链路中实现。第六节状态对象仍是目标设计，不能将其空对象直接当作已通过校验的工程事实。
+
 ## 三、Skill 职责
 
 ### 3.1 `parse-monitoring-data`

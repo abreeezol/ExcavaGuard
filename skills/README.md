@@ -22,6 +22,12 @@
 - Skill 之间通过结构化数据传递，不通过自然语言隐式传值。
 - 正式预警和签发不属于任何自动化 Skill。
 
+## 与 Web 应用的关系
+
+`src/server/skills/registry.ts` 登记本目录八个 Skill 的契约路径，`src/server/agents/registry.ts` 定义角色的工具白名单。当前注册状态均为 `not_implemented`，尚不能执行。
+
+后续 TypeScript 确定性实现放在对应 `scripts/` 中，由服务端工具层调用；具体业务测试放在相应 `tests/` 下并接入根目录测试配置。根目录 `tests/` 当前仅覆盖初始化工程边界。
+
 ## 首批 Skill
 
 1. `parse-monitoring-data`

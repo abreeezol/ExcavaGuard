@@ -8,15 +8,17 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 
 ## 当前阶段
 
-项目目前处于框架设计阶段：
+项目目前处于应用初始化阶段：
 
 - 已形成初步方案和多 Agent 架构设计；
 - 已建立八个业务 Skill 的目录与 `SKILL.md`；
 - 已确认主交付为独立 Web 多智能体应用，MVP 采用 Next.js + TypeScript 单体全栈；
 - 已确认 WorkBuddy 专家、企业智能体或 MCP 仅作为主链路完成后的附加适配；
+- 已建立 Next.js App Router 工作台空状态、Route Handlers、Zod 入口契约、角色和 Skill 注册信息；
+- 已建立 LLM、Supabase、Pinecone 的服务端客户端入口，但尚未接通业务或真实云服务；
 - `rag/` 仅为占位目录；
-- 尚未确定具体 LLM、Embedding、rerank 模型、依赖版本和部署平台；
-- 尚未实现业务脚本、测试数据、知识库和前端。
+- 已固定依赖版本于 `package-lock.json`；具体 LLM、Embedding、rerank 模型和部署平台尚未确定；
+- 尚未实现业务 Skill、Supervisor 状态图、鉴权、上传、工程测试数据和知识库；当前测试仅覆盖初始化工程边界。
 
 任何 Agent 都不得把规划中的技术选型描述为已经实现。
 
@@ -39,6 +41,15 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 ExcavaGuard/
 ├── AGENTS.md
 ├── memory.md
+├── README.md
+├── package.json / package-lock.json
+├── .env.example
+├── src/
+│   ├── app/                     # 页面与 Route Handlers
+│   ├── components/              # 服务端界面组件
+│   ├── contracts/               # 共享 Zod 入口契约
+│   └── server/                  # Agent、Skill 注册与外部服务客户端入口
+├── tests/
 ├── 方案与迭代note/
 │   ├── 初步方案.md
 │   └── 框架demo.md
@@ -78,6 +89,8 @@ ExcavaGuard/
 - 工程师负责最终预警、审核和报告签发。
 - 六类 Agent 是单一 Web 应用中的逻辑角色，不要求多个独立模型服务；角色之间只通过经过 Schema 校验的共享状态协作。
 - Web MVP 使用 Next.js + TypeScript 与服务端 Route Handlers，不在浏览器侧保存或调用任何密钥。
+- `src/server/` 模块使用 `server-only` 隔离，Client Component 不得导入；共享契约放在 `src/contracts/`，不得反向引用服务端模块。
+- 当前 `/api/health` 只表示进程存活；`/api/runs` 对合法输入仍返回 501。启用任务创建前必须补齐鉴权、资源授权、持久化与显式编排。
 - Supabase 用于结构化状态与文件持久化，Pinecone 用于规范与案例向量索引；检索记录必须继续满足本文件的证据约束。
 - 外部 LLM、Supabase 或 Pinecone 不可用时，只允许降级到确定性计算与基础模板草稿，不得把降级结果描述为完整智能分析。
 
@@ -167,6 +180,17 @@ Skill 之间只传递结构化数据，不把自然语言摘要作为下游计�
 计算类 Skill 必须使用人工可核验的固定样例，并验证全部中间值。检索类 Skill 必须验证来源、版本、适用性过滤和无结果行为。报告类 Skill 必须验证数字与结构化事实逐字段一致。
 
 在项目提供正式构建、检查和测试命令前，不得臆造命令。新增工具链后，应将经过实际验证的命令补充到本文件。
+
+### 初始化工程命令
+
+- 环境：Node.js 26.3.1（`.nvmrc`），npm；完整依赖版本见 `package-lock.json`。
+- 安装：`npm ci`。
+- 启动：`npm run dev`，本地访问 `http://localhost:3000`；初始页面不需要 `.env.local`。
+- 检查：`npm run check`，依次执行 ESLint、路由类型生成、TypeScript 与 Vitest。
+- 构建：`npm run build`，产物为 `.next/`；构建后使用 `npm start`。
+- 沙箱中执行 Next.js 命令时可使用 `CI=1 NEXT_TELEMETRY_DISABLED=1`，避免写入用户目录缓存。
+- `tests/server-only.ts` 仅供 Vitest 替换导入标记，不得用于绕过生产构建的服务端边界。
+- 当前没有可执行的工程计算、检索或报告类 Skill；实现后仍须遵守上面的完整业务测试要求。
 
 ## 完成标准
 

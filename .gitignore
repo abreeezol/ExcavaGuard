@@ -10,4 +10,13 @@ dist/
 build/
 .env
 .env.*
+!.env.example
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.tools/
+.npm-cache/
+.artifacts/
 *.log

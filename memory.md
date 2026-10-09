@@ -10,7 +10,7 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 
 ## 当前状态
 
-更新时间：2026-10-03
+更新时间：2026-10-09
 
 - 项目根目录已经建立。
 - `方案与迭代note/初步方案.md` 已记录项目定位、总体架构、MVP 和评测方向。
@@ -21,7 +21,11 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 - `rag/` 当前只有设计占位说明，尚未导入知识资产。
 - 已确认最终主交付形态为独立 Web 多智能体应用，WorkBuddy 专家作为主链路完成后的附加适配项。
 - 已确认 MVP 采用 Next.js + TypeScript 的单体全栈方案，不额外拆分 Python 后端。
-- 当前没有可执行的业务代码、前端应用、模型服务或正式测试集。
+- 已建立 Next.js App Router 初始化工程、工作台空状态、健康检查和运行请求校验接口。
+- 已建立六类 Agent 的静态职责与工具白名单，以及八个 Skill 的契约映射；尚无可执行的 Agent 编排或业务 Skill。
+- 已建立仅服务端使用的 LLM、Supabase、Pinecone 客户端入口；尚未进行真实服务联调、建立数据库表或导入知识。
+- 已添加接口边界、环境变量与注册契约的固定测试；尚无工程业务测试集。
+- 当前运行接口对合法输入返回 `501 FEATURE_NOT_IMPLEMENTED`，不创建运行记录或报告；页面不需要密钥即可启动。
 - 本地项目已初始化 Git 仓库，当前分支为 `main`，远程 `origin` 指向 `https://github.com/abreeezol/ExcavaGuard.git`。远程仓库已完成首次推送，`main` 分支已创建，远程 `HEAD` 指向 `main`。
 
 ## 已确认架构
@@ -97,6 +101,15 @@ Supervisor 是唯一总控角色。专业 Agent 不能绕过 Supervisor 改变�
 ExcavaGuard/
 ├── AGENTS.md
 ├── memory.md
+├── README.md
+├── package.json / package-lock.json
+├── .env.example
+├── src/
+│   ├── app/                     # 工作台与 Route Handlers
+│   ├── components/              # 服务端界面组件
+│   ├── contracts/               # Zod 入口契约与角色标识
+│   └── server/                  # 角色、Skill 注册与服务端客户端入口
+├── tests/                       # 初始化工程边界测试
 ├── 方案与迭代note/
 │   ├── 初步方案.md
 │   └── 框架demo.md
@@ -131,7 +144,7 @@ ExcavaGuard/
 ## 待推进事项
 
 1. 确认最小 CSV 输入数据契约、项目阈值和规范适用规则。
-2. 初始化 Next.js + TypeScript Web 应用并补充根目录 `README.md`。
+2. 在已建立的 Next.js 工程中实现用户鉴权、项目权限及文件上传。
 3. 定义 Zod 共享状态 Schema、Agent 事件和持久化数据结构。
 4. 实现数据解析、标准化、阈值判断和报告校验等确定性 Skill。
 5. 定义 Supervisor 的路由、重试、退回、终止和人工确认规则。
@@ -168,3 +181,11 @@ ExcavaGuard/
 - Agent 采用 Supervisor 与五个专业 Agent 的逻辑多角色结构，在单一应用进程中围绕共享状态协作，不要求多个独立模型服务。
 - 初步基础设施确定为服务端 LLM API、Supabase PostgreSQL/Storage 与 Pinecone；Vercel AI SDK、LangGraph.js、Zod、Vitest 和 DOCX 工具作为优先选型，具体版本待实现时验证。
 - 项目不再以“完全离线静态包”为交付承诺；外部模型或知识库不可用时只保留确定性计算和基础模板降级。
+
+### 2026-10-09
+
+- Next.js 初始化工程落地，延续既有 `skills/` 与 `rag/`；应用代码放入 `src/`，确定性业务实现仍应放入相应 Skill 的 `scripts/`。
+- 接口初始化仅定义资源 UUID 与报告日期，不提前填充阈值、工程事实、证据或完整运行状态；六类角色注册信息不代表编排已经运行。
+- 使用按服务延迟读取配置的客户端入口，没有默认模型；不填外部服务配置也可启动工作台。
+- 依赖基线为 Next.js 16.4.0、React 19.3.0、TypeScript 6.0.3、Zod 4.6.5、Vitest 4.1.11，完整版本固定于 `package-lock.json`。TypeScript 7 与当前 Next.js ESLint 解析器不兼容。
+- `.nvmrc` 固定本次验证环境 Node.js 26.3.1。启动与检查命令见根目录 `README.md`。
