@@ -92,6 +92,8 @@ ExcavaGuard/
 - `src/server/` 模块使用 `server-only` 隔离，Client Component 不得导入；共享契约放在 `src/contracts/`，不得反向引用服务端模块。
 - 当前 `/api/health` 只表示进程存活；`/api/runs` 对合法输入仍返回 501。启用任务创建前必须补齐鉴权、资源授权、持久化与显式编排。
 - Supabase 用于结构化状态与文件持久化，Pinecone 用于规范与案例向量索引；检索记录必须继续满足本文件的证据约束。
+- 规范证据检索通过统一服务端接口接入 Pinecone 或可选本地 RAG Provider；Provider 只能改变检索基础设施，不能改变证据 Schema、规则事实或 Skill 弃权边界。
+- 本地 RAG 地址仅允许 loopback；模型、规范全文、条文切片和向量索引作为独立受控制品管理，不进入主代码仓。
 - 外部 LLM、Supabase 或 Pinecone 不可用时，只允许降级到确定性计算与基础模板草稿，不得把降级结果描述为完整智能分析。
 
 规范判据的优先级高于案例经验。历史案例只能辅助解释原因，不能改变超限事实或降低风险等级。

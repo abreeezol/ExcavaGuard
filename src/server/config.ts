@@ -3,6 +3,14 @@ import { z } from "zod";
 
 const requiredValue = z.string().trim().min(1);
 const httpUrl = z.url({ protocol: /^https?$/ });
+const optionalValue = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  requiredValue.optional(),
+);
+const loopbackUrl = httpUrl.refine((value) => {
+  const hostname = new URL(value).hostname.toLowerCase();
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+});
 
 const integrationSchemas = {
   llm: z.object({
@@ -18,6 +26,14 @@ const integrationSchemas = {
   pinecone: z.object({
     PINECONE_API_KEY: requiredValue,
     PINECONE_INDEX: requiredValue,
+    PINECONE_NAMESPACE: optionalValue,
+  }),
+  rag: z.object({
+    RAG_PROVIDER: z.enum(["pinecone", "local"]),
+  }),
+  localRag: z.object({
+    LOCAL_RAG_BASE_URL: loopbackUrl,
+    LOCAL_RAG_TIMEOUT_MS: z.coerce.number().int().min(100).max(60_000).default(10_000),
   }),
 };
 

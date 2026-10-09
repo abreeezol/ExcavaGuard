@@ -22,7 +22,14 @@ description: "检索带来源与适用条件的规范条文证据。需要解释
 
 成功时返回：
 
-- `evidence`：证据列表，每项含 `id`、条文文本 `text`、`metadata`、`score` 和 `matched_terms`；
+- `evidence`：证据列表，每项含稳定证据标识 `id`、条文文本 `text`、匹配分数 `score`、检索来源 `provider`、`matched_terms`，以及以下 `metadata`：
+  - `standard_name`：规范名称；
+  - `standard_version`：规范版本；
+  - `clause`：条文号；
+  - `source_location`：页码或其他稳定来源位置；
+  - `applicability`：适用条件列表；
+  - `effective_status`：`active`、`inactive` 或 `unknown`；
+  - 可选的 `monitoring_item`、`excavation_safety_level` 和 `region`；
 - `notice`：检索结果适用性须由专业工程师核验；
 - `trace`：查询条件、命中数量和证据 ID。
 

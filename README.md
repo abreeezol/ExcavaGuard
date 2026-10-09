@@ -2,7 +2,7 @@
 
 面向基坑监测工程师的 AI 监测日报助手。采用 Next.js 单体全栈：规则主判、RAG 举证、模型表达，工程师负责复核与签发。
 
-**当前为初始化工程。** 工作台可独立启动；六类 Agent 和八个业务 Skill 已建立注册关系，尚未执行分析。上传、鉴权、数据库表、知识检索、编排、日报生成与导出均待实现。
+**当前为初始化工程。** 工作台可独立启动；六类 Agent 和八个业务 Skill 已建立注册关系，规范证据检索已提供 Pinecone 与本地 HTTP 适配器，但尚未接通真实知识库或执行分析。上传、鉴权、数据库表、业务 Skill、编排、日报生成与导出均待实现。
 
 ## 本地启动
 
@@ -31,6 +31,7 @@ src/
 └── server/
     ├── config.ts                  # 按服务读取环境变量
     ├── agents/registry.ts         # 六类角色、职责与工具白名单
+    ├── evidence/                  # 规范证据检索接口与双 Provider 适配器
     ├── skills/registry.ts         # 八个 Skill 的契约路径与实现状态
     └── integrations/              # LLM、Supabase、Pinecone 客户端入口
 tests/                             # 接口边界、配置与契约一致性测试
@@ -66,11 +67,23 @@ cp .env.example .env.local
 | --- | --- | --- |
 | LLM | `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` | 创建 OpenAI 兼容 Chat 适配器；不默认指定供应商或模型 |
 | Supabase | `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_STORAGE_BUCKET` | 创建服务端管理客户端；尚无表结构、上传或持久化 |
-| Pinecone | `PINECONE_API_KEY`、`PINECONE_INDEX` | 引用已有索引；尚无向量写入或检索 |
+| RAG 选择 | `RAG_PROVIDER` | 必须显式选择 `pinecone` 或 `local` |
+| Pinecone | `PINECONE_API_KEY`、`PINECONE_INDEX`、可选 `PINECONE_NAMESPACE` | 查询已有索引；Embedding 函数由服务端显式注入 |
+| 本地 RAG | `LOCAL_RAG_BASE_URL`、`LOCAL_RAG_TIMEOUT_MS` | 调用 loopback 服务的统一证据接口 |
 
 客户端按需创建，不在页面渲染和构建时读取密钥或发送请求。配置缺失或格式不合法会抛出 `IntegrationConfigError`，错误不携带原始配置值。当前未验证真实云服务连接；完整配置也不代表分析链路已经可用。
 
 Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需要实现用户鉴权、项目权限校验和文件所有权校验。不要将任何密钥改为 `NEXT_PUBLIC_*`，也不要提交 `.env.local`。
+
+## 规范证据 Provider
+
+`src/server/evidence/` 提供统一的 `StandardEvidenceRetriever`，上层 Skill 不区分具体向量库：
+
+- `PineconeStandardEvidenceRetriever`：接收显式注入的查询 Embedding，应用规范版本、监测项、基坑等级、地区和生效状态过滤。
+- `LocalStandardEvidenceRetriever`：只接受 `localhost`、`127.0.0.1` 或 `::1`，调用 `POST /api/evidence/search`。
+- `createStandardEvidenceRetriever`：根据 `RAG_PROVIDER` 选择实现，不会在本地模式读取 Pinecone 配置。
+
+完整本地 HTTP 合同见 [`rag/README.md`](rag/README.md)。两个适配器都要求稳定证据 ID、规范名称和版本、条文号、原文、来源位置及适用条件；旧版只有 `source/clause/content` 的响应会被拒绝。当前没有默认 Embedding 模型、本地 sidecar、规范资产或可供查询的生产索引，`retrieve-standard-evidence` Skill 仍为未实现状态。
 
 ## 接口外壳
 
@@ -96,9 +109,9 @@ npm run build       # 生产构建，产物在 .next/
 npm start           # 运行已经构建的应用
 ```
 
-`npm test` 运行固定测试，`npm run test:watch` 用于开发。测试覆盖：有效请求的明确拒绝、非法 JSON/字段/日期、闰日边界、服务配置缺失、错误不回显密钥，以及角色白名单与原有 Skill 契约的一致性。
+`npm test` 运行固定测试，`npm run test:watch` 用于开发。测试覆盖：有效请求的明确拒绝、非法 JSON/字段/日期、闰日边界、服务配置缺失、错误不回显密钥、角色白名单、Skill 契约，以及两个规范证据适配器的统一结构、过滤和失败边界。
 
-初始化验收（2026-10-09）：`npm ci`、Lint、类型检查、22 条测试和生产构建通过；开发与生产服务均已启动验证。浏览器已核验空状态、六类角色和页内导航；接口实测健康检查为 200、合法运行请求为 501。尚未执行真实 LLM、数据库或 RAG 联调。
+初始化验收（2026-10-09）：`npm ci`、Lint、类型检查、32 条测试和生产构建通过；开发与生产服务均已启动验证。浏览器已核验空状态、六类角色和页内导航；接口实测健康检查为 200、合法运行请求为 501。双 Provider 仅使用 Mock 完成合同测试，尚未执行真实 LLM、数据库、Pinecone 或本地 RAG 联调。
 
 在限制写入用户目录的沙箱内，Next.js 命令可添加 `CI=1 NEXT_TELEMETRY_DISABLED=1`，使其配置缓存落在项目 `.next/cache/`。例如 `CI=1 NEXT_TELEMETRY_DISABLED=1 npm run build`。
 

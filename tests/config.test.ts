@@ -33,6 +33,25 @@ describe("服务端配置", () => {
     expect(() => readIntegrationConfig("llm")).toThrow("llm 配置缺失或不合法。");
   });
 
+  it("本地 RAG 只接受 loopback 地址并解析超时", () => {
+    vi.stubEnv("LOCAL_RAG_BASE_URL", "http://127.0.0.1:8600");
+    vi.stubEnv("LOCAL_RAG_TIMEOUT_MS", "2500");
+    expect(readIntegrationConfig("localRag")).toEqual({
+      LOCAL_RAG_BASE_URL: "http://127.0.0.1:8600",
+      LOCAL_RAG_TIMEOUT_MS: 2500,
+    });
+
+    vi.stubEnv("LOCAL_RAG_BASE_URL", "https://rag.example.com");
+    expect(() => readIntegrationConfig("localRag")).toThrow(IntegrationConfigError);
+  });
+
+  it("RAG Provider 必须显式选择", () => {
+    vi.stubEnv("RAG_PROVIDER", "");
+    expect(() => readIntegrationConfig("rag")).toThrow(IntegrationConfigError);
+    vi.stubEnv("RAG_PROVIDER", "local");
+    expect(readIntegrationConfig("rag")).toEqual({ RAG_PROVIDER: "local" });
+  });
+
   it.each([
     ["SUPABASE_SERVICE_ROLE_KEY", createSupabaseAdmin],
     ["PINECONE_API_KEY", createPineconeIndex],

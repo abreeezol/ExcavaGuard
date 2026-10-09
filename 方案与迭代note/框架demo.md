@@ -99,6 +99,17 @@ flowchart TB
 
 接口拒绝不合法输入；合法请求也返回 HTTP 501、`FEATURE_NOT_IMPLEMENTED`，不分配运行 ID、不写数据库、不执行 Skill、不生成报告。鉴权、项目与文件表、上传、完整共享工程状态及 Supervisor 状态图在后续纵向链路中实现。第六节状态对象仍是目标设计，不能将其空对象直接当作已通过校验的工程事实。
 
+### 2.3 规范证据检索 Provider（2026-10-09）
+
+规范 RAG 通过统一的 `StandardEvidenceRetriever` 服务端接口接入，不让页面、Agent 或 Skill 依赖具体向量库。当前先提供两种适配器：
+
+- `PineconeStandardEvidenceRetriever`：面向托管索引。查询向量由外部注入的 Embedding 函数生成，项目尚未默认选择模型或向量维度。
+- `LocalStandardEvidenceRetriever`：面向本机 loopback HTTP 服务。默认调用 `POST /api/evidence/search`，本地模型、ChromaDB 和规范资产不进入主代码仓。
+
+两个 Provider 必须返回同一份经过 Zod 校验的证据结构，包括稳定证据 ID、规范名称、版本、条文号、原文、适用条件、来源位置、生效状态、匹配分数和 Provider 标识。缺少上述字段的旧版检索响应视为不完整证据，适配器应拒绝返回，不得在主链路中补造。
+
+服务端通过 `RAG_PROVIDER=pinecone|local` 选择 Provider。选择 Pinecone 时必须显式提供查询 Embedding 实现；选择本地模式时地址仅允许 `localhost`、`127.0.0.1` 或 `::1`，避免把“离线模式”静默指向远端服务。适配器只提供检索基础设施，尚未实现 `retrieve-standard-evidence` Skill 的适用性判断、冲突处理和运行轨迹，也不代表本地 FastAPI 服务已经合入。
+
 ## 三、Skill 职责
 
 ### 3.1 `parse-monitoring-data`

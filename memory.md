@@ -24,6 +24,7 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 - 已建立 Next.js App Router 初始化工程、工作台空状态、健康检查和运行请求校验接口。
 - 已建立六类 Agent 的静态职责与工具白名单，以及八个 Skill 的契约映射；尚无可执行的 Agent 编排或业务 Skill。
 - 已建立仅服务端使用的 LLM、Supabase、Pinecone 客户端入口；尚未进行真实服务联调、建立数据库表或导入知识。
+- 已确认规范证据检索采用统一 Provider 接口，支持 Pinecone 托管方向与可选本地 RAG；两者共享证据 Schema 和上层 Skill，不复制业务链路。
 - 已添加接口边界、环境变量与注册契约的固定测试；尚无工程业务测试集。
 - 当前运行接口对合法输入返回 `501 FEATURE_NOT_IMPLEMENTED`，不创建运行记录或报告；页面不需要密钥即可启动。
 - 本地项目已初始化 Git 仓库，当前分支为 `main`，远程 `origin` 指向 `https://github.com/abreeezol/ExcavaGuard.git`。远程仓库已完成首次推送，`main` 分支已创建，远程 `HEAD` 指向 `main`。
@@ -53,6 +54,7 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 - 使用 Zod 定义共享状态、Agent 输入输出和 Skill 调用 Schema。
 - Supabase PostgreSQL 保存项目、会话、运行状态、证据、人工确认和审计记录；Supabase Storage 保存原始文件与生成报告。
 - Pinecone 保存规范库和案例库的向量索引，检索结果仍需携带来源元数据和稳定证据 ID。
+- 本地规范 RAG 作为可选 Provider 通过 loopback HTTP 接入；本地模型、规范文本、切片与向量索引不进入主代码仓，也不成为 Web 主链路的必选依赖。
 - 确定性数据处理、规则计算和报告校验使用 TypeScript 实现；测试优先采用 Vitest，日报优先生成 DOCX。
 - Web 应用是比赛主交付物。WorkBuddy 专家、企业智能体或 MCP 接入只作为主链路稳定后的附加展示，不成为核心业务逻辑的唯一载体。
 - 当前方案依赖远程 LLM、Pinecone 和 Supabase，不再宣称“完全离线静态包”；外部服务不可用时仅允许降级到确定性计算与基础模板草稿。
@@ -189,3 +191,4 @@ ExcavaGuard/
 - 使用按服务延迟读取配置的客户端入口，没有默认模型；不填外部服务配置也可启动工作台。
 - 依赖基线为 Next.js 16.4.0、React 19.3.0、TypeScript 6.0.3、Zod 4.6.5、Vitest 4.1.11，完整版本固定于 `package-lock.json`。TypeScript 7 与当前 Next.js ESLint 解析器不兼容。
 - `.nvmrc` 固定本次验证环境 Node.js 26.3.1。启动与检查命令见根目录 `README.md`。
+- 规范证据检索新增双 Provider 决策：Pinecone 与本地 RAG 必须返回相同的稳定证据字段；Pinecone 的 Embedding 模型仍需显式选择，本地 sidecar 和知识资产尚未合入。
