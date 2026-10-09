@@ -11,3 +11,9 @@ build/
 .env
 .env.*
 *.log
+
+# === 规范知识库：受版权保护的 GB 标准全文及派生产物，不进 public 仓库 ===
+data/ocr_text/
+data/chunks.jsonl
+data/chroma_db/
+data/docs/

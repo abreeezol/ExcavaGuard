@@ -1,0 +1,12 @@
+# 基坑智守 RAG 知识库 · Python 依赖
+# 安装：pip install -r requirements.txt
+chromadb>=1.0
+sentence-transformers>=3.0
+torch>=2.2            # CPU 版即可；如有 GPU 可装对应 CUDA 版本加速
+pymupdf>=1.24         # PDF 文本层提取 + 页面渲染
+rapidocr-onnxruntime  # 扫描版 PDF 中文 OCR
+pypdf                 # 备用 PDF 解析
+python-docx           # Word 语料解析
+fastapi               # demo 服务
+uvicorn               # demo 服务
+pydantic

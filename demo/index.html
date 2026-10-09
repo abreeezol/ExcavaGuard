@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基坑智守 · 监测日报规范核对 Demo</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+:root{--primary:#2f6fed;--bg:#f5f7fb;--card:#fff;--line:#e5e9f0;--txt:#1f2329;--sub:#6b7280;--ok:#16a34a;--warn:#d97706;--alarm:#dc2626}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--txt);padding:24px;max-width:1180px;margin:0 auto}
+h1{font-size:22px;display:flex;align-items:center;gap:10px}
+.sub{color:var(--sub);font-size:13px;margin:6px 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+.card h2{font-size:16px;margin-bottom:12px}
+label{font-size:13px;color:var(--sub);display:block;margin:8px 0 4px}
+textarea,input,select{width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:14px;font-family:inherit}
+textarea{min-height:110px;resize:vertical}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>div{flex:1;min-width:140px}
+button{background:var(--primary);color:#fff;border:none;border-radius:8px;padding:11px 26px;font-size:15px;cursor:pointer;margin-top:12px}
+button:disabled{opacity:.5;cursor:wait}
+.samples{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.sample{font-size:12px;color:var(--primary);background:#eaf1fe;border-radius:6px;padding:4px 10px;cursor:pointer}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+th,td{border:1px solid var(--line);padding:7px 9px;text-align:left}
+th{background:#f0f3f9}
+.st-正常{color:var(--ok);font-weight:600}.st-需关注{color:var(--warn);font-weight:600}.st-报警{color:var(--alarm);font-weight:700}
+.ev{font-size:12px;color:var(--sub);background:#fafbfd;border-left:3px solid var(--primary);padding:8px 10px;border-radius:6px;margin:6px 0}
+#report{font-size:14px;line-height:1.75}
+#report table{font-size:13px}
+.badge{display:inline-block;background:#eaf1fe;color:var(--primary);border-radius:20px;padding:2px 12px;font-size:12px;margin-right:6px}
+.hidden{display:none}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:r .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes r{to{transform:rotate(360deg)}}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{padding:6px 16px;border-radius:8px;background:#eef1f7;cursor:pointer;font-size:13px}
+.tab.on{background:var(--primary);color:#fff}
+</style>
+</head>
+<body>
+<h1>🛡️ 基坑智守 · 监测日报规范核对 Demo</h1>
+<div class="sub" id="stats">正在连接知识库…</div>
+
+<div class="tabs">
+  <div class="tab on" data-t="check">📝 日报核对生成</div>
+  <div class="tab" data-t="search">🔍 规范条款检索</div>
+</div>
+
+<div class="card" id="panel-check">
+  <h2>第一步：输入现场监测描述（模拟测试者）</h2>
+  <div class="row">
+    <div><label>基坑安全等级</label>
+      <select id="lvl"><option>一级</option><option>二级</option><option>三级</option></select></div>
+    <div><label>天气</label><input id="weather" value="晴"></div>
+    <div><label>施工工况</label><input id="stage" value="第二层土方开挖，深度约8.5m"></div>
+  </div>
+  <label>监测描述（测点 + 项目 + 累计值 / 速率，多项用分号隔开）</label>
+  <textarea id="desc">3号测点今日累计沉降32mm，日变化速率4.2mm/d；CX1测斜孔深层水平位移累计28.5mm，速率2.6mm/d；SW2水位观测井水位累计下降0.8m；ZC3支撑轴力本次1850kN，设计值2600kN</textarea>
+  <div class="samples">
+    <span style="font-size:12px;color:var(--sub)">试试：</span>
+    <span class="sample" onclick="fill(0)">全部正常场景</span>
+    <span class="sample" onclick="fill(1)">单点报警场景</span>
+    <span class="sample" onclick="fill(2)">多点超限+轴力场景</span>
+  </div>
+  <button id="btn" onclick="runCheck()">核对规范并生成日报</button>
+</div>
+
+<div class="card hidden" id="result">
+  <h2>第二步：规范核对结果（依据知识库条款）</h2>
+  <div id="check-table"></div>
+  <div id="evidences"></div>
+</div>
+
+<div class="card hidden" id="report-card">
+  <h2>第三步：按规范格式生成的监测日报</h2>
+  <div id="report"></div>
+  <button onclick="downloadReport()" style="background:#374151">下载日报 Markdown</button>
+</div>
+
+<div class="card hidden" id="panel-search">
+  <h2>知识库规范检索</h2>
+  <label>输入问题，直接查询知识库中的规范条款</label>
+  <input id="q" value="基坑顶部水平位移报警值是多少">
+  <button onclick="runSearch()">检索</button>
+  <div id="search-result" style="margin-top:12px"></div>
+</div>
+
+<script>
+const samples = [
+  "1号测点今日累计沉降8.5mm，日变化速率0.9mm/d；CX2测斜孔深层水平位移累计12.3mm，速率1.1mm/d；SW1水位累计下降0.15m",
+  "5号测点今日累计沉降28mm，日变化速率3.8mm/d",
+  "3号测点今日累计沉降32mm，日变化速率4.2mm/d；CX1测斜孔深层水平位移累计45mm，速率3.9mm/d；ZC3支撑轴力本次2150kN，设计值2600kN"
+];
+let lastReport = "";
+function fill(i){ document.getElementById('desc').value = samples[i]; }
+
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on');
+    const isCheck = t.dataset.t==='check';
+    document.getElementById('panel-check').classList.toggle('hidden', !isCheck);
+    document.getElementById('panel-search').classList.toggle('hidden', isCheck);
+    if(!isCheck){ document.getElementById('result').classList.add('hidden'); document.getElementById('report-card').classList.add('hidden'); }
+  };
+});
+
+async function runCheck(){
+  const btn = document.getElementById('btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>正在检索知识库并核对…';
+  try{
+    const resp = await fetch('/api/check', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        description: document.getElementById('desc').value,
+        meta: { safety_level: document.getElementById('lvl').value,
+                weather: document.getElementById('weather').value,
+                stage: document.getElementById('stage').value }
+      })
+    });
+    const data = await resp.json();
+    if(data.error){ alert('出错：'+data.error); return; }
+    renderChecks(data.checks);
+    lastReport = data.report_md;
+    document.getElementById('report').innerHTML = marked.parse(data.report_md);
+    document.getElementById('result').classList.remove('hidden');
+    document.getElementById('report-card').classList.remove('hidden');
+    document.getElementById('result').scrollIntoView({behavior:'smooth'});
+  } finally {
+    btn.disabled = false; btn.textContent = '核对规范并生成日报';
+  }
+}
+
+function renderChecks(checks){
+  if(!checks.length){
+    document.getElementById('check-table').innerHTML = '<p style="color:var(--warn)">未能识别监测项目，请检查描述格式。</p>';
+    document.getElementById('evidences').innerHTML=''; return;
+  }
+  let h = '<table><tr><th>测点</th><th>监测项目</th><th>累计占比</th><th>速率占比</th><th>报警值(累计/速率)</th><th>判定</th></tr>';
+  let evs = '<h3 style="font-size:14px;margin-top:14px">核对依据（知识库命中条款）</h3>';
+  const seen = new Set();
+  checks.forEach(c=>{
+    const pct = v => v==null?'-':Math.round(v*100)+'%';
+    h += `<tr><td>${c.point||'-'}</td><td>${c.item}</td><td>${pct(c.cum_ratio)}</td><td>${pct(c.rate_ratio)}</td><td>${c.cum_limit} / ${c.rate_limit}</td><td class="st-${c.status}">${c.status}</td></tr>`;
+    (c.evidence||[]).slice(0,1).forEach(ev=>{
+      const k = ev.source+ev.clause;
+      if(seen.has(k)) return; seen.add(k);
+      evs += `<div class="ev"><b>《${ev.source}》条款 ${ev.clause||'-'}</b>（相关度 ${ev.score}）<br>${ev.content.slice(0,180)}…</div>`;
+    });
+  });
+  h += '</table>';
+  document.getElementById('check-table').innerHTML = h;
+  document.getElementById('evidences').innerHTML = evs;
+}
+
+async function runSearch(){
+  const q = document.getElementById('q').value;
+  const box = document.getElementById('search-result');
+  box.innerHTML = '检索中…';
+  const r = await fetch('/api/search?q='+encodeURIComponent(q)+'&topk=5');
+  const d = await r.json();
+  box.innerHTML = (d.hits||[]).map(h=>
+    `<div class="ev"><b>《${h.source}》条款 ${h.clause||'-'}</b>（相关度 ${h.score}）<br>${h.content.slice(0,260)}…</div>`
+  ).join('') || '无结果';
+}
+
+function downloadReport(){
+  const blob = new Blob([lastReport], {type:'text/markdown;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '基坑智守项目监测日报.md';
+  a.click();
+}
+
+fetch('/api/stats').then(r=>r.json()).then(d=>{
+  document.getElementById('stats').innerHTML =
+    `<span class="badge">知识库 ${d.chunks} 个条款块</span><span class="badge">${d.doc_count} 部规范</span>本地离线运行 · 数据不出本机`;
+}).catch(()=>{ document.getElementById('stats').textContent = '知识库服务未就绪'; });
+</script>
+</body>
+</html>
