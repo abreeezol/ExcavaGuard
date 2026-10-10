@@ -13,10 +13,19 @@ description: "将结构化事实、证据和受约束分析渲染为监测日报
 
 ## 输入
 
-- `project_info`：项目与监测日期等模板必填信息。
+> **上游契约（已冻结）**：确定性计算层通过 `build_daily_report_input()` 产出
+> `excavaguard.daily_report_input/v1` 载荷，契约见
+> `确定性计算层/contracts/daily_report_input.schema.json`，
+> 消费前可用 `确定性计算层/tools/validate_daily_report_input.py` 校验。
+> 本 Skill 由后续独立日报 Agent 实现；确定性计算层**不生成**日报正文与版式文件。
+
+- `daily_report_input`：上述契约载荷，含 `project`（工程概况）、`summary`（整体汇总）、
+  `items`（逐测点成果）、`alerts`（报警及以上）、`review_queue`（待人工复核）、
+  `data_quality`（数据质量说明）、`standards_sources` 与 `disclaimer`。
+- `project_info`：项目与监测日期等模板必填信息（可取自载荷 `project` 字段）。
 - `normalized_records`：标准化监测记录。
-- `judgments`：规则引擎输出的计算事实与规则 ID。
-- `standard_evidence`：规范证据或明确的缺失状态。
+- `judgments`：规则引擎输出的计算事实与规则 ID（载荷 `items[].checks` / `rule_id` / `evidence`）。
+- `standard_evidence`：规范证据或明确的缺失状态（载荷 `items[].evidence` 与 `standards_sources`）。
 - `work_condition_analysis`：工况分析或弃权结果。
 - `template`：经批准的日报模板及版本。
 

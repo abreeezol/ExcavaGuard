@@ -24,9 +24,27 @@
 
 ## 与 Web 应用的关系
 
-`src/server/skills/registry.ts` 登记本目录八个 Skill 的契约路径，`src/server/agents/registry.ts` 定义角色的工具白名单。当前注册状态均为 `not_implemented`，尚不能执行。
+`src/server/skills/registry.ts` 登记本目录八个 Skill 的契约路径、实现状态与脚本清单；
+`src/server/agents/registry.ts` 定义角色的工具白名单。
 
-后续 TypeScript 确定性实现放在对应 `scripts/` 中，由服务端工具层调用；具体业务测试放在相应 `tests/` 下并接入根目录测试配置。根目录 `tests/` 当前仅覆盖初始化工程边界。
+**当前实现状态**（`status` 由脚本清单推导，不是手工标注）：
+
+| Skill | 状态 | 脚本 |
+|---|---|---|
+| `parse-monitoring-data` | `implemented` | `scripts/inspect_file.py` |
+| `evaluate-thresholds` | `implemented` | `scripts/run_judgement.py`、`scripts/check_strictness.py` |
+| 其余六个 | `not_implemented` | — |
+
+**确定性实现放在对应 `scripts/` 中，由服务端工具层以子进程方式调用。**
+
+- 实现语言为 **Python**（不是 TypeScript）：确定性计算引擎位于 `确定性计算层/pipeline/`，
+  为**纯标准库、零第三方依赖**；`scripts/` 下是**薄协议封装**，不含判定逻辑。
+- 不用 TypeScript 重写引擎：判定逻辑已有 223 项回归测试覆盖，
+  二次实现会给「同一输入必得同一输出」这条确定性性质引入偏差。
+- Node 侧桥接实现：`src/server/skills/python-bridge.ts`（超时、错误码映射、解释器探测）。
+- 可运行原型：`tools/bridge-smoke/run_judgement.mjs`，协议见其 `README.md`。
+- 具体业务测试放在相应 `tests/` 下；当前端到端用例在根目录
+  `tests/upload-and-run.test.ts`（需 Python，找不到时自动跳过）。
 
 ## 首批 Skill
 
