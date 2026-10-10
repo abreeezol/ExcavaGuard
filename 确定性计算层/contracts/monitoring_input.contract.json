@@ -1,0 +1,429 @@
+{
+  "schema": "excavaguard.monitoring_input/v1",
+  "title": "基坑智守 · 用户监测数据文件契约",
+  "description": "用户上传的监测数据文件（CSV / TSV / Excel）应满足本契约。读取器只做列映射与编码识别，不计算、不推断、不修改数值。",
+  "source_module": {
+    "reader": "pipeline/stage1_data_preparation/file_reader.py",
+    "normalizer": "pipeline/stage1_data_preparation/ingest.py",
+    "exported_by": "tools/export_input_contract.py"
+  },
+  "file": {
+    "formats": [
+      "csv",
+      "tsv",
+      "txt",
+      "xlsx"
+    ],
+    "encodings_tried_in_order": [
+      "utf-8-sig",
+      "utf-8",
+      "gb18030",
+      "gbk",
+      "big5",
+      "latin-1"
+    ],
+    "delimiters_auto_detected": [
+      ",",
+      ";",
+      "\\t",
+      "|"
+    ],
+    "notes": [
+      "编码按顺序尝试，取首个能完整解码且无替换字符者。",
+      "分隔符由表头行中出现次数最多的候选决定，默认逗号。",
+      "读取 Excel 需要 openpyxl；未安装时请另存为 CSV。"
+    ]
+  },
+  "columns": {
+    "required": [
+      {
+        "name": "point_id",
+        "display": "测点编号",
+        "aliases": [
+          "point_id",
+          "pointid",
+          "point",
+          "point_no",
+          "pointno",
+          "point_code",
+          "pointcode",
+          "sensor_id",
+          "sensorid",
+          "id",
+          "测点",
+          "测点编号",
+          "测点号",
+          "点号",
+          "编号"
+        ]
+      },
+      {
+        "name": "timestamp",
+        "display": "观测时间",
+        "aliases": [
+          "timestamp",
+          "date",
+          "time",
+          "datetime",
+          "obs_time",
+          "obstime",
+          "observation_time",
+          "观测时间",
+          "日期",
+          "时间",
+          "监测日期",
+          "观测日期"
+        ]
+      },
+      {
+        "name": "metric",
+        "display": "监测项目（metric_key 或中文名称）",
+        "aliases": [
+          "metric",
+          "metric_key",
+          "metrickey",
+          "item",
+          "monitoring_item",
+          "monitoringitem",
+          "type",
+          "监测项目",
+          "监测项",
+          "项目",
+          "参数"
+        ]
+      },
+      {
+        "name": "value",
+        "display": "本次观测值",
+        "aliases": [
+          "value",
+          "reading",
+          "observed",
+          "observed_value",
+          "current",
+          "current_value",
+          "measured",
+          "measurement",
+          "观测值",
+          "本次观测值",
+          "本次值",
+          "实测值",
+          "数值",
+          "读数"
+        ]
+      },
+      {
+        "name": "unit",
+        "display": "单位",
+        "aliases": [
+          "unit",
+          "units",
+          "单位",
+          "计量单位"
+        ]
+      }
+    ],
+    "derivable": [
+      {
+        "name": "baseline_value",
+        "display": "初始值/基准值（可派生）",
+        "aliases": [
+          "baseline_value",
+          "baselinevalue",
+          "baseline",
+          "base",
+          "initial_value",
+          "initialvalue",
+          "initial",
+          "reference_value",
+          "初始值",
+          "基准值",
+          "初值"
+        ]
+      },
+      {
+        "name": "previous_value",
+        "display": "上次观测值（可派生）",
+        "aliases": [
+          "previous_value",
+          "previousvalue",
+          "previous",
+          "prev",
+          "prev_value",
+          "last_value",
+          "lastvalue",
+          "上次观测值",
+          "上次值",
+          "前次值",
+          "上期值"
+        ]
+      },
+      {
+        "name": "interval_days",
+        "display": "观测间隔·天（可派生）",
+        "aliases": [
+          "interval_days",
+          "intervaldays",
+          "interval",
+          "间隔天数",
+          "间隔"
+        ]
+      },
+      {
+        "name": "interval_hours",
+        "display": "观测间隔·小时（可派生，÷24）",
+        "aliases": [
+          "interval_hours",
+          "intervalhours",
+          "间隔小时"
+        ]
+      }
+    ],
+    "optional": [
+      {
+        "name": "direction",
+        "display": "方向",
+        "aliases": [
+          "direction",
+          "dir",
+          "sign",
+          "方向",
+          "符号"
+        ]
+      },
+      {
+        "name": "data_origin",
+        "display": "数据来源 real/simulated",
+        "aliases": [
+          "data_origin",
+          "dataorigin",
+          "origin",
+          "数据来源",
+          "来源"
+        ]
+      },
+      {
+        "name": "note",
+        "display": "备注",
+        "aliases": [
+          "note",
+          "remark",
+          "remarks",
+          "comment",
+          "comment_text",
+          "备注",
+          "说明"
+        ]
+      }
+    ]
+  },
+  "derivation_rules": {
+    "applies_to": "每个测点按时间升序独立派生",
+    "baseline_value": "该测点首个有效观测值；显式提供时不覆盖",
+    "previous_value": "该测点前一个有效观测值；首期为 null（本次变化量弃权）",
+    "interval_days": "本期与前一个有效观测的时间差（天）；首期为 null（速率弃权）",
+    "valid_observation": "数值可解析的记录；空值与非数值不参与派生",
+    "marks": [
+      "BASELINE_DERIVED",
+      "PREVIOUS_DERIVED",
+      "INTERVAL_DERIVED"
+    ],
+    "precedence": "显式提供的值优先，派生不覆盖用户给的值"
+  },
+  "unit_conversion": {
+    "by_dimension": {
+      "length": {
+        "to": "mm",
+        "factors": {
+          "mm": 1.0,
+          "cm": 10.0,
+          "dm": 100.0,
+          "m": 1000.0,
+          "km": 1000000.0
+        }
+      },
+      "pressure": {
+        "to": "kPa",
+        "factors": {
+          "pa": 1.0,
+          "kpa": 1000.0,
+          "mpa": 1000000.0
+        }
+      },
+      "force": {
+        "to": "kN",
+        "factors": {
+          "n": 1.0,
+          "kn": 1000.0,
+          "mn": 1000000.0
+        }
+      }
+    },
+    "preserved_as_is": [
+      "",
+      "%",
+      "-",
+      "1",
+      "c",
+      "celsius",
+      "ratio",
+      "°",
+      "°C",
+      "°c",
+      "℃",
+      "度",
+      "摄氏",
+      "摄氏度",
+      "无",
+      "无量纲"
+    ],
+    "unsupported": "无法识别的单位原样保留并标记 UNSUPPORTED_UNIT（高严重度，阻塞该期判定）"
+  },
+  "direction_aliases": {
+    "positive": "positive",
+    "pos": "positive",
+    "+": "positive",
+    "1": "positive",
+    "正": "positive",
+    "正向": "positive",
+    "正向位移": "positive",
+    "向正": "positive",
+    "上升": "positive",
+    "抬升": "positive",
+    "隆起": "positive",
+    "上抬": "positive",
+    "negative": "negative",
+    "neg": "negative",
+    "-": "negative",
+    "-1": "negative",
+    "−": "negative",
+    "负": "negative",
+    "负向": "negative",
+    "负向位移": "negative",
+    "向负": "negative",
+    "下降": "negative",
+    "沉降": "negative",
+    "下沉": "negative",
+    "回落": "negative"
+  },
+  "metric_aliases": {
+    "wall_top_horizontal_displacement": "wall_top_horizontal_displacement",
+    "围护墙（边坡）顶部水平位移": "wall_top_horizontal_displacement",
+    "wall_top_vertical_displacement": "wall_top_vertical_displacement",
+    "围护墙（边坡）顶部竖向位移": "wall_top_vertical_displacement",
+    "deep_horizontal_displacement": "deep_horizontal_displacement",
+    "深层水平位移（测斜）": "deep_horizontal_displacement",
+    "column_vertical_displacement": "column_vertical_displacement",
+    "立柱竖向位移": "column_vertical_displacement",
+    "support_axial_force": "support_axial_force",
+    "支撑轴力": "support_axial_force",
+    "anchor_axial_force": "anchor_axial_force",
+    "锚杆轴力": "anchor_axial_force",
+    "groundwater_level": "groundwater_level",
+    "地下水位": "groundwater_level",
+    "surface_settlement": "surface_settlement",
+    "周边地表竖向位移": "surface_settlement",
+    "building_settlement": "building_settlement",
+    "周边建筑竖向位移": "building_settlement",
+    "building_inclination": "building_inclination",
+    "周边建筑倾斜": "building_inclination",
+    "pipeline_settlement": "pipeline_settlement",
+    "周边管线竖向位移": "pipeline_settlement",
+    "pipeline_horizontal_displacement": "pipeline_horizontal_displacement",
+    "周边管线水平位移": "pipeline_horizontal_displacement",
+    "road_settlement": "road_settlement",
+    "周边道路竖向位移": "road_settlement",
+    "crack_width_building": "crack_width_building",
+    "周边建筑裂缝": "crack_width_building",
+    "crack_width_surface": "crack_width_surface",
+    "地表裂缝": "crack_width_surface",
+    "basal_heave": "basal_heave",
+    "坑底隆起（回弹）": "basal_heave",
+    "wall_internal_force": "wall_internal_force",
+    "围护墙内力": "wall_internal_force",
+    "earth_pressure": "earth_pressure",
+    "围护墙侧向土压力": "earth_pressure",
+    "pore_pressure": "pore_pressure",
+    "孔隙水压力": "pore_pressure",
+    "column_internal_force": "column_internal_force",
+    "立柱内力": "column_internal_force",
+    "soil_temperature": "soil_temperature",
+    "土体温度": "soil_temperature",
+    "soil_layered_vertical_displacement": "soil_layered_vertical_displacement",
+    "土体分层竖向位移": "soil_layered_vertical_displacement",
+    "围护墙顶部水平位移": "wall_top_horizontal_displacement",
+    "围护墙顶部竖向位移": "wall_top_vertical_displacement",
+    "深层水平位移": "deep_horizontal_displacement",
+    "坑底隆起": "basal_heave",
+    "墙顶水平位移": "wall_top_horizontal_displacement",
+    "墙顶竖向位移": "wall_top_vertical_displacement",
+    "顶部水平位移": "wall_top_horizontal_displacement",
+    "顶部竖向位移": "wall_top_vertical_displacement",
+    "测斜": "deep_horizontal_displacement",
+    "深层位移": "deep_horizontal_displacement",
+    "深层侧移": "deep_horizontal_displacement",
+    "立柱沉降": "column_vertical_displacement",
+    "立柱位移": "column_vertical_displacement",
+    "轴力": "support_axial_force",
+    "支撑内力": "support_axial_force",
+    "锚杆拉力": "anchor_axial_force",
+    "锚索轴力": "anchor_axial_force",
+    "水位": "groundwater_level",
+    "地下水位变化": "groundwater_level",
+    "地表沉降": "surface_settlement",
+    "地表位移": "surface_settlement",
+    "地面沉降": "surface_settlement",
+    "建筑沉降": "building_settlement",
+    "建筑物沉降": "building_settlement",
+    "倾斜": "building_inclination",
+    "管线沉降": "pipeline_settlement",
+    "管线位移": "pipeline_settlement",
+    "管线水平位移": "pipeline_horizontal_displacement",
+    "道路沉降": "road_settlement",
+    "路面沉降": "road_settlement",
+    "建筑裂缝": "crack_width_building",
+    "裂缝": "crack_width_building",
+    "地面裂缝": "crack_width_surface",
+    "回弹": "basal_heave",
+    "隆起": "basal_heave",
+    "坑底回弹": "basal_heave",
+    "土压力": "earth_pressure",
+    "侧向土压力": "earth_pressure",
+    "孔压": "pore_pressure",
+    "孔隙水压": "pore_pressure",
+    "温度": "soil_temperature",
+    "地温": "soil_temperature",
+    "分层沉降": "soil_layered_vertical_displacement",
+    "土体分层沉降": "soil_layered_vertical_displacement"
+  },
+  "metric_display_names": {
+    "wall_top_horizontal_displacement": "围护墙（边坡）顶部水平位移",
+    "wall_top_vertical_displacement": "围护墙（边坡）顶部竖向位移",
+    "deep_horizontal_displacement": "深层水平位移（测斜）",
+    "column_vertical_displacement": "立柱竖向位移",
+    "support_axial_force": "支撑轴力",
+    "anchor_axial_force": "锚杆轴力",
+    "groundwater_level": "地下水位",
+    "surface_settlement": "周边地表竖向位移",
+    "building_settlement": "周边建筑竖向位移",
+    "building_inclination": "周边建筑倾斜",
+    "pipeline_settlement": "周边管线竖向位移",
+    "pipeline_horizontal_displacement": "周边管线水平位移",
+    "road_settlement": "周边道路竖向位移",
+    "crack_width_building": "周边建筑裂缝",
+    "crack_width_surface": "地表裂缝",
+    "basal_heave": "坑底隆起（回弹）",
+    "wall_internal_force": "围护墙内力",
+    "earth_pressure": "围护墙侧向土压力",
+    "pore_pressure": "孔隙水压力",
+    "column_internal_force": "立柱内力",
+    "soil_temperature": "土体温度",
+    "soil_layered_vertical_displacement": "土体分层竖向位移"
+  },
+  "rejection_rules": [
+    "缺少任一必填列 → 拒收，并列出缺失列",
+    "文件无可读数据行 → 拒收",
+    "编码无法解码 → 按 latin-1 兜底读取，不丢数据"
+  ],
+  "disclaimer": "本契约只定义文件如何进入管线；判定结论须以阶段三输出的规范条文依据为准。"
+}

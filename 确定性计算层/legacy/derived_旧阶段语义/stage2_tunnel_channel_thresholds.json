@@ -1,0 +1,1028 @@
+{
+  "schema_version": "1.0",
+  "stage": 2,
+  "stage_name": "imported_standard",
+  "source_id": "ZENODO-20768869-LABEL-THRESHOLDS",
+  "source_label": "隧道多传感器数据集 · 通道统计阈值（label_thresholds.csv，真实数据派生）",
+  "source_type": "imported_standard",
+  "applies_to": {
+    "note": "仅用于算法验证，不得用于基坑工程判定"
+  },
+  "selection_policy": {
+    "range_resolution": "conservative"
+  },
+  "metrics": {
+    "DW-001::orifice": {
+      "display_name": "隧道监测通道 DW-001::orifice（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-001::orifice-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.1068,
+          "rate_mm_per_day": 0.0029077800696,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-001::5m": {
+      "display_name": "隧道监测通道 DW-001::5m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-001::5m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.08629,
+          "rate_mm_per_day": 0.00295367884323,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-001::2m": {
+      "display_name": "隧道监测通道 DW-001::2m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-001::2m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.080812,
+          "rate_mm_per_day": 0.00281261786728,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-002::orifice": {
+      "display_name": "隧道监测通道 DW-002::orifice（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-002::orifice-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.03204,
+          "rate_mm_per_day": 0.001,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-002::5m": {
+      "display_name": "隧道监测通道 DW-002::5m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-002::5m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.03396,
+          "rate_mm_per_day": 0.00118362068966,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-002::2m": {
+      "display_name": "隧道监测通道 DW-002::2m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-002::2m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.03763,
+          "rate_mm_per_day": 0.00134188073394,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-003::orifice": {
+      "display_name": "隧道监测通道 DW-003::orifice（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-003::orifice-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.0414,
+          "rate_mm_per_day": 0.00160339805825,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-003::5m": {
+      "display_name": "隧道监测通道 DW-003::5m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-003::5m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.048228,
+          "rate_mm_per_day": 0.00181668918919,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-003::2m": {
+      "display_name": "隧道监测通道 DW-003::2m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-003::2m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.0378,
+          "rate_mm_per_day": 0.0017035170217,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "MG-001::stress": {
+      "display_name": "隧道监测通道 MG-001::stress（MG）",
+      "unit": "MPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "MG-001::stress-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 1.4208,
+          "rate_mm_per_day": 0.0480486425713,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "MG-002::stress": {
+      "display_name": "隧道监测通道 MG-002::stress（MG）",
+      "unit": "MPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "MG-002::stress-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.8089,
+          "rate_mm_per_day": 0.0308025316456,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "MG-003::stress": {
+      "display_name": "隧道监测通道 MG-003::stress（MG）",
+      "unit": "MPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "MG-003::stress-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.8322,
+          "rate_mm_per_day": 0.0344548766157,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "SY-001::pressure": {
+      "display_name": "隧道监测通道 SY-001::pressure（SY）",
+      "unit": "kPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SY-001::pressure-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.36063,
+          "rate_mm_per_day": 0.0125569380316,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "SY-002::pressure": {
+      "display_name": "隧道监测通道 SY-002::pressure（SY）",
+      "unit": "kPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SY-002::pressure-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.575,
+          "rate_mm_per_day": 0.0152236649215,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-004::orifice": {
+      "display_name": "隧道监测通道 DW-004::orifice（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-004::orifice-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.02,
+          "rate_mm_per_day": 0.001,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-004::5m": {
+      "display_name": "隧道监测通道 DW-004::5m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-004::5m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.02,
+          "rate_mm_per_day": 0.001,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-004::2m": {
+      "display_name": "隧道监测通道 DW-004::2m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-004::2m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.02,
+          "rate_mm_per_day": 0.001,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-005::orifice": {
+      "display_name": "隧道监测通道 DW-005::orifice（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-005::orifice-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.02,
+          "rate_mm_per_day": 0.001,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-005::5m": {
+      "display_name": "隧道监测通道 DW-005::5m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-005::5m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.02,
+          "rate_mm_per_day": 0.001,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-005::2m": {
+      "display_name": "隧道监测通道 DW-005::2m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-005::2m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.02,
+          "rate_mm_per_day": 0.001,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-006::orifice": {
+      "display_name": "隧道监测通道 DW-006::orifice（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-006::orifice-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.02,
+          "rate_mm_per_day": 0.001,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-006::5m": {
+      "display_name": "隧道监测通道 DW-006::5m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-006::5m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.02,
+          "rate_mm_per_day": 0.001,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-006::2m": {
+      "display_name": "隧道监测通道 DW-006::2m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-006::2m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.02,
+          "rate_mm_per_day": 0.001,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "MG-004::stress": {
+      "display_name": "隧道监测通道 MG-004::stress（MG）",
+      "unit": "MPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "MG-004::stress-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.2,
+          "rate_mm_per_day": 0.01,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "MG-005::stress": {
+      "display_name": "隧道监测通道 MG-005::stress（MG）",
+      "unit": "MPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "MG-005::stress-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.2,
+          "rate_mm_per_day": 0.01,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "MG-006::stress": {
+      "display_name": "隧道监测通道 MG-006::stress（MG）",
+      "unit": "MPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "MG-006::stress-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.2,
+          "rate_mm_per_day": 0.01,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "SY-003::pressure": {
+      "display_name": "隧道监测通道 SY-003::pressure（SY）",
+      "unit": "kPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SY-003::pressure-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.05,
+          "rate_mm_per_day": 0.003,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "SY-004::pressure": {
+      "display_name": "隧道监测通道 SY-004::pressure（SY）",
+      "unit": "kPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SY-004::pressure-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.05,
+          "rate_mm_per_day": 0.003,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "SY-005::pressure": {
+      "display_name": "隧道监测通道 SY-005::pressure（SY）",
+      "unit": "kPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SY-005::pressure-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.05,
+          "rate_mm_per_day": 0.003,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-007::orifice": {
+      "display_name": "隧道监测通道 DW-007::orifice（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-007::orifice-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 1.96747,
+          "rate_mm_per_day": 0.0712622857143,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-007::5m": {
+      "display_name": "隧道监测通道 DW-007::5m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-007::5m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.43078,
+          "rate_mm_per_day": 0.0436483881579,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-007::2m": {
+      "display_name": "隧道监测通道 DW-007::2m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-007::2m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 1.33054,
+          "rate_mm_per_day": 0.0581196710526,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-008::orifice": {
+      "display_name": "隧道监测通道 DW-008::orifice（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-008::orifice-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.05549,
+          "rate_mm_per_day": 0.00358,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-008::5m": {
+      "display_name": "隧道监测通道 DW-008::5m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-008::5m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.18176,
+          "rate_mm_per_day": 0.007175,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-008::2m": {
+      "display_name": "隧道监测通道 DW-008::2m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-008::2m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.21838,
+          "rate_mm_per_day": 0.00774298165138,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-009::orifice": {
+      "display_name": "隧道监测通道 DW-009::orifice（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-009::orifice-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.19504,
+          "rate_mm_per_day": 0.00811044871795,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-009::5m": {
+      "display_name": "隧道监测通道 DW-009::5m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-009::5m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.07459,
+          "rate_mm_per_day": 0.00340057251908,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "DW-009::2m": {
+      "display_name": "隧道监测通道 DW-009::2m（DW）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DW-009::2m-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.13782,
+          "rate_mm_per_day": 0.00515886217949,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "MG-007::stress": {
+      "display_name": "隧道监测通道 MG-007::stress（MG）",
+      "unit": "MPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "MG-007::stress-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 8.2722,
+          "rate_mm_per_day": 0.282187953131,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "MG-008::stress": {
+      "display_name": "隧道监测通道 MG-008::stress（MG）",
+      "unit": "MPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "MG-008::stress-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.6302,
+          "rate_mm_per_day": 0.0473774595268,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "MG-009::stress": {
+      "display_name": "隧道监测通道 MG-009::stress（MG）",
+      "unit": "MPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "MG-009::stress-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.6717,
+          "rate_mm_per_day": 0.0490178899083,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "SY-006::pressure": {
+      "display_name": "隧道监测通道 SY-006::pressure（SY）",
+      "unit": "kPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SY-006::pressure-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.50316,
+          "rate_mm_per_day": 0.0551367345896,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "SY-007::pressure": {
+      "display_name": "隧道监测通道 SY-007::pressure（SY）",
+      "unit": "kPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SY-007::pressure-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.86712,
+          "rate_mm_per_day": 0.0567591596639,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    },
+    "SY-008::pressure": {
+      "display_name": "隧道监测通道 SY-008::pressure（SY）",
+      "unit": "kPa",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SY-008::pressure-Q95",
+          "safety_level": [
+            "一级",
+            "二级",
+            "三级"
+          ],
+          "support_type": "any",
+          "cumulative_mm": 0.05,
+          "rate_mm_per_day": 0.003,
+          "evidence": {
+            "standard": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+            "clause": "data/label_thresholds.csv",
+            "note": "训练集 95 分位统计阈值；仅用于算法验证，非工程报警值"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,678 @@
+file: 深基坑引起的墙体与地基位移计算数据库.pdf
+pages_total: 22
+
+----- page 1 -----
+JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001 / 203
+DATABASE FOR RETAINING WALL AND GROUND MOVEMENTS DUE TO
+DEEP EXCAVATIONS
+By Michael Long
+1
+ABSTRACT: A database of some 300 case histories of wall and ground movements due to deep excavations
+worldwide is presented. Although recognizing the weakness in the approach, a large database is used to examine
+general trends and patterns. For still soil sites, movements are generally less than those suggested in the well-
+known relationships proposed by Clough and his coworkers. However, for walls that retain a signiﬁcant thickness
+of soft material but have a high factor of safety against basal heave, movements are similar to those calculated
+using the Clough charts. In these cases, when soft ground is actually present at dredge level, the Clough charts
+will underpredict movement and need to be used with care. For the above cases there is no discernible difference
+in the performance of propped or anchored systems but there is some evidence to suggest top-down systems
+perform better. In cases where there is a low factor of safety against excavation base heave, large movements
+can occur, but the Clough charts will give reasonable preliminary estimates of the likely movement in such
+cases. Cantilever walls have shown displacements that are often independent of the system stiffness. There is
+evidence to suggest that, in the case of cantilever walls and for all walls in stiff soils worldwide, design practice
+is conservative. Finally, the inclusion of a cantilever stage at the beginning of a construction sequence seems to
+be the main cause of unusually large movements.
+INTRODUCTION
+This paper arises from the work of the European Union Co-
+operation in the ﬁeld of Science and Technical Research
+(COST) Action C7 ‘‘Soil Structure Interaction in the Urban
+Environment.’’ Its original purpose was to give town planners
+some guidelines for predicting likely movements due to deep
+excavation in urban environments. A secondary objective was
+to assist geotechnical and structural engineers in preliminary
+design work and to enable them to quickly evaluate various
+scheme options.
+In this paper the database is also used to reassess the charts
+produced by Clough et al. (1989), as shown in Fig. 1, for
+predicting wall movements. It is also used to examine different
+expressions for the system stiffness. Finally, the purpose of
+this paper is to summarize the data and the original references
+in such a way that other r
+----- page 2 -----
+204 / JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001
+FIG. 1. Charts for Predicting Wall Movements (Clough and O’Rourke 1990)
+Oslo Soft Clay—Karlsrud (1986)
+Karlsrud expanded upon the relationship between FOS and
+deformation and arrived at a very close interrelationship be-
+tween these two properties. He produced a series of charts of
+dv max (normalized by the overall clay layer thickness) against
+distance from the excavation and FOS. In addition to these
+charts, his main conclusion comprises a series of recommen-
+dations for engineers embarking on the design of deep exca-
+vations in soft soil conditions.
+Taipei Soft Clay—Ou et al. (1993)
+These authors studied 10 high-quality case histories in Tai-
+pei soft clays. All had a high FOS against base heave. Values
+of were within 0.2% H–0.5%H, which are generallydh max
+greater than those suggested by Clough and O’Rourke (1990)
+but less than what would be predicted using the Peck (1969)
+charts. Values of dv max were within 0.5%H–0.7%H, which are
+similar to those suggested by Clough and O’Rourke (1990).
+Singapore—Wong et al. (1997)
+Data from Phase II of the Singapore Central Expressway
+are presented by these authors. It shows that, for excavations
+with a combined thickness of soft soil layers of <0.9 H over-
+lying stiff soils, generally the dv max and values weredh max
+<0.35%H and <0.5% H, respectively. For excavations with a
+combined thickness of soft soil layers of <0.6 H, the pertinent
+values were 0.2 and 0.35%, respectively. The authors also
+found that anchored excavations underwent smaller move-
+ments than propped ones and placement of the ﬁrst prop close
+to ground level is an effective means of controlling ground
+movement.
+U.K. Soils—Carder (1995)
+Carder used a number of reliable case histories of bored pile
+or diaphragm retaining walls, in largely stiff soils, to show
+that upper bound values of were 0.125% H, 0.2%H, anddh max
+0.4%H depending on whether high, moderate, or low system
+support stiffness, respectively, was used during excavation.
+The corresponding range of dv max values was between 0.1% H
+and 0.2%H. Generally the extent of movement was up to four
+times the excavation depth.
+U.K. Soils—Fernie and Suckling (1996)
+These authors also considered a range of stiff U.K. soils and
+showed that values varied between 0.15% H and 0.2%Hdh max
+and dv max values averaged about 0.15% H. The values are less
+than would be suggested by the Clough and O’Rourke (1990)
+charts, but the authors rea
+----- page 3 -----
+JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001 / 205
+TABLE 1. Summary of Case Histories—Propped Walls h < 0.6H
+Case
+history
+(1)
+Location
+(2)
+Soil at dredge
+level
+(3)
+Soil strength su
+(kPa)
+(4)
+H
+(m)
+(5)
+h
+(m)
+(6)
+Wall type
+(7)
+EI
+(kN/m
+2
+)
+(8)
+Support
+conﬁguration
+(9)
+Support
+spacing
+(m)
+(10)
+dh max
+(mm)
+(11)
+dv max
+(mm)
+(12)
+Reference
+(13)
+1 Croydon London clay 85 (UU) 11.4 2 Secant 500,000 Multiprop 5 20 ? Brooks and Spence (1992)
+2 Holborn London clay 120 (UU) 11 3.5 Secant 1,169,950 Single prop 8.65 12 ? Ward (1992)
+3 Minster Court London clay 120 (UU) 9 5 Diaphragm 1,280,000 Props 1berm 7.3 17 ? Tse and Nicholson (1992)
+4 Britannic Hse London clay 120 (UU) 14 1 Diaphragm 1,280,000 Props 1berm 4.67 60* 34 Cole and Burland (1972)
+5 Chelsea London clay 100 (UU) 13 4 Diaphragm 312,500 Props 1berm 4.33 27 ? Corbett et al. (1975)
+6 Walthamstow London clay Stiff 7.9 1.4 Secant 8,437,500 Multiprop 7.4 18 20 Watson and Carder (1994)
+7 Barbican London clay 180 (UU) 16 2 Diaphragm 8,437,500 Multiprop 4 10 ? Stevens et al. (1977)
+8 Charing Cross London clay 180 (UU) 11 5 Diaphragm 1,280,000 Multiprop 2.75 35* 20 Wood and Perrin (1984)
+9 John Lewis KUT London clay Stiff 12 2.5 Diaphragm 1,280,000 Props 1berm 3.8 20 ? Long (1989)
+10 Victoria Emb London clay Stiff 18 6 Secant 2,717,000 Props 1berm 6 34 28 St. John et al. (1992)
+11 London London clay Stiff 8 ? Diaphragm 312,500 Single prop 5.2 3 ? Fernie and Suckling (1996)
+12 Guildhall London clay Stiff 6.5 ? Diaphragm 312,500 Single prop 3 9 ? Fernie and Suckling (1996)
+13 Vauxhall London clay Stiff 14.5 ? Diaphragm 540,000 Multiprop 3.63 22 ? Fernie and Suckling (1996)
+14 Chingford London clay Stiff 8 ? Secant 2,291,750 Single prop 9.2 21 ? Fernie and Suckling (1996)
+15 Mark Lane London clay Stiff 7 ? Contiguous 250,000 Multiprop 3.5 8 ? Fernie and Suckling (1996)
+16 Mark Lane London clay Stiff 5.5 ? Contiguous 250,000 Single prop 6.3 14 ? Fernie and Suckling (1996)
+17 JLE III London clay Stiff 8 ? Diaphragm 540,000 Single prop 8.2 10 ? Fernie and Suckling (1996)
+18 Malden Way London clay 80 (UU) 7.5 ? Contiguous 2,544,700 Single prop 5.5 36 ? Symons and Carder (1991)
+19 Bermondsey W 1R beds Hard clays 19.5 0 Diaphragm 2,500,000 Multiprop 6 13 ? Dawson et al. (1996)
+20 Canada Water W 1R beds Hard clays 17 7 Secant 805,158 Multiprop 5.7 14.5 ? Powrie and Batten (1997)
+21 Humber Bridge Kimmer clay Very stiff clays 24.5 ? Diaphragm 1,280,000 Multiprop 4.92 21 ? Busbridge (1974)
+22 Cambridge Gau
+----- page 4 -----
+206 / JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001TABLE 1. ( Continued )
+Case
+history
+(1)
+Location
+(2)
+Soil at dredge
+level
+(3)
+Soil strength su
+(kPa)
+(4)
+H
+(m)
+(5)
+h
+(m)
+(6)
+Wall type
+(7)
+EI
+(kN/m
+2
+)
+(8)
+Support
+conﬁguration
+(9)
+Support
+spacing
+(m)
+(10)
+dh max
+(mm)
+(11)
+dv max
+(mm)
+(12)
+Reference
+(13)
+53 Singapore CE II Stiff clay 50–300 (various) 11 ? Sheet 1 H 73,500 Multiprop 4 20 15 Wong et al. (1997)
+54 Singapore CE II Stiff clay 50–300 (various) 11.5 ? Sheet 1 H 73,500 Multiprop 4 23 10 Wong et al. (1997)
+55 Singapore CE II Stiff clay 50–300 (various) 11.5 ? Sheet 1 H 73,500 Multiprop 4 42* 12 Wong et al. (1997)
+56 Singapore CE II Stiff clay 50–300 (various) 12 ? Sheet 1 H 73,500 Multiprop 4 15 25 Wong et al. (1997)
+57 Singapore CE II Stiff clay 50–300 (various) 17 ? Sheet 1 H 73,500 Multiprop 4 17 15 Wong et al. (1997)
+58 Singapore CE II Stiff clay 50–300 (various) 17 ? Sheet 1 H 73,500 Multiprop 4 22 27 Wong et al. (1997)
+59 Singapore CE II Stiff clay 50–300 (various) 11 ? Contiguous 100,000 Multiprop 4 7 12 Wong et al. (1997)
+60 Singapore CE II Stiff clay 50–300 (various) 11 ? Contiguous 100,000 Multiprop 4 7 10 Wong et al. (1997)
+61 Singapore CE II Stiff clay 50–300 (various) 11.5 ? Contiguous 100,000 Multiprop 4 7 10 Wong et al. (1997)
+62 Singapore CE II Stiff clay 50–300 (various) 12 ? Contiguous 100,000 Multiprop 4 20 ? Wong et al. (1997)
+63 Singapore CE II Stiff clay 50–300 (various) 12 ? Contiguous 100,000 Multiprop 4 20 ? Wong et al. (1997)
+64 Singapore CE II Stiff clay 50–300 (various) 12.5 ? Contiguous 100,000 Multiprop 4 15 18 Wong et al. (1997)
+65 Singapore CE II Stiff clay 50–300 (various) 13.5 ? Contiguous 100,000 Multiprop 4 7 15 Wong et al. (1997)
+66 Singapore CE II Stiff clay 50–300 (various) 13.5 ? Contiguous 100,000 Multiprop 4 8 20 Wong et al. (1997)
+67 Singapore CE II Stiff clay 50–300 (various) 13.5 ? Contiguous 100,000 Multiprop 4 17 ? Wong et al. (1997)
+68 Singapore CE II Stiff clay 50–300 (various) 20 ? Contiguous 100,000 Multiprop 4 15 ? Wong et al. (1997)
+69 Singapore CE II Stiff clay 50–300 (various) 21.5 ? Contiguous 100,000 Multiprop 4 25 ? Wong et al. (1997)
+70 Singapore CE II Stiff clay 50–300 (various) 13.5 ? Diaphragm 1,280,000 Multiprop 4 15 15 Wong et al. (1997)
+71 Singapore CE II Stiff clay 50–300 (various) 14.5 ? Diaphragm 1,280,000 Multiprop 4 27 23 Wong et al. (1997)
+72 Waterloo Med gravel 75 (UU) 5.78 2 Diaphragm 540,000 Props 1berm 5.8 20* ? Li et al. (1992)
+73 Eastbourne Gravel/s
+----- page 5 -----
+JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001 / 207
+104 Colomb., Seattle Stiff clay Very stiff 37 0 Piled 763,400 Multianch 1.75 15 10 Grant (1985)/
+O’Rourke and Jones (1990)
+105 University Street
+Station, Seattle
+Stiff clay ? 18.3 0 Contiguous 1,126,000 Multianch 2.6 12.7 1.8 Borst et al. (1990)
+106 Seattle Stiff clay ? 23 0 Soldier pile 718,690 Multianch 1.5 22.9 5.1 Winter (1990)
+107 Houston-Herm Stiff clay 75 (SPT/UU) 9 0 Contiguous 203,900 Multianch 3 20 5 Ulrich (1989b)
+108 Houston-Bank Stiff clay 130 (SPT/UU) 16.8 3 Contiguous 203,900 Multianch 3.35 29 ? Ulrich (1989b)
+109 Houston-FCB Stiff clay 75 (SPT/UU) 9.1 0 Contiguous 209,650 Multianch 8 20 ? Ulrich (1989b)
+110 Houston-Smith Stiff clay 150 (SPT/UU) 15.5 0 Contiguous 140,135 Multianch 3 20 ? Ulrich (1989b)
+111 Houston-Texas Stiff clay 100 (SPT/UU) 16 3 Contiguous 13,860 Multianch 3.2 30 ? Ulrich (1989b)
+112 Houston-Cullen Stiff clay 75 (SPT/UU) 8.2 0 Contiguous 210,470 Multianch 7 20 ? Ulrich (1989b)
+113 Houston-321 Stiff clay 75 (SPT/UU) 9.1 0 Contiguous 315,050 Multianch 3 20 ? Ulrich (1989b)
+114 Washington Stiff clay ? 15.2 3 Soldier 19,000 Multianch 3 51* ? Ware et al. (1973)
+115 State Trans, Boston Stiff clay ? 9.1 0 Diaphragm 567,450 Multianch 3.36 20.3 30.5 Becker and Haley (1990)
+116 60 State St., Boston Stiff clay ? 9.1 0 Diaphragm 567,450 Multianch 3.36 19.1 30.5 Becker and Haley (1990)
+117 Davis Square, Boston Stiff clay ? 17.1 0 Diaphragm 567,450 Multianch 3.36 27.9 43.2 Becker and Haley (1990)
+118 1 Memorial, Boston Stiff clay ? 8.2 0 Diaphragm 567,450 Multianch 3.36 25.4* 30.5 Becker and Haley (1990)
+119 Harvard Square,
+Boston
+Till Dense 15.7 0 Diaphragm 1,908,000 Multianch 5.2 10 ? Hansmire et al. (1989)
+120 Harvard Square,
+Boston
+Till ? 15.7 0 Diaphragm 1,908,001 Multianch 6.2 11 ? Hansmire et al. (1989)
+121 Boston Stiff clay ? 18.9 2 Soldier pile 347,430 Multianch 2.7 89* ? Houghton and Dietz (1990)
+122 Salt Lake City Stiff clay ? 12.5 3 Soldier pile 127,436 Multianch 3.2 25.4 ? Cliendo et al. (1990)
+123 Singapore CE II Stiff clay 50–300 (various) 12.2 ? Soldier piles 26,250 Multianch 4 10 8 Wong et al. (1997)
+124 Singapore CE II Stiff clay 50–300 (various) 12.5 ? Soldier piles 26,250 Multianch 4 18 6 Wong et al. (1997)
+125 Singapore CE II Stiff clay 50–300 (various) 12.5 ? Soldier piles 26,250 Multianch 4 14 12 Wong et al. (1997)
+126 Singapore CE II Stiff clay 50–300 (various) 16 ? Soldier piles 73,500 Multianch 4 15 ? Wong et al. (1997)
+127 Singapore C
+----- page 6 -----
+208 / JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001
+TABLE 1. ( Continued )
+Case
+history
+(1)
+Location
+(2)
+Soil at dredge
+level
+(3)
+Soil strength su
+(kPa)
+(4)
+H
+(m)
+(5)
+h
+(m)
+(6)
+Wall type
+(7)
+EI
+(kN/m
+2
+)
+(8)
+Support
+conﬁguration
+(9)
+Support
+spacing
+(m)
+(10)
+dh max
+(mm)
+(11)
+dv max
+(mm)
+(12)
+Reference
+(13)
+156 Bell Common London clay 130 (UU) 9 4 Secant 2,330,250 Top down 8.9 25 25 Tedd et al. (1984)
+157 New Palace Yard London clay 150 (UU) 18.5 2 Diaphragm 2,500,000 Top down 3.08 30 20 Burland and Hancock (1977)
+158 British Library London clay 200 (UU) 24.4 3 Secant 2,571,750 Top down 5 30 30 Simpson (1992)
+159 Nat Gal Ext London clay Stiff 10 4.2 Secant 618,000 Top down 7 10 2 Long (1989)
+160 Aldersgate London clay 250 (UU) 23 8 Diaphragm 2,500,000 Top down 3.3 33 18 Fernie et al. (1991)
+161 Limehouse W&R beds Hard clays 16 4 Diaphragm 4,320,000 Top down 4 5 ? Stevenson and De Moor (1994)/
+De Moor and Stevenson (1996)
+162 PO Square Boston Till Stiff 23.4 4 Diaphragm 1,822,500 Top down 3.3 52 45 Whittle et al. (1993)
+163 HK&S Bank, HK Decom. granite N = 40 16 5 Diaphragm 2,500,000 Top down 4 48 25 Humpheson et al. (1986)
+164 Charter Station, HK Decom. granite ? 26 14 Diaphragm 2,500,000 Top down 4 36 180 Davies and Henkel (1980)
+165 Hong Kong Decom. granite ? 28 ? Soldier piles 4,320,000 Top down 4.7 75 37 Triantafyllidis (1996)
+166 Rowes Whr, Boston Stiff clay ? 16.8 5 Diaphragm 1,106,125 Top down 3.36 19.1 ? Becker and Haley (1990)
+167 75 State St., Boston Stiff clay ? 19.8 3 Diaphragm 1,106,125 Top down 3.36 50.8 101.6 Becker and Haley (1990)
+168 125 Sum. St., Boston Stiff clay ? 18.3 0 Diaphragm 1,106,125 Top down 3.36 15.2 9.7 Becker and Haley (1990)
+169 Salzburg Gravel, clay ? 11.5 ? Soldier piles 1,280,000 Top down 3.8 5 8 Breymann (1992)
+170 Wien Sand, silt ? 24 ? Soldier piles 1,280,000 Top down 6.3 25 ? Fross and Klenovec (1992)
+171 Cairo Metro Clay/sands ? 10 3.5 Diaphragm 1,280,000 Top down 5 15 ? El-Nahhas and Eisenstein (1989)
+Note: UU = unconsolidated undrained triaxial test; SPT = standard penetration test.
+J. Geotech. Geoenviron. Eng. 2001.127:203-224.
+Downloaded from ascelibrary.org by Illinois State Univ on 11/10/12. Copyright ASCE. For personal use only; all rights reserved.
+
+----- page 7 -----
+JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001 / 209
+TABLE 2. Summary of Case Histories—Propped Walls h > 0.6H—Stiff Soil at Dredge Level
+Case
+history
+(1)
+Location
+(2)
+Soil at
+dredge level
+(3)
+Average strength
+above dredge su
+(kPa)
+(4)
+Average
+strength
+at dredge su
+(kPa)
+(5)
+H
+(m)
+(6)
+h
+(m)
+(7)
+Wall type
+(8)
+EI
+(kN/m
+2
+)
+(9)
+Support
+conﬁguration
+(10)
+Support
+spacing
+(m)
+(11)
+Fixed
+at
+base
+(12)
+dh max
+(mm)
+(13)
+dv max
+(mm)
+(14)
+Reference
+(15)
+1 Singapore River Stiff clay 50 (vane) 200 (vane) 29 20 Diaphragm 1,280,000 Multiprop 3.3 Yes 79 ? Gronin et al. (1991)
+2 Singapore Havelock Stiff clay 50 (vane) 200 (vane) 16.5 16.5 Diaphragm 1,280,000 Multiprop 4 Yes 40 ? Gronin et al. (1991)
+3 Singapore CBD Stiff clay 30 (vane) 70 (vane) 14.7 14 Sheet piles 60,000 Multiprop 2.1 No 280 100 Broms et al. (1986)
+4 Singapore CE II Stiff clay 5–40 (vane) N < 5 50–200 (SPT) 10 ? Diaphragm 1,280,000 Multiprop 4 Yes 22 15 Wong et al. (1997)
+5 Singapore CE II Stiff clay 5–40 (vane) N < 5 50–200 (SPT) 10 ? Sheet 1 H 73,500 Multiprop 4 Yes 32 30 Wong et al. (1997)
+6 Singapore CE II Stiff clay 5–40 (vane) N < 5 50–200 (SPT) 11 ? Sheet 1 H 73,500 Multiprop 4 Yes 48 25 Wong et al. (1997)
+7 Singapore CE II Stiff clay 5–40 (vane) N < 5 50–200 (SPT) 14 ? Contiguous 100,000 Multiprop 4 Yes 37 18 Wong et al. (1997)
+8 Singapore CE II Stiff clay 5–40 (vane) N < 5 50–200 (SPT) 15 ? Arbed 685,000 Multiprop 4 Yes 88 75 Wong et al. (1997)
+9 Singapore CE II Stiff clay 5–40 (vane) N < 5 50–200 (SPT) 17 ? Contiguous 100,000 Multiprop 4 Yes 73 58 Wong et al. (1997)
+10 Singapore CE II Stiff clay 5–40 (vane) N < 5 50–200 (SPT) 17 ? Sheet 1 H 73,500 Multiprop 4 Yes 75 25 Wong et al. (1997)
+11 Singapore CE II Stiff clay 5–40 (vane) N < 5 50–200 (SPT) 17.5 ? Arbed 685,000 Multiprop 4 Yes 43 ? Wong et al. (1997)
+12 Singapore CE II Stiff clay 5–40 (vane) N < 5 50–200 (SPT) 18.5 ? Contiguous 100,000 Multiprop 4 Yes 73 ? Wong et al. (1997)
+13 Singapore CE II Stiff clay 5–40 (vane) N < 5 50–200 (SPT) 19 ? Arbed 685,000 Multiprop 4 Yes 50 ? Wong et al. (1997)
+14 Singapore multistory Clayey sand 20–50 (vane) N = 100 17.3 17.3 Diaphragm 2,500,000 Multiprop 2.88 Yes 50 ? Lee et al. (1998)
+15 Singapore interchange Stiff clay 15 (vane) 500 (SPT) 20 15 Contiguous 1,338,750 Multiprop 4 Yes 40 ? Vuillemin and Wong (1991)
+16 Singapore canal Stiff clay Soft Stiff 6.5 6 Sheet 50,000 Single prop 5 Yes 85 120 Wong and Chua (1999)
+17 Bangkok B Stiff clay ? ? 15.5 15 Diaphragm 1,378,420 Multiprop 5
+----- page 8 -----
+210 / JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001
+TABLE 3. Summary of Case Histories—Propped Walls h > 0.6H—Soft Soil at Dredge Level
+Case
+history
+(1)
+Location
+(2)
+Soil at
+dredge level
+(3)
+Average strength
+of soil su
+(kPa)
+(4)
+H
+(m)
+(5)
+h
+(m)
+(6)
+Wall type
+(7)
+EI
+(kN/m
+2
+)
+(8)
+Support
+conﬁguration
+(9)
+Support
+spacing
+(m)
+(10)
+Fixed
+at base
+(11)
+dh max
+(mm)
+(12)
+dv max
+(mm)
+(13)
+Reference
+(14)
+1 UOB Singapore Soft clay 30 (vane) 13 30 Diaphragm 4,320,000 Multiprop 2.6 Yes 56 130 Wallace et al. (1992)
+2 H’Fok A Singapore Soft clay 15 (vane) 7.3 19 Sheet piles 75,700 Multiprop 1.83 Yes 60 ? Davies and Walsh (1983)
+3 CTC Singapore Soft clay 20 (vane) 12 37 Sheet piles 57,440 Multiprop 2 Yes 188 150 Lee et al. (1985)
+4 Somerset Singapore Peats/silts 10–20 (vane) 15.2 10 Diaphragm 540,000 Multiprop 3.8 Yes 20 ? Leonard et al. (1987)
+5 MOE I2 Singapore Soft clay 18 (vane) 6.8 24 Sheet piles 45,436 Multiprop 1.7 Yes 330 ? Tan et al. (1985)
+6 MOE I9 Singapore Soft clay 18 (vane) 6.4 12 Sheet piles 45,436 Multiprop 1.6 Yes 100 ? Tan et al. (1985)
+7 Singapore Bugis Soft clay 40 (vane) 18.3 30 Diaphragm 4,320,000 Multiprop 2.29 Yes 160 ? Hulme et al. (1989)
+8 Singapore CBD Soft clay 10–15 (vane) 15 17 Sheet piles 70,000 Multiprop 2.5 Yes 145 100 Broms et al. (1986)
+9 Singapore Parking Soft clay Soft 9.5 12 Diaphragm 540,000 Single prop 5.9 Yes 70 ? Vuillemin and Wong (1991)
+10 Taiwan Airline Firm clay 45 (?) N = 5 9.6 9 Contiguous 18,850 Multiprop 2.4 Yes 22 22 Ou et al. (1993)
+11 Taiwan Power Firm clay N = 2 to 26 16.2 15 Diaphragm 540,000 Multiprop 3.24 Yes 80 56 Ou et al. (1993)
+12 Taiwan Quen M Firm clay 47 (?) N = 9 10.7 8 Diaphragm 540,000 Multiprop 2.68 Yes 70 35 Ou et al. (1993)
+13 Taiwan Tax Soft clay 25–50 (?) N = 1 to 2 7.65 8 Sheet 40,000 Multiprop 1.91 Yes 69 41 Ou et al. (1993)
+14 Taiwan Formosa Soft clay 25–70 (?) N = 1 to 2 18.45 20 Diaphragm 1,280,000 Multiprop 2.64 Yes 60 42 Ou et al. (1993)
+15 Taiwan Cathay Firm clay 50–130 (?) N = 3 to 7 21 12 Diaphragm 857,500 Multiprop 2.63 Yes 62 31 Ou et al. (1993)
+16 Bangkok A Soft clay ? 9.8 15 Diaphragm 1,378,420 Multiprop 3.1 Yes 50 ? Balasubramaniam et al. (1991)
+17 Bangkok C Soft clay ? 18.5 12 Diaphragm 1,378,420 Multiprop 4.6 Yes 30 ? Balasubramaniam et al. (1991)
+18 Bangkok E Soft clay ? 7.2 12 Sheet 50,000 Multiprop 1.8 Yes 220 ? Balasubramaniam et al. (1991)
+19 Oslo Vaterland 1 Soft clay 25 (vane) 11 16 Sheet 73,800 Multiprop 2 Yes 220 270 NGI (1962f)
+20 Oslo Vaterland 2 Sof
+----- page 9 -----
+JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001 / 211
+TABLE 4. Summary of Case Histories—Propped Walls—Low FOS against Base Heave
+Case
+history
+(1)
+Location
+(2)
+Soil at
+dredge level
+(3)
+Soil strength
+su
+(kPa)
+(4)
+H
+(m)
+(5)
+h
+(m)
+(6)
+Wall type
+(7)
+EI
+(kN/m
+2
+)
+(8)
+Support
+conﬁguration
+(9)
+Support
+spacing
+(m)
+(10)
+FOS
+a
+(m)
+(11)
+dh max
+(mm)
+(12)
+dv max
+(mm)
+(13)
+Reference
+(14)
+1 Oslo Enerhaughen Soft clay 20 (vane) 8. 17 Sheet 45,000 Multiprop 2.5 1.34 40 106 NGI (1962c)
+2 Oslo Telecom Soft clay 20 (vane) 8.5 10 Sheet 35,850 Multiprop 2.25 0.9 80 93 NGI (1962d)
+3 Oslo Gronland 2 Soft clay 25 (vane) 11.5 26 Sheet 73,800 Multiprop 3.75 1.3 100 178 NGI (1962e)
+4 Oslo Vaterland 3 Soft clay 34 (vane) 12 26 Sheet 73,800 Multiprop 2 1.26 125 114 NGI (1962h)
+5 Oslo Gunnerus Soft clay 35 (vane) 10.5 18 Sheet 82,350 Multiprop 2 1.21 320 600 Aas (1984, 1985)
+6 Vasteras, Sweden Soft clay 30 (fall cone) 6.3 12.5 Sheet 17,000 Multianch 2.1 1.5 100 175 Broms and Stille (1976)
+7 Gothenburg Soft clay 17 (fall cone) 4 10 Sheet 17,000 Single anch 2 1.6 400 410 Broms and Stille (1976)
+8 Chicago Subway Soft clay ? 19 11 Sheet 50,000 Multiprop 3 0.96 60 ? Flaate (1966)
+9 Chicago A Soft clay Soft 9.4 ? Sheet 55,250 Multiprop 3.05 1.67 64 ? Gill and Lucas (1990)
+10 Chicago C Soft clay Soft 8.8 ? Sheet 55,250 Multiprop 1.98 1.18 56 ? Gill and Lucas (1990)
+11 Chicago D Firm clay Firm 5.7 ? Sheet 55,250 Multiprop 2.44 1.55 13 ? Gill and Lucas (1990)
+12 Chicago E Firm clay Firm 10.67 ? Diaphragm 1,106,000 Multiprop 3.04 1.55 38 ? Gill and Lucas (1990)
+13 Chicago F Firm clay Firm 10.67 ? Sheet 55,250 Multiprop 3.81 1.25 89 ? Gill and Lucas (1990)
+14 Chicago G Firm clay Firm 12.34 ? Sheet 69,000 Multiprop 3.96 1.41 178 ? Gill and Lucas (1990)
+15 Chicago H Firm clay Firm 10.67 ? Diaphragm 566,340 Multiprop 3.05 1.4 69 ? Gill and Lucas (1990)
+16 HDR-4 Chicago Firm clay 30 (various) 12.2 16 Sheet 161,000 Multiprop 2.4 1.1 190 250 Finno et al. (1989)
+17 Washington Soft clay 30 (UU) 9.1 18 Soldier piles 50,160 Multiprop 2.2 0.81 254 ? Swanson and Larson (1990)
+18 Bowlin Point, N.Y . Stiff clay 20–60 (UU) 9.8 9.8 Sheet 50,000 Multiprop 1.96 2.4 80 ? Murphy et al. (1975)
+19 Davidson 1, San Francisco Soft clay 10 (various) 9.1 21 Sheet 72,500 Multiprop 3 0.83 254 ? Clough and Reed (1984)
+20 Islais 2, San Francisco Soft clay 13 (various) 9.1 21 Sheet 55,250 Multiprop 3 1.22 38 ? Clough and Reed (1984)/
+Mana and Clough (1981)
+21 Embarcadero III Soft clay 30 (various) 13.7 27 S
+----- page 10 -----
+212 / JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001
+TABLE 5. Summary of Case Histories—Cantilever Walls
+Case
+history
+(1)
+Location
+(2)
+Soil at
+dredge level
+(3)
+Soil strength
+su
+(kPa)
+(4)
+H
+(m)
+(5)
+h
+(m)
+(6)
+s
+a
+(m)
+(7)
+Wall type
+(8)
+EI
+(kN/m
+2
+)
+(9)
+dh max
+(10)
+dv max
+(11)
+Reference
+(12)
+1 Benwell Road London clay Stiff 4.5 ? 6.3 Contiguous 100,661 11 ? Fernie and Suckling (1996)
+2 A329-Reading London clay 80 (UU) 6.9 1 9.66 Diaphragm 2,500,000 18 ? Carder and Symons (1989)
+3 Leith House London clay Stiff 3.7 6.6 5.18 Contiguous 465,950 0.7 ? Thompson (1991)
+4 Sanct Bld London clay Stiff 5.3 2 7.42 Diaphragm 1,280,000 4 ? Thompson (1991)
+5 Newport Crt London clay 180 (UU) 3.7 4.8 5.18 Diaphragm 1,280,000 8 ? Wood and Perrin (1984)
+6 Putney Centre London clay Stiff 4.8 0 6.72 Diaphragm 1,280,000 3.3 ? Thompson (1991)
+7 British Library London clay Stiff 4 3 5.6 Secant 2,571,750 20* 20 Raison (1985)
+8 Bell Common London clay 130 (UU) 5.2 4 7.28 Secant 2,330,250 10 18 Tedd et al. (1984)
+9 Dunton Green London clay 70 (UU) 8 0 11.2 Contiguous 4,385,400 38 ? Garrett and Barnes (1984)
+10 Broadgate 5 London clay 200 (UU) 9 6 12.6 Contiguous 465,950 8 ? Ove Arup and Partners Files
+11 Broadgate 9/10 London clay 200 (UU) 7.2 6 10.08 Contiguous 465,950 10 ? Ove Arup and Partners Files
+12 Nat Gal Ext London clay Stiff 2.3 4.2 3.22 Secant 618,000 3 ? Long (1989)
+13 Bentalls KuT London clay Stiff 6.5 2 9.1 Secant 2,855,000 12 ? Sherwood et al. (1989)
+14 Waitrose KuT London clay Stiff 3.5 2 4.9 Contiguous 1,132,800 8 ? ‘‘First’’ (1985)
+15 Swindon Kimmeridge Stiff 4.5 ? 6.3 Contiguous 179,600 12 ? Fernie and Suckling (1996)
+16 Channel Tunnel Gault 60 (UU) 2.7 0 3.78 Sheet 73,500 11* ? Young and Ho (1994)
+17 Cheltenham Lias 120 (UU) 10.6 0 14.84 Contiguous 4,141,760 40* ? Ford et al. (1991)
+18 Batheaston Lias Very stiff/hard 8.5 0 11.9 Diaphragm 1,280,000 16 ? La Masurier (1997)
+19 Finchley Boulder clay 200 (UU) 5.2 1 7.28 Contiguous 1,198,500 11 0 Brookes and Carder (1996)
+20 Manchester Sandstone ? 5 ? 7 Contiguous 254,250 11 ? Fernie and Suckling (1996)
+21 Manchester Sandstone ? 5 ? 7 Contiguous 254,250 11 ? Fernie and Suckling (1996)
+22 Edinburgh Coal Meas ? 6 ? 8.4 Contiguous 245,400 6 ? Fernie and Suckling (1996)
+23 Salzburg Gravel, clay ? 11.5 ? 16.1 Soldier piles 1,280,000 100 30 Breymann (1992)
+24 Konstanz Gravel, clay ? 7.2 ? 10.08 Secant 639,000 26 29 Goldscheider and Gudehus
+(1988)
+25 UOB Singapore Soft clay 30 (vane) 3 32 4.2 Diaphragm 4,32
+----- page 11 -----
+JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001 / 213
+FIG. 4. Walls with h < 0.6H—Normalized Maximum Lateral Movement versus Depth
+FIG. 3. T erminology Used in Tables
+Material ﬂexibility:
+ln(EI) (1)
+Wall ﬂexibility [after Rowe (1952)]:
+4
+slog (2)SDEI
+System stiffness [after Clough et al. (1989)]:
+EI (3)4
+g sw
+Addenbrooke showed that a logical extension to Rowe’s ﬂex-
+ibility number is to derive an expression, the constancy of
+which deﬁnes support systems with the same absolute dis-
+placement. Displacement ﬂexibility was thus derived by
+Addenbrooke
+5
+s (4)EI
+Using a series of ﬁnite-element analyses, Addenbrooke (1994)
+showed that existing numbers do not provide a complete
+framework for displacement control design of deep excava-
+tions. He suggested that situations with the same ﬂexibility
+number, s
+5
+/(EI), will give rise to the same dv max, andd ,h max
+sum of the prop forces.
+PRELIMINARY ANALYSIS OF DATA
+Data Set 1: h < 0.6H, High FOS
+Detailed analysis is beyond the scope of this paper, and the
+following preliminary analysis seeks to identify major trends
+and lessons to be learned from the data. Fig. 4 shows nor-
+malized maximum lateral wall movement versus excavation
+depth versus H). A wide scatter is evident in the data,(d /Hh max
+with little overall trends. The average values for thedh max
+propped, anchored, and top-down systems are 0.17% H,
+0.19%H, and 0.16%H, respectively, when all the data are con-
+sidered (Table 6). Extracting all the cases where > d /Hh max
+0.3% (these cases are likely to involve some particular site-
+related problem, and a detailed analysis of them is given be-
+low), the average values reduce to 0.13, 0.14, and 0.16%, re-
+spectively. These data would suggest that there is little
+difference in the behavior of any of these systems. This is
+contrary to what is reported by Wong et al. (1997), for the
+Singapore case histories, who found a stiffer response in the
+anchored systems.
+In Fig. 5, the data have been replotted against sys-d /Hh max
+tem stiffness as deﬁned by Clough et al. (1989). Again there
+is a large scatter in the data, with some slight indication of
+decreasing movement with increasing system stiffness. How-
+ever, for practical purposes in the range of data available, it
+would seem that movement is largely independent of system
+stiffness. This has important practical and economic implica-
+tions as it suggests that if the system has a reasonable stiffness
+the movement can be controlled to acceptable val
+----- page 12 -----
+214 / JOURNAL OF GEOTECHNICAL AND GEOENVIRONMENTAL ENGINEERING / MARCH 2001
+TABLE 6. Summary of and Valuess /H d /Hh max v max
+Data set
+(1)
+Cases considered
+(2)
+(%)d /Hh max
+Propped
+a
+(3)
+Anchors
+(4)
+Top down
+(5)
+(%)d /Hv max
+Propped
+a
+(6)
+Anchors
+(7)
+Top down
+(8)
+h < 0.6H All cases 0.17 (96) 0.19 (57) 0.16 (16) 0.12 (37) 0.15 (19) 0.20 (12)
+h > 0.6H (stiff at dredge) All cases 0.39 (25) 0.15 (3) No cases 0.50 (15) 0.14 (1) No cases
+h > 0.6H (soft at dredge) All cases 0.84 (35) 0.91 (3) 0.60 (4) 0.80 (13) 6.25 (1) 0.79 (4)
+h < 0.6H Dh/H < 0.3% only 0.13 (81) 0.14 (50) 0.16 (16) 0.11 (35) 0.12 (15) 0.20 (12)
+h > 0.6H (stiff at dredge) Dh/H < 0.3% only 0.21 (14) 0.21 (2) No cases 0.39 (7) 0.14 (1) No cases
+h > 0.6H (soft at dredge) Dh/H < 0.3% only Not relevant Not relevant
+a
+Number of relevant cases are in parentheses.
+FIG. 5. Walls with h < 0.6H—Normalized Maximum Lateral Movement versus Clough et al. (1989) System Stiffness
+FIG. 6. Walls with h < 0.6H—Normalized Maximum Lateral Movement versus Addenbrooke Flexibility Number
+m-thick diaphragm wall. It was concluded that, if the increased
+movements, associated with more ﬂexible walls, can be ac-
+commodated or reduced by extra propping, such walls can
+provide economic and viable solutions.
+Fig. 5 shows the majority of the data points fall below the
+Clough and O’Rourke (1990) line for FOS = 3.0, suggesting that
+• The soils are behaving in a stiffer manner than assumed
+in the original charts.
+• It would be possible to use a less stiff wall, for a particular
+scheme, while maintaining movements within acceptable
+limits; thus, suggesting that current design practices
+worldwide are somewhat conservative.
+J. Geotech. Geoenviron. Eng. 2001.127:203-224.
+Downloaded from ascelibrary.org by Illinois State Univ on 11/10/12. Copyright ASCE. For personal use only; all rights reserved.

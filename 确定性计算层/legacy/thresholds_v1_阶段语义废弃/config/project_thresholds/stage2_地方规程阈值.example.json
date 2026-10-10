@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "stage": 2,
+  "stage_name": "imported_standard",
+  "source_id": "EXAMPLE-LOCAL-REG-001",
+  "source_label": "【示例】某某地方规程（请替换为真实地方标准全称与编号）",
+  "source_type": "local_regulation",
+  "applies_to": {
+    "region": "示例地区"
+  },
+  "note": "本文件为示例，文件名以 .example.json 结尾，系统加载时会跳过。复制并重命名为 *.json 后生效。",
+
+  "selection_policy": {
+    "range_resolution": "conservative"
+  },
+
+  "metrics": {
+    "wall_top_horizontal_displacement": {
+      "display_name": "围护墙（边坡）顶部水平位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "WTHD-L1-PILE",
+          "safety_level": ["一级"],
+          "support_type": ["灌注桩", "地下连续墙", "钢板桩", "型钢水泥土墙"],
+          "cumulative_mm": { "min": 15, "max": 25 },
+          "cumulative_pct_H": { "min": 0.15, "max": 0.25 },
+          "rate_mm_per_day": { "min": 2, "max": 2 },
+          "evidence": {
+            "standard": "【示例】某某地方规程",
+            "clause": "第 X.X 条",
+            "note": "示例：本地规程对一级基坑要求更严，累计值由 20~30mm 收紧为 15~25mm"
+          }
+        }
+      ]
+    },
+
+    "groundwater_level": {
+      "display_name": "地下水位",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "GWL-ALL",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "cumulative_mm": { "min": 800, "max": 1500 },
+          "rate_mm_per_day": 300,
+          "evidence": {
+            "standard": "【示例】某某地方规程",
+            "clause": "第 X.X 条",
+            "note": "示例：水位速率由 500mm/d 收紧为 300mm/d"
+          }
+        }
+      ]
+    }
+  },
+
+  "danger_alarm_conditions": [
+    {
+      "code": "DANGER-LOCAL-1",
+      "condition": "【示例】地方规程追加的危险报警情形",
+      "evidence": { "standard": "【示例】某某地方规程", "clause": "第 X.X 条" }
+    }
+  ]
+}

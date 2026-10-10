@@ -1,0 +1,158 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "基坑智守 阈值导入文件 Schema",
+  "description": "阶段2（导入标准/地方规程）与阶段3（项目专项方案）阈值文件必须遵循本结构。未显式给出的字段继承上一阶段，不出现覆盖即清空。",
+  "type": "object",
+  "required": ["schema_version", "stage", "source_id", "source_label", "metrics"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "stage": {
+      "type": "integer",
+      "enum": [2, 3],
+      "description": "2 = 导入标准/地方规程（覆盖阶段1）；3 = 项目专项方案（覆盖阶段2，最高优先级）"
+    },
+    "stage_name": { "type": "string", "enum": ["imported_standard", "project_specific"] },
+    "source_id": {
+      "type": "string",
+      "description": "来源唯一标识，例如 'DG-TJ08-61-2018' 或 'PRJ-HZ-2026-001'"
+    },
+    "source_label": {
+      "type": "string",
+      "description": "来源全称，将原样显示在日报与判定结果中，例如 '上海市基坑工程技术规范 DG/TJ 08-61-2018'"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": ["national_standard", "local_regulation", "industry_standard", "project_plan", "manual"],
+      "description": "national_standard 国家标准 / local_regulation 地方规程 / industry_standard 行业标准 / project_plan 项目专项方案 / manual 人工审定"
+    },
+    "applies_to": {
+      "type": "object",
+      "description": "适用范围过滤（可选）。留空或不匹配时仍参与合并，但建议在应用层做提示。",
+      "properties": {
+        "project_id": { "type": "string" },
+        "region": { "type": "string" },
+        "valid_from": { "type": "string", "format": "date" },
+        "valid_until": { "type": "string", "format": "date" }
+      }
+    },
+    "selection_policy": {
+      "type": "object",
+      "description": "可选。覆盖内置的区间取值策略。",
+      "properties": {
+        "range_resolution": {
+          "type": "string",
+          "enum": ["conservative", "lenient", "midpoint"],
+          "description": "conservative 取区间下限（偏安全，默认）；lenient 取上限；midpoint 取中值"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "键为 metric_key，必须与通用默认阈值中的监测项键一致；新增监测项亦可，但需保证下游识别。",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "display_name": { "type": "string" },
+          "unit": { "type": ["string", "null"] },
+          "limit_mode": {
+            "type": "string",
+            "enum": ["displacement", "max_ratio", "min_ratio", "inclination", "crack", "none"]
+          },
+          "design_value_key": { "type": ["string", "null"] },
+          "note": { "type": "string" },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["rule_id", "safety_level"],
+              "properties": {
+                "rule_id": { "type": "string", "description": "规则唯一标识，同一 metric 内不可重复" },
+                "safety_level": {
+                  "oneOf": [
+                    { "type": "string", "enum": ["一级", "二级", "三级"] },
+                    { "type": "array", "items": { "type": "string", "enum": ["一级", "二级", "三级"] } }
+                  ]
+                },
+                "support_type": {
+                  "oneOf": [
+                    { "type": "string", "enum": ["any"] },
+                    { "type": "array", "items": { "type": "string" } }
+                  ],
+                  "description": "支护类型；'any' 或省略表示通配"
+                },
+                "pipeline_type": { "oneOf": [{ "type": "string", "enum": ["any"] }, { "type": "array", "items": { "type": "string" } }] },
+                "road_type": { "oneOf": [{ "type": "string", "enum": ["any"] }, { "type": "array", "items": { "type": "string" } }] },
+                "crack_state": { "oneOf": [{ "type": "string", "enum": ["any"] }, { "type": "array", "items": { "type": "string" } }] },
+                "cumulative_mm": {
+                  "oneOf": [
+                    { "type": "number" },
+                    { "type": "null" },
+                    { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } } }
+                  ],
+                  "description": "累计变化预警值（mm）。取绝对值与 %H 限值两者的较小值。"
+                },
+                "cumulative_pct_H": {
+                  "oneOf": [
+                    { "type": "number" },
+                    { "type": "null" },
+                    { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } } }
+                  ],
+                  "description": "相对基坑设计深度 H 的累计限值（百分数，如 0.3 表示 0.3%H）"
+                },
+                "rate_mm_per_day": {
+                  "oneOf": [
+                    { "type": "number" },
+                    { "type": "null" },
+                    { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } } }
+                  ],
+                  "description": "变化速率预警值（mm/d）"
+                },
+                "max_ratio_of_design": {
+                  "oneOf": [
+                    { "type": "number" },
+                    { "type": "null" },
+                    { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } } }
+                  ],
+                  "description": "上限比值，如支撑轴力 (60%~80%) f2 填 0.60~0.80"
+                },
+                "min_ratio_of_design": {
+                  "oneOf": [
+                    { "type": "number" },
+                    { "type": "null" },
+                    { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } } }
+                  ],
+                  "description": "下限比值，如锚杆轴力 (80%~100%) fy"
+                },
+                "requires_continuous_development": { "type": "boolean" },
+                "evidence": {
+                  "type": "object",
+                  "required": ["standard"],
+                  "properties": {
+                    "standard": { "type": "string", "description": "规范/方案名称，必填" },
+                    "clause": { "type": "string", "description": "条文号或表号" },
+                    "note": { "type": "string" },
+                    "page": { "type": ["string", "integer"] },
+                    "mandatory": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "danger_alarm_conditions": {
+      "type": "array",
+      "description": "可选。追加危险报警条件（同 code 时覆盖上一阶段）。",
+      "items": {
+        "type": "object",
+        "required": ["code", "condition"],
+        "properties": {
+          "code": { "type": "string" },
+          "condition": { "type": "string" },
+          "evidence": { "type": "object" }
+        }
+      }
+    }
+  }
+}

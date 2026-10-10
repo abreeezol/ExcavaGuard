@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ArrowDown, FileCheck2, FileUp, FolderOpen, ShieldCheck } from "lucide-react";
 import { WorkflowOverview } from "@/components/workflow-overview";
 import { WorkspaceSidebar } from "@/components/workspace-sidebar";
@@ -10,7 +11,7 @@ export default function HomePage() {
       <main className="workspace" id="workspace">
         <header className="topbar">
           <span>工作空间 <span className="breadcrumb-divider">/</span> 日报工作台</span>
-          <span className="status-pill"><span className="status-dot" />初始化阶段</span>
+          <span className="status-pill"><span className="status-dot" />计算层已接通</span>
         </header>
 
         <div className="workspace-content">
@@ -25,7 +26,10 @@ export default function HomePage() {
 
           <div className="notice">
             <ShieldCheck size={19} aria-hidden="true" />
-            <p>当前为初始化工作台。监测数据导入、智能分析和报告生成尚未开放。</p>
+            <p>
+              确定性计算层已接通：可上传监测数据与用户规范，运行风险识别。
+              日报生成与鉴权仍待实现。
+            </p>
           </div>
 
           <section className="panel data-panel" aria-labelledby="data-title">
@@ -36,11 +40,13 @@ export default function HomePage() {
             <div className="empty-upload">
               <div className="empty-icon"><FileUp size={30} strokeWidth={1.5} aria-hidden="true" /></div>
               <h3>从一份监测数据开始</h3>
-              <p>后续可在这里上传监测 CSV，并补充当日施工工况。</p>
-              <button className="primary-button" type="button" disabled aria-describedby="upload-help">
-                <FolderOpen size={16} aria-hidden="true" />导入监测资料
-              </button>
-              <span id="upload-help" className="helper-text">导入能力待接入</span>
+              <p>上传监测 CSV，补充当日施工工况，运行确定性计算与风险识别。</p>
+              <Link className="wb-link" href="/workbench">
+                <FolderOpen size={16} aria-hidden="true" />进入可视化测试工作台
+              </Link>
+              <span id="upload-help" className="helper-text">
+                支持 CSV / TSV / XLSX，自动探测编码与列名
+              </span>
             </div>
             <div className="data-footer">
               <span>01 确认项目与规则</span><span>02 导入监测资料</span><span>03 复核日报草稿</span>

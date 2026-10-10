@@ -1,0 +1,183 @@
+{
+  "schema": "excavaguard.combined_run/v1",
+  "inputs": {
+    "real": {
+      "source": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset · daily_aligned.csv",
+      "filter": "mask=1 且 filled=0（剔除填充值与非观测点）",
+      "records": 2868
+    },
+    "simulated": {
+      "source": "SIMULATED-EXCAVAGUARD-V1",
+      "file": "data_simulated/SIMULATED_基坑监测数据集_v1.csv",
+      "records": 3420,
+      "is_simulated": true
+    }
+  },
+  "groups": {
+    "A_real_default_only": {
+      "title": "A",
+      "summary": {
+        "records": 2868,
+        "real_records": 2868,
+        "simulated_records": 0,
+        "data_quality_issues": 2587,
+        "data_quality_blocked": 13,
+        "calc_results": 2868,
+        "judgments": 2868,
+        "effective_standard_origin": "default_library",
+        "total": 2868,
+        "by_risk_level": {
+          "未知": 2868
+        },
+        "by_problem_category": {
+          "其他": 2855,
+          "数据质量异常": 13
+        },
+        "by_data_origin": {
+          "real": 2868
+        },
+        "abstain": {
+          "UNKNOWN_METRIC": 2855,
+          "DATA_QUALITY_BLOCKED": 13
+        },
+        "overall_risk_level": "正常"
+      },
+      "by_origin_level": {
+        "real": {
+          "未知": 2868
+        }
+      }
+    },
+    "B_real_user_standard": {
+      "title": "B",
+      "summary": {
+        "records": 2868,
+        "real_records": 2868,
+        "simulated_records": 0,
+        "data_quality_issues": 2587,
+        "data_quality_blocked": 13,
+        "calc_results": 2868,
+        "judgments": 2868,
+        "effective_standard_origin": "user_uploaded",
+        "total": 2868,
+        "by_risk_level": {
+          "正常": 315,
+          "危险报警": 2007,
+          "关注": 112,
+          "未知": 13,
+          "预警": 258,
+          "报警": 163
+        },
+        "by_problem_category": {
+          "其他": 2855,
+          "数据质量异常": 13
+        },
+        "by_data_origin": {
+          "real": 2868
+        },
+        "abstain": {
+          "DATA_QUALITY_BLOCKED": 13
+        },
+        "overall_risk_level": "危险报警"
+      },
+      "by_origin_level": {
+        "real": {
+          "正常": 315,
+          "危险报警": 2007,
+          "关注": 112,
+          "未知": 13,
+          "预警": 258,
+          "报警": 163
+        }
+      }
+    },
+    "C_combined": {
+      "title": "C",
+      "summary": {
+        "records": 6288,
+        "real_records": 2868,
+        "simulated_records": 3420,
+        "data_quality_issues": 2659,
+        "data_quality_blocked": 20,
+        "calc_results": 6288,
+        "judgments": 6288,
+        "effective_standard_origin": "user_uploaded",
+        "total": 6288,
+        "by_risk_level": {
+          "正常": 1987,
+          "危险报警": 2094,
+          "关注": 497,
+          "未知": 257,
+          "预警": 1030,
+          "报警": 423
+        },
+        "by_problem_category": {
+          "其他": 2855,
+          "数据质量异常": 20,
+          "变形过大": 2393,
+          "支护受力异常": 600,
+          "渗漏水与地下水异常": 180,
+          "裂缝发展": 240
+        },
+        "by_data_origin": {
+          "real": 2868,
+          "simulated": 3420
+        },
+        "abstain": {
+          "DATA_QUALITY_BLOCKED": 20,
+          "MISSING_PREVIOUS": 64,
+          "MISSING_CURRENT": 7,
+          "NO_LIMIT": 9,
+          "NO_APPLICABLE_RULE": 180
+        },
+        "overall_risk_level": "危险报警"
+      },
+      "by_origin_level": {
+        "real": {
+          "正常": 315,
+          "危险报警": 2007,
+          "关注": 112,
+          "未知": 13,
+          "预警": 258,
+          "报警": 163
+        },
+        "simulated": {
+          "未知": 244,
+          "正常": 1672,
+          "关注": 385,
+          "预警": 772,
+          "报警": 260,
+          "危险报警": 87
+        }
+      }
+    }
+  },
+  "daily_report_contract": {
+    "schema": "excavaguard.daily_report_input/v1",
+    "schema_file": "contracts/daily_report_input.schema.json",
+    "validator": "tools/validate_daily_report_input.py",
+    "payloads": {
+      "A_real_default_only": {
+        "items": 2868,
+        "alerts": 0,
+        "review_queue": 2868,
+        "effective_standard_origin": "default_library"
+      },
+      "B_real_user_standard": {
+        "items": 2868,
+        "alerts": 2170,
+        "review_queue": 13,
+        "effective_standard_origin": "user_uploaded"
+      },
+      "C_combined": {
+        "items": 6288,
+        "alerts": 2517,
+        "review_queue": 260,
+        "effective_standard_origin": "user_uploaded"
+      }
+    },
+    "contract_passed": true,
+    "note": "本层只产出结构化载荷，不生成日报正文与版式文件。"
+  },
+  "note": "真实数据与模拟数据在阶段一统一接入，但全程按 data_origin 分开统计。"
+}

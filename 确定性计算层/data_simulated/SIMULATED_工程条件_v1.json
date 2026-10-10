@@ -1,0 +1,61 @@
+{
+  "project_name": "SIM-地铁车站深基坑（模拟工程）",
+  "is_simulated": true,
+  "data_origin": "simulated",
+  "source_dataset": "SIMULATED-EXCAVAGUARD-V1",
+  "safety_level": "一级",
+  "support_type": "地下连续墙",
+  "excavation_depth_m": 20.0,
+  "post_slab_from": "2026-09-10",
+  "post_slab_note": "底板浇筑后位移速率限值按 GB 50497-2019 表 8.0.4 注 ×0.7",
+  "design_values": {
+    "support_axial_force": 1000.0,
+    "anchor_axial_force": 200.0,
+    "wall_internal_force": 500.0,
+    "earth_pressure": 200.0,
+    "pore_pressure": 100.0
+  },
+  "point_overrides": {
+    "ZQS-13": {
+      "danger_signals": {
+        "DANGER-1": true,
+        "DANGER-2": true
+      }
+    },
+    "LF-01": {
+      "crack_state": "既有裂缝"
+    },
+    "LF-02": {
+      "crack_state": "既有裂缝"
+    },
+    "GX-01": {
+      "pipeline_type": "柔性管线"
+    },
+    "DL-01": {
+      "road_type": "一般城市道路"
+    },
+    "DBLF-01": {
+      "crack_state": "既有裂缝"
+    },
+    "DBLF-02": {
+      "crack_state": "新增裂缝"
+    },
+    "GXSP-01": {
+      "pipeline_type": "柔性管线"
+    },
+    "GXSP-02": {
+      "pipeline_type": "刚性管道（压力）"
+    },
+    "GXSP-03": {
+      "pipeline_type": "柔性管线"
+    }
+  },
+  "danger_signals_note": "S17 的 ZQS-13 触发 GB 50497-2019 第 8.0.9 条危险报警条件",
+  "threshold_source": "standards/default/thresholds_gb50497_2019.json（GB 50497-2019 条文摘录）",
+  "observation_window": {
+    "start": "2026-08-01",
+    "end": "2026-09-29",
+    "freq": "1 天"
+  },
+  "disclaimer": "本工程为模拟工程，全部数据为模拟/生成数据，不得用于任何真实工程判定。"
+}
