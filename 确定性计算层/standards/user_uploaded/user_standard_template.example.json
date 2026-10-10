@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "source_id": "",
+  "source_label": "",
+  "source_type": "user_uploaded",
+  "metrics": {
+    "wall_top_horizontal_displacement": {
+      "rules": [
+        {
+          "rule_id": "USER-WTHD-L1",
+          "safety_level": [
+            "一级"
+          ],
+          "support_type": [
+            "地下连续墙"
+          ],
+          "cumulative_mm": {
+            "min": 20,
+            "max": 30
+          },
+          "cumulative_pct_H": {
+            "min": 0.2,
+            "max": 0.3
+          },
+          "rate_mm_per_day": {
+            "min": 2,
+            "max": 3
+          },
+          "evidence": {
+            "standard": "填写规范/方案全称",
+            "clause": "填写条文号",
+            "note": ""
+          }
+        }
+      ]
+    }
+  }
+}

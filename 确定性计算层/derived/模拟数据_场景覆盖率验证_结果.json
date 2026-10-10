@@ -1,0 +1,1382 @@
+{
+  "dataset": "SIMULATED_基坑监测数据集_v1.csv",
+  "data_origin": "simulated",
+  "source_dataset": "SIMULATED-EXCAVAGUARD-V1",
+  "records": 3420,
+  "points": 57,
+  "scenarios_total": 27,
+  "scenarios_passed": 27,
+  "pass_rate": 1.0,
+  "covered_levels": [
+    "危险报警",
+    "报警",
+    "未知",
+    "正常",
+    "预警"
+  ],
+  "pipeline_summary": {
+    "records": 3420,
+    "real_records": 0,
+    "simulated_records": 3420,
+    "data_quality_issues": 72,
+    "data_quality_blocked": 7,
+    "calc_results": 3420,
+    "judgments": 3420,
+    "effective_standard_origin": "default_library",
+    "total": 3420,
+    "by_risk_level": {
+      "未知": 244,
+      "正常": 1672,
+      "关注": 385,
+      "预警": 772,
+      "报警": 260,
+      "危险报警": 87
+    },
+    "by_problem_category": {
+      "变形过大": 2393,
+      "支护受力异常": 600,
+      "渗漏水与地下水异常": 180,
+      "数据质量异常": 7,
+      "裂缝发展": 240
+    },
+    "by_data_origin": {
+      "simulated": 3420
+    },
+    "abstain": {
+      "MISSING_PREVIOUS": 64,
+      "MISSING_CURRENT": 7,
+      "NO_LIMIT": 9,
+      "DATA_QUALITY_BLOCKED": 7,
+      "NO_APPLICABLE_RULE": 180
+    },
+    "overall_risk_level": "危险报警"
+  },
+  "scenarios": [
+    {
+      "scenario_id": "S1",
+      "scenario_name": "正常稳定",
+      "problem_category": "变形过大",
+      "expected_level": "正常",
+      "points": [
+        "ZQS-01",
+        "DB-01",
+        "LZ-01"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-01",
+          "expected_level": "正常",
+          "observed_levels": [
+            "未知",
+            "正常"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "DB-01",
+          "expected_level": "正常",
+          "observed_levels": [
+            "未知",
+            "正常"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "LZ-01",
+          "expected_level": "正常",
+          "observed_levels": [
+            "未知",
+            "正常"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S2",
+      "scenario_name": "持续增长",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "points": [
+        "ZQS-02",
+        "CX-01",
+        "DB-02"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-02",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "CX-01",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "DB-02",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S3",
+      "scenario_name": "突变异常",
+      "problem_category": "变形过大/支护受力异常",
+      "expected_level": "报警",
+      "points": [
+        "ZQS-03",
+        "ZL-01"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-03",
+          "expected_level": "报警",
+          "observed_levels": [
+            "报警",
+            "未知",
+            "正常"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "ZL-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S4",
+      "scenario_name": "累计值超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "ZQS-04",
+        "CX-02"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-04",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "CX-02",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S5",
+      "scenario_name": "速率超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "ZQS-05",
+        "DB-03"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-05",
+          "expected_level": "报警",
+          "observed_levels": [
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "DB-03",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S6",
+      "scenario_name": "连续接近预警",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "points": [
+        "ZQS-06"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-06",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S7",
+      "scenario_name": "渗漏水关联",
+      "problem_category": "渗漏水与地下水异常",
+      "expected_level": "报警",
+      "points": [
+        "SW-01",
+        "DB-04"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "SW-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "DB-04",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S8",
+      "scenario_name": "支撑轴力异常",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "points": [
+        "ZL-02",
+        "ZL-03"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZL-02",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "ZL-03",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S9",
+      "scenario_name": "锚杆松弛",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "points": [
+        "MG-01",
+        "MG-02"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "MG-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "报警",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "MG-02",
+          "expected_level": "预警",
+          "observed_levels": [
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S10",
+      "scenario_name": "多点联动异常",
+      "problem_category": "支护失稳风险",
+      "expected_level": "预警",
+      "points": [
+        "ZQS-07",
+        "CX-03",
+        "ZL-04"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-07",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "CX-03",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "ZL-04",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S11",
+      "scenario_name": "位移不收敛",
+      "problem_category": "支护失稳风险",
+      "expected_level": "预警",
+      "points": [
+        "ZQS-08",
+        "CX-04"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-08",
+          "expected_level": "预警",
+          "observed_levels": [
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "CX-04",
+          "expected_level": "预警",
+          "observed_levels": [
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S12",
+      "scenario_name": "坑底隆起",
+      "problem_category": "支护失稳风险",
+      "expected_level": "报警",
+      "points": [
+        "KD-01",
+        "KD-02"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "KD-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "KD-02",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S13",
+      "scenario_name": "数据缺测",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "points": [
+        "ZQS-09"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-09",
+          "expected_level": "未知",
+          "observed_levels": [
+            "未知",
+            "正常"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [
+            "MISSING_VALUE"
+          ],
+          "observed_codes": [
+            "IRREGULAR_INTERVAL",
+            "MISSING_PREVIOUS",
+            "MISSING_VALUE"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S14",
+      "scenario_name": "粗差异常",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "points": [
+        "ZQS-10"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-10",
+          "expected_level": "未知",
+          "observed_levels": [
+            "未知",
+            "正常"
+          ],
+          "expected_blocked": true,
+          "observed_blocked": true,
+          "expected_codes": [
+            "OUTLIER"
+          ],
+          "observed_codes": [
+            "MISSING_PREVIOUS",
+            "OUTLIER"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S15",
+      "scenario_name": "单位与格式错误",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "points": [
+        "DB-05"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "DB-05",
+          "expected_level": "未知",
+          "observed_levels": [
+            "未知",
+            "正常"
+          ],
+          "expected_blocked": true,
+          "observed_blocked": true,
+          "expected_codes": [
+            "UNSUPPORTED_UNIT",
+            "NON_NUMERIC_VALUE",
+            "UNPARSED_TIMESTAMP"
+          ],
+          "observed_codes": [
+            "MISSING_PREVIOUS",
+            "NON_NUMERIC_VALUE",
+            "UNIT_INCONSISTENT",
+            "UNPARSED_TIMESTAMP",
+            "UNSUPPORTED_UNIT"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S16",
+      "scenario_name": "传感器漂移",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "points": [
+        "ZQS-12"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-12",
+          "expected_level": "未知",
+          "observed_levels": [
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": true,
+          "observed_blocked": true,
+          "expected_codes": [
+            "FLATLINE"
+          ],
+          "observed_codes": [
+            "FLATLINE",
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S17",
+      "scenario_name": "危险报警综合",
+      "problem_category": "危险报警",
+      "expected_level": "危险报警",
+      "points": [
+        "ZQS-13",
+        "SW-02",
+        "DB-06",
+        "ZL-05"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-13",
+          "expected_level": "危险报警",
+          "observed_levels": [
+            "危险报警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "SW-02",
+          "expected_level": "危险报警",
+          "observed_levels": [
+            "关注",
+            "危险报警",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "DB-06",
+          "expected_level": "危险报警",
+          "observed_levels": [
+            "关注",
+            "危险报警",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "ZL-05",
+          "expected_level": "危险报警",
+          "observed_levels": [
+            "关注",
+            "危险报警",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S18",
+      "scenario_name": "底板浇筑后速率超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "ZQS-14"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZQS-14",
+          "expected_level": "报警",
+          "observed_levels": [
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S19",
+      "scenario_name": "裂缝发展",
+      "problem_category": "裂缝发展",
+      "expected_level": "危险报警",
+      "points": [
+        "LF-01",
+        "LF-02"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "LF-01",
+          "expected_level": "危险报警",
+          "observed_levels": [
+            "关注",
+            "危险报警",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "LF-02",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S20",
+      "scenario_name": "建筑倾斜超限",
+      "problem_category": "变形过大",
+      "expected_level": "危险报警",
+      "points": [
+        "JQ-01",
+        "JQ-02"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "JQ-01",
+          "expected_level": "危险报警",
+          "observed_levels": [
+            "关注",
+            "危险报警",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "JQ-02",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S21",
+      "scenario_name": "管线与道路沉降",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "GX-01",
+        "DL-01"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "GX-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "DL-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S22",
+      "scenario_name": "土压力与内力超限",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "points": [
+        "TL-01",
+        "KX-01",
+        "QL-01"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "TL-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "KX-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "QL-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S23",
+      "scenario_name": "建筑沉降速率超限",
+      "problem_category": "变形过大",
+      "expected_level": "危险报警",
+      "points": [
+        "JZ-01",
+        "JZ-02"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "JZ-01",
+          "expected_level": "危险报警",
+          "observed_levels": [
+            "危险报警",
+            "未知",
+            "正常"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "JZ-02",
+          "expected_level": "预警",
+          "observed_levels": [
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S24",
+      "scenario_name": "顶部竖向位移超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "ZJS-01",
+        "ZJS-02",
+        "ZJS-03"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "ZJS-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "ZJS-02",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "ZJS-03",
+          "expected_level": "正常",
+          "observed_levels": [
+            "未知",
+            "正常"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S25",
+      "scenario_name": "地表裂缝发展",
+      "problem_category": "裂缝发展",
+      "expected_level": "报警",
+      "points": [
+        "DBLF-01",
+        "DBLF-02"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "DBLF-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "DBLF-02",
+          "expected_level": "预警",
+          "observed_levels": [
+            "关注",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S26",
+      "scenario_name": "管线水平位移超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "GXSP-01",
+        "GXSP-02",
+        "GXSP-03"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "GXSP-01",
+          "expected_level": "报警",
+          "observed_levels": [
+            "关注",
+            "报警",
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "GXSP-02",
+          "expected_level": "预警",
+          "observed_levels": [
+            "未知",
+            "正常",
+            "预警"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "GXSP-03",
+          "expected_level": "正常",
+          "observed_levels": [
+            "未知",
+            "正常"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    {
+      "scenario_id": "S27",
+      "scenario_name": "规范判据待补充",
+      "problem_category": "变形过大",
+      "expected_level": "未知",
+      "points": [
+        "LZNL-01",
+        "FCCJ-01",
+        "WD-01"
+      ],
+      "pass": true,
+      "details": [
+        {
+          "point_id": "LZNL-01",
+          "expected_level": "未知",
+          "observed_levels": [
+            "未知"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "FCCJ-01",
+          "expected_level": "未知",
+          "observed_levels": [
+            "未知"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        },
+        {
+          "point_id": "WD-01",
+          "expected_level": "未知",
+          "observed_levels": [
+            "未知"
+          ],
+          "expected_blocked": false,
+          "observed_blocked": false,
+          "expected_codes": [],
+          "observed_codes": [
+            "MISSING_PREVIOUS"
+          ],
+          "ok": true
+        }
+      ]
+    }
+  ],
+  "disclaimer": "全部为模拟/生成数据，与真实数据分开统计，不得用于真实工程判定。"
+}

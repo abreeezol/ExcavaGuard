@@ -1,0 +1,29 @@
+{
+  "purpose": "真实数据优先验证：用隧道多传感器数据集跑通三阶段流程",
+  "data_origin": "real（全部来自 sensors_public_dataset，未使用任何模拟数据）",
+  "source_dataset": "Zenodo 10.5281/zenodo.20768869 · sensors_public_dataset",
+  "thresholds_from": "data/label_thresholds.csv（真实阈值文件）",
+  "observations_from": "data/daily_aligned.csv（剔除 mask=0 与 filled=1）",
+  "records": 2868,
+  "group_A_no_user_standard": {
+    "effective_standard_origin": "default_library",
+    "by_risk_level": {
+      "未知": 2868
+    },
+    "abstain": {
+      "UNKNOWN_METRIC": 2868
+    }
+  },
+  "group_B_with_real_derived_user_standard": {
+    "effective_standard_origin": "user_uploaded",
+    "by_risk_level": {
+      "正常": 316,
+      "危险报警": 2016,
+      "预警": 259,
+      "关注": 113,
+      "报警": 164
+    },
+    "abstain": {}
+  },
+  "caveat": "label_thresholds.csv 的阈值是窗口级 95 分位统计量，而本脚本按逐日步长判定，二者粒度不同，B 组报警比例偏高属预期现象。该结论与基坑工程无关。"
+}

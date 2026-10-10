@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "excavaguard.daily_report_input/v1",
+  "title": "基坑智守 · 日报生成模块输入契约",
+  "description": "确定性计算层三阶段流水线向日报生成 Agent 交接的结构化中间结果。本层不生成日报文件，只保证该载荷完整、可追溯、可校验。字段只增不改；破坏性变更须升级 $id 版本号。",
+  "type": "object",
+  "required": [
+    "schema",
+    "contract",
+    "generated_from",
+    "project",
+    "context",
+    "standards_sources",
+    "data_quality",
+    "summary",
+    "alerts",
+    "review_queue",
+    "standard_override_warnings",
+    "items",
+    "disclaimer",
+    "note"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "excavaguard.daily_report_input/v1",
+      "description": "契约版本标识。消费方应据此选择解析逻辑。"
+    },
+    "contract": {
+      "type": "object",
+      "description": "契约自述，供消费方在运行期读取生产方声明。",
+      "required": ["producer", "consumer", "stability", "schema_file", "excludes"],
+      "additionalProperties": false,
+      "properties": {
+        "producer": { "type": "string" },
+        "consumer": { "type": "string" },
+        "stability": { "type": "string" },
+        "schema_file": { "type": "string" },
+        "excludes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "本层明确不提供的内容，日报 Agent 需自行生成。"
+        }
+      }
+    },
+    "generated_from": {
+      "type": "object",
+      "description": "数据来源的阶段链路，供日报标注口径。",
+      "required": ["stage1", "stage2", "stage3"],
+      "additionalProperties": false,
+      "properties": {
+        "stage1": { "type": "string" },
+        "stage2": { "type": "string" },
+        "stage3": { "type": "string" }
+      }
+    },
+    "project": {
+      "type": "object",
+      "description": "工程概况。字段由调用方注入；未注入时为 null，日报 Agent 需按缺失处理，不得臆造。",
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": ["string", "null"], "description": "工程名称。" },
+        "monitoring_unit": { "type": ["string", "null"], "description": "监测单位。" },
+        "report_date": { "type": ["string", "null"], "description": "报告日期（ISO 8601 日期或日期时间）。" },
+        "excavation_stage": { "type": ["string", "null"], "description": "施工工况/开挖阶段，对应日报「施工工况」栏。" },
+        "excavation_depth_m": { "type": ["number", "null"], "description": "当前开挖深度（m），用于相对 H 限值换算。" },
+        "safety_level": { "type": ["string", "null"], "description": "基坑安全等级（一级/二级/三级）。" },
+        "support_type": { "type": ["string", "null"], "description": "支护结构类型。" }
+      }
+    },
+    "context": {
+      "type": "object",
+      "description": "统计口径与生效阈值来源说明。",
+      "required": [
+        "real_records",
+        "simulated_records",
+        "records",
+        "effective_standard_origin",
+        "effective_standard_stage",
+        "real_is_primary",
+        "simulated_note"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "real_records": { "type": ["integer", "null"], "description": "真实数据记录数。" },
+        "simulated_records": { "type": ["integer", "null"], "description": "模拟数据记录数，与真实数据分开统计。" },
+        "records": { "type": ["integer", "null"], "description": "记录总数。" },
+        "effective_standard_origin": {
+          "enum": ["default_library", "user_uploaded", null],
+          "description": "本次判定实际生效的阈值来源：默认规范库 / 用户上传。"
+        },
+        "effective_standard_stage": {
+          "const": "阶段三 · 规范比对",
+          "description": "阈值生效所处阶段。"
+        },
+        "real_is_primary": {
+          "const": true,
+          "description": "真实数据为判定主依据；模拟数据不替代真实数据。"
+        },
+        "simulated_note": { "type": "string" }
+      }
+    },
+    "standards_sources": {
+      "type": "array",
+      "description": "本次实际加载的规范来源清单。",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "data_quality": {
+      "type": "object",
+      "description": "阶段一数据质量扫描结果，供日报「数据质量说明」栏。",
+      "required": ["issue_count", "by_code", "blocked_records"],
+      "additionalProperties": false,
+      "properties": {
+        "issue_count": { "type": ["integer", "null"] },
+        "by_code": {
+          "type": "object",
+          "description": "按问题码计数，如 MISSING_VALUE / OUTLIER / FLATLINE 等。",
+          "additionalProperties": { "type": "integer" }
+        },
+        "blocked_records": {
+          "type": ["integer", "null"],
+          "description": "因高严重度质量问题被阻塞、不参与风险判定的期次数。"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "description": "整体汇总，供日报「结论概述」栏。",
+      "required": ["total", "by_risk_level", "by_problem_category", "by_data_origin", "abstain", "overall_risk_level"],
+      "additionalProperties": false,
+      "properties": {
+        "total": { "type": ["integer", "null"] },
+        "by_risk_level": {
+          "type": "object",
+          "description": "按风险等级计数，键取自：正常/关注/预警/报警/危险报警/未知。",
+          "additionalProperties": { "type": "integer" }
+        },
+        "by_problem_category": {
+          "type": "object",
+          "description": "按问题类别计数，如变形过大、渗漏水、支护受力异常、数据质量异常。",
+          "additionalProperties": { "type": "integer" }
+        },
+        "by_data_origin": {
+          "type": "object",
+          "description": "按数据来源计数（real / simulated），两者分开统计。",
+          "additionalProperties": { "type": "integer" }
+        },
+        "abstain": {
+          "type": "object",
+          "description": "按弃权码计数。",
+          "additionalProperties": { "type": "integer" }
+        },
+        "overall_risk_level": {
+          "type": ["string", "null"],
+          "description": "整体风险等级（取最严重者）。"
+        }
+      }
+    },
+    "alerts": {
+      "type": "array",
+      "description": "报警及以上条目（报警 / 危险报警），供日报「报警清单」「建议措施」章节直接引用。",
+      "items": { "$ref": "#/$defs/item" }
+    },
+    "review_queue": {
+      "type": "array",
+      "description": "需人工复核的条目（含弃权码），供日报「待复核事项」章节。",
+      "items": { "$ref": "#/$defs/item" }
+    },
+    "standard_override_warnings": {
+      "type": "array",
+      "description": "用户上传规范中比默认规范更宽松的阈值。日报必须显著提示，并注明默认值的规范名称与条文号。",
+      "items": {
+        "type": "object",
+        "required": ["point_id", "metric_key", "metric_name", "effective_standard", "differences"],
+        "additionalProperties": false,
+        "properties": {
+          "point_id": { "type": ["string", "null"] },
+          "metric_key": { "type": "string" },
+          "metric_name": { "type": "string" },
+          "effective_standard": { "type": "object", "additionalProperties": true },
+          "differences": {
+            "type": "array",
+            "description": "逐项差异，含 field / user_value / default_value / delta_pct / severity / default_evidence。",
+            "items": { "type": "object", "additionalProperties": true }
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "description": "逐条判定明细，供日报生成逐测点成果表。",
+      "items": { "$ref": "#/$defs/item" }
+    },
+    "disclaimer": {
+      "type": "string",
+      "description": "免责与使用边界声明，日报中应原样体现或等价转述。"
+    },
+    "note": { "type": "string" }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "description": "单条判定明细。判定字段来自阶段三，计算字段来自阶段二。",
+      "required": [
+        "point_id",
+        "point_name",
+        "point_type",
+        "metric_key",
+        "metric_name",
+        "timestamp",
+        "data_origin",
+        "baseline",
+        "previous",
+        "current",
+        "interval_days",
+        "cumulative",
+        "single_change",
+        "rate",
+        "slope",
+        "problem_category",
+        "risk_level",
+        "utilization",
+        "checks",
+        "effective_standard",
+        "rule_id",
+        "evidence",
+        "abstain",
+        "abstain_reasons",
+        "flags",
+        "needs_review"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "point_id": { "type": ["string", "null"], "description": "测点编号。" },
+        "point_name": { "type": ["string", "null"], "description": "测点名称；未注入测点台账时为 null。" },
+        "point_type": { "type": ["string", "null"], "description": "测点类型；未注入时为 null。" },
+        "metric_key": { "type": "string", "description": "监测项键名。" },
+        "metric_name": { "type": "string", "description": "监测项中文名称，取自规范库 display_name。" },
+        "timestamp": { "type": ["string", "null"], "description": "本期观测时间。" },
+        "data_origin": {
+          "enum": ["real", "simulated"],
+          "description": "数据来源标识。simulated 表示模拟数据，日报中须显著标注。"
+        },
+        "baseline": { "type": ["number", "null"], "description": "初始值/基准值。" },
+        "previous": { "type": ["number", "null"], "description": "上次观测值。" },
+        "current": { "type": ["number", "null"], "description": "本次观测值。" },
+        "interval_days": { "type": ["number", "null"], "description": "本次与上次的间隔天数。" },
+        "cumulative": { "type": ["number", "null"], "description": "累计值 = current − baseline。" },
+        "single_change": { "type": ["number", "null"], "description": "本次变化量 = current − previous。" },
+        "rate": { "type": ["number", "null"], "description": "变化速率（单位/天）。" },
+        "slope": { "type": ["number", "null"], "description": "最小二乘趋势斜率，用于判断加速/匀速/收敛。" },
+        "problem_category": {
+          "type": "string",
+          "description": "问题类别：变形过大 / 渗漏水 / 支护受力异常 / 数据质量异常 / 其他。"
+        },
+        "risk_level": {
+          "enum": ["正常", "关注", "预警", "报警", "危险报警", "未知"],
+          "description": "风险等级。未知表示弃权，须转人工复核，不得作为正常处理。"
+        },
+        "utilization": { "type": ["number", "null"], "description": "利用率 = 实测/限值，取各校核项最大值。" },
+        "checks": {
+          "type": "array",
+          "description": "逐项校核明细（累计值、变化速率、设计值比例、倾斜、危险报警条件等），每项含 value/limit/limit_basis/utilization/verdict。",
+          "items": { "type": "object", "additionalProperties": true }
+        },
+        "effective_standard": {
+          "type": "object",
+          "description": "本条实际生效的阈值来源，含 origin/origin_display/source_id/source_label/rule_id/overridden_fields。",
+          "additionalProperties": true
+        },
+        "rule_id": { "type": ["string", "null"], "description": "命中的规范规则编号。" },
+        "evidence": {
+          "type": "object",
+          "description": "判据依据，含 standard/clause/note，日报引用时应保留规范号与条文号。",
+          "additionalProperties": true
+        },
+        "abstain": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "弃权码，如 MISSING_CURRENT / NO_LIMIT / DATA_QUALITY_BLOCKED 等。非空即表示本条未得出结论。"
+        },
+        "abstain_reasons": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "弃权码对应的中文说明。"
+        },
+        "flags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "过程标记，如 NON_CONVERGENT（变形加速）、POST_SLAB_RATE_REDUCED（后浇带降速）等。"
+        },
+        "needs_review": {
+          "type": "boolean",
+          "description": "是否需要人工复核（等于 abstain 非空）。"
+        }
+      }
+    }
+  }
+}

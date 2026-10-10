@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "stage": 3,
+  "stage_name": "project_specific",
+  "source_id": "EXAMPLE-PRJ-PLAN-001",
+  "source_label": "【示例】某某项目基坑监测专项方案（经审批）",
+  "source_type": "project_plan",
+  "applies_to": {
+    "project_id": "EXAMPLE-PRJ-001",
+    "region": "示例地区"
+  },
+  "note": "本文件为示例，文件名以 .example.json 结尾，系统加载时会跳过。复制并重命名为 *.json 后生效。阶段3 优先级最高，覆盖阶段2 与阶段1。",
+
+  "selection_policy": {
+    "range_resolution": "conservative"
+  },
+
+  "metrics": {
+    "wall_top_horizontal_displacement": {
+      "rules": [
+        {
+          "rule_id": "WTHD-L1-PILE",
+          "safety_level": ["一级"],
+          "support_type": ["地下连续墙"],
+          "cumulative_mm": 25,
+          "rate_mm_per_day": 2,
+          "evidence": {
+            "standard": "【示例】某某项目基坑监测专项方案",
+            "clause": "第 5.3 条",
+            "note": "设计方明确：本项目一级基坑、地下连续墙，墙顶水平位移控制值 25mm，速率 2mm/d"
+          }
+        }
+      ]
+    },
+
+    "support_axial_force": {
+      "rules": [
+        {
+          "rule_id": "SAF-L1",
+          "safety_level": ["一级"],
+          "support_type": "any",
+          "max_ratio_of_design": 0.65,
+          "evidence": {
+            "standard": "【示例】某某项目基坑监测专项方案",
+            "clause": "第 5.5 条",
+            "note": "第一道支撑轴力控制值取构件承载能力设计值的 65%"
+          }
+        }
+      ]
+    },
+
+    "deep_horizontal_displacement": {
+      "rules": [
+        {
+          "rule_id": "DHD-L1-PILE",
+          "safety_level": ["一级"],
+          "support_type": ["灌注桩", "地下连续墙"],
+          "cumulative_mm": 35,
+          "rate_mm_per_day": 2,
+          "evidence": {
+            "standard": "【示例】某某项目基坑监测专项方案",
+            "clause": "第 5.4 条",
+            "note": "GB 50497 表 8.0.4 未给出该项速率值，由专项方案补充"
+          }
+        }
+      ]
+    }
+  },
+
+  "danger_alarm_conditions": [
+    {
+      "code": "DANGER-PRJ-1",
+      "condition": "【示例】本项目设计方提出的其他危险报警情况",
+      "evidence": {
+        "standard": "【示例】某某项目基坑监测专项方案",
+        "clause": "第 6.2 条",
+        "mandatory": true
+      }
+    }
+  ]
+}

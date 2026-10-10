@@ -1,0 +1,322 @@
+{
+  "source": "EXCAV_CLAY_15_2830.xlsx / sheet=Parameters",
+  "rows": 2830,
+  "cols": 26,
+  "site_count": 332,
+  "country_counts": {
+    "Taiwan": 2568,
+    "China": 132,
+    "Singapore": 42,
+    "UK": 30,
+    "USA": 11,
+    "Japan": 9,
+    "Thailand": 8,
+    "Hongkong": 7,
+    "Indonesia": 5,
+    "Italy": 3,
+    "Japan ": 3,
+    "Brazil": 2,
+    "Germany": 2,
+    "Norway": 1,
+    "Canada": 1
+  },
+  "construction_type_counts": {
+    "BU": 2200,
+    "TD": 630
+  },
+  "retaining_wall_counts": {
+    "DW": 2703,
+    "SP": 81,
+    "CPW": 43,
+    "SPW": 3
+  },
+  "cmm_counts": {
+    "NR": 1902,
+    "CW": 466,
+    "BW": 390,
+    "GI": 72
+  },
+  "profiles": {
+    "He_m_excavation_depth": {
+      "n": 2830,
+      "missing": 0,
+      "min": 0.6,
+      "max": 38.0,
+      "mean": 9.575,
+      "q5": 1.973,
+      "q25": 4.7,
+      "q50": 8.8,
+      "q75": 13.3,
+      "q90": 18.21,
+      "q95": 21.0,
+      "q99": 26.484
+    },
+    "B_m_excavation_width": {
+      "n": 2782,
+      "missing": 48,
+      "min": 4.6,
+      "max": 200.0,
+      "mean": 39.524,
+      "q5": 14.3,
+      "q25": 22.0,
+      "q50": 35.0,
+      "q75": 47.6,
+      "q90": 73.0,
+      "q95": 88.5,
+      "q99": 120.0
+    },
+    "dhm_mid_mm_max_lateral_wall_displacement": {
+      "n": 2748,
+      "missing": 82,
+      "min": 0.213,
+      "max": 217.5,
+      "mean": 25.544,
+      "q5": 2.472,
+      "q25": 7.407,
+      "q50": 16.313,
+      "q75": 34.005,
+      "q90": 60.869,
+      "q95": 80.78,
+      "q99": 128.849
+    },
+    "zm_m_depth_of_max_displacement": {
+      "n": 2407,
+      "missing": 423,
+      "min": 0.1,
+      "max": 32.2,
+      "mean": 10.2,
+      "q5": 0.1,
+      "q25": 6.0,
+      "q50": 11.0,
+      "q75": 15.0,
+      "q90": 18.0,
+      "q95": 20.0,
+      "q99": 24.0
+    },
+    "su_sv_normalized_undrained_shear": {
+      "n": 2362,
+      "missing": 468,
+      "min": 0.15,
+      "max": 0.58,
+      "mean": 0.264,
+      "q5": 0.189,
+      "q25": 0.227,
+      "q50": 0.256,
+      "q75": 0.301,
+      "q90": 0.322,
+      "q95": 0.347,
+      "q99": 0.359
+    },
+    "SPT_N": {
+      "n": 2416,
+      "missing": 414,
+      "min": 1.0,
+      "max": 35.696,
+      "mean": 6.707,
+      "q5": 3.0,
+      "q25": 4.3,
+      "q50": 5.528,
+      "q75": 8.0,
+      "q90": 10.67,
+      "q95": 14.0,
+      "q99": 22.5
+    },
+    "R_relative_stiffness_ratio": {
+      "n": 2155,
+      "missing": 675,
+      "min": 0.0,
+      "max": 1358.254,
+      "mean": 189.731,
+      "q5": 19.257,
+      "q25": 57.291,
+      "q50": 153.085,
+      "q75": 249.85,
+      "q90": 390.462,
+      "q95": 510.035,
+      "q99": 941.108
+    },
+    "IF_influence_factor": {
+      "n": 2478,
+      "missing": 352,
+      "min": 0.015,
+      "max": 20608.944,
+      "mean": 248.519,
+      "q5": 0.519,
+      "q25": 3.775,
+      "q50": 13.331,
+      "q75": 93.457,
+      "q90": 442.249,
+      "q95": 1112.01,
+      "q99": 4016.063
+    }
+  },
+  "missing_per_col": {
+    "No": 0,
+    "Year": 89,
+    "Site": 0,
+    "Country": 0,
+    "Reference": 0,
+    "Case name": 104,
+    "Construction type": 0,
+    "RW": 0,
+    "CMM": 0,
+    "Inclinometer": 101,
+    "Inclinometer number": 23,
+    "He (m)": 0,
+    "B (m)": 48,
+    "su/sv'": 468,
+    "N": 414,
+    "SDW": 360,
+    "SST (kN/m2)": 333,
+    "K (kN/m3)": 85,
+    "IF": 352,
+    "R": 675,
+    "zm (m)": 423,
+    "dhm,mid (mm)": 82,
+    "Unnamed: 22": 1576,
+    "Unnamed: 23": 1551,
+    "Unnamed: 24": 1827,
+    "Unnamed: 25": 1840
+  },
+  "delta_hm_over_He_percent": {
+    "n": 2748,
+    "min": 0.0069,
+    "max": 3.5157,
+    "mean": 0.2992,
+    "q5": 0.048,
+    "q25": 0.114,
+    "q50": 0.2014,
+    "q75": 0.3493,
+    "q90": 0.6253,
+    "q95": 0.8962,
+    "q99": 1.7735
+  },
+  "ratio_by_country": [
+    {
+      "Country": "Austria",
+      "n": 1,
+      "median": 0.1042,
+      "q90": 0.1042
+    },
+    {
+      "Country": "Brazil",
+      "n": 2,
+      "median": 0.1307,
+      "q90": 0.1595
+    },
+    {
+      "Country": "Canada",
+      "n": 1,
+      "median": 0.0853,
+      "q90": 0.0853
+    },
+    {
+      "Country": "China",
+      "n": 123,
+      "median": 0.2181,
+      "q90": 0.6693
+    },
+    {
+      "Country": "Egypt",
+      "n": 1,
+      "median": 0.15,
+      "q90": 0.15
+    },
+    {
+      "Country": "France",
+      "n": 1,
+      "median": 0.175,
+      "q90": 0.175
+    },
+    {
+      "Country": "Germany",
+      "n": 2,
+      "median": 0.1296,
+      "q90": 0.2083
+    },
+    {
+      "Country": "Hongkong",
+      "n": 7,
+      "median": 0.2333,
+      "q90": 0.2592
+    },
+    {
+      "Country": "Indonesia",
+      "n": 4,
+      "median": 0.0725,
+      "q90": 0.0855
+    },
+    {
+      "Country": "Italy",
+      "n": 3,
+      "median": 1.4333,
+      "q90": 1.4467
+    },
+    {
+      "Country": "Japan",
+      "n": 9,
+      "median": 0.4705,
+      "q90": 1.0348
+    },
+    {
+      "Country": "Japan ",
+      "n": 3,
+      "median": 1.275,
+      "q90": 1.8368
+    },
+    {
+      "Country": "Norway",
+      "n": 1,
+      "median": 0.7143,
+      "q90": 0.7143
+    },
+    {
+      "Country": "Portugal",
+      "n": 1,
+      "median": 0.33,
+      "q90": 0.33
+    },
+    {
+      "Country": "Singapore",
+      "n": 42,
+      "median": 0.1478,
+      "q90": 0.3695
+    },
+    {
+      "Country": "South Africa",
+      "n": 1,
+      "median": 0.0984,
+      "q90": 0.0984
+    },
+    {
+      "Country": "Switzerland",
+      "n": 1,
+      "median": 0.1176,
+      "q90": 0.1176
+    },
+    {
+      "Country": "Taiwan",
+      "n": 2496,
+      "median": 0.1987,
+      "q90": 0.5919
+    },
+    {
+      "Country": "Thailand",
+      "n": 8,
+      "median": 0.1642,
+      "q90": 0.6993
+    },
+    {
+      "Country": "UK",
+      "n": 30,
+      "median": 0.5102,
+      "q90": 1.8352
+    },
+    {
+      "Country": "USA",
+      "n": 11,
+      "median": 1.4553,
+      "q90": 2.2968
+    }
+  ]
+}

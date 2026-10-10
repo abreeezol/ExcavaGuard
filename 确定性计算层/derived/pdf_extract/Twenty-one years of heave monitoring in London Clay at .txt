@@ -1,0 +1,199 @@
+file: 地下室粘土隆起监测/Twenty-one years of heave monitoring in London Clay at .pdf
+pages_total: 12
+
+----- page 1 -----
+ 
+ 
+Twenty-one years of heave monitoring in London Clay at 
+Horseferry Road Basement 
+ 
+Deryck Chan & Gopal Madabhushi, University of Cambridge 
+Duncan Nicholson & Tim Chapman, Arup 
+Sergio Solera, Mott MacDonald 
+Abstract 
+An 11 m-deep basement structure in London SW1 was left vacant from 1968 to 1989. The basement 
+heaved significantly during this period due to the lack of a sup erstructure, providing a unique 
+opportunity to study the development of long-term heave in London Clay. May (1975) presented the 
+monitoring results from 1968 -73 and e xcerpts of site data  collected after 1973  have also been 
+circulating informally in the industry since the 1990s.  However, the full set of monitoring data remains 
+hitherto unpublished.   
+This paper was initially drafted in the ear ly 1990s wh en three of the authors (Nicholson, Chapman, 
+and Solera) were working together with Arup.  The paper somehow never got published as people and 
+circumstances changed.  More recently , the first author (Chan) started postgraduate research on 
+heave and pressure beneath slabs in excavations  in over-consolidated clays, using the heave 
+monitoring data from the draft paper to complement centrifuge test results.   For this reason, it was 
+decided that the draft paper should be revised and published for the benefit of the wider industry. 
+This paper provides a comprehensive case history of the site, publishing further heave data to June 
+1989, giving a total of 21 years of heave monitoring. Further site investigation data and calculations 
+are included for compa rison. The data show that the presence of a basement did not significantly 
+reduce the shear strength of the clay beneath it. The coefficient of consolidation of the clay was 38 – 
+52 m²/year and long-term heave was still ongoing 21 years after the end of excavation. 
+Introduction 
+A basement was constructed at 124 Horseferry Road, London SW1 in 1966 -68, originally as part of a 
+new sorting office for the Post Office. The average depth from ground level to the bottom of the base 
+slab was 11 m.  Due to planning di fficulties, construction  work stopped after completion of the 
+basement to ground floor level in May 1968 , and the associated superstructure was never built . The 
+site was left largely vacant until redevelopment of the site started in 1989. Following the ins olvency 
+of the first developer, the Channel 4 Television Company completed the scheme to provide a building 
+for their new headquarters. 
+The hea
+----- page 2 -----
+ 
+ 
+Date Event 
+1746 Maps show that the site was covered by orchards. 
+1851 Wesleyan Training College (later known as Methodist Training College) was  
+founded on the site. 
+1862-1938 Maps and aerial photographs produced in this period show very little change 
+to the site  during this period . Prominent buildings included a large masonry 
+church, and several four and five storey residential and office buildings 
+arranged in quadrangles with a seven-storey tower on the centre block. 
+1944 The site suffered from extensive bomb damage. 
+c. 1959 Start of demolition of Methodist Training College to make way for Post Office 
+basement 
+1962 Site investigation carried out across the site 
+June 1966 Start of construction of Post Office basement 
+Sept 1967 Start of settlement and heave monitoring 
+Nov 1967 Completion of excavation 
+May 1968 Construction is stopped after completion of basement to ground level 
+1984 Aerial photographs show the site being used as a surface level car park 
+1988 Declan Kelly proposes to redevelop the site into a residential complex 
+Feb 1989 Site investigation carried out across the site 
+May 1989 Demolition of ground and lower ground floors of basement 
+June 1989 Final survey of heave before reconstruction of basement 
+1990 Declan Kelly becomes insolvent; Channel 4 Television Company takes over the 
+development 
+July 1994 Completion and opening of Channel 4 development, which includes 100  
+apartments and a new Channel 4 headquarters. 
+Table 1: Significant events in the history of the site at 124 Horseferry Road, London SW1 
+The structure 
+The site is approximately 70  m x 90 m in plan (see Figure 1) and the ground level is at +5 mOD. The 
+original design of the structure was for a 20-storey high steel framed-tower with a four-storey high 
+surrounding podium  and a two -level basement with vehicular access.  The construction was 
+terminated at ground level due to planning difficulties. 
+There were two levels of insitu concrete basement over a concrete raft. The top of the raft was at -5.9 
+mOD (10.9 m below ground level) and the raft was  generally 1.2 m thick, thickened to 1.8  m in the 
+centre (beneath the proposed tower block) and reduced to 0.9 m around the perimeter (see Figure 2 
+and Figure 7).  The raft was constructed from the centre outwards, and provided support for internal 
+raking temporary props to the diaphragm wall during excavation, which was initially supported by an 
+earth berm and later by the raking props.  The excav
+----- page 3 -----
+ 
+ 
+Site Investigation 
+Two site investigations we re carried out, the first in 196 2 before construction of the basement and 
+the second one in 1989, about 21 years after completion of the basement structure. The locations of 
+boreholes referred to in the text are shown in Figure 1.  Figure 2 shows the stratigraphy superimposed 
+on an east -west section through the basement. Although the excavation had slabs at three levels 
+(May, 1975), in Figure 2 only the basement slab is shown for clarity. 
+ 
+----- page 4 -----
+ 
+ 
+ 
+Figure 1: Site plan with locations of boreholes, survey points, and approximate depth contours of top of London Clay 
+  
+
+----- page 5 -----
+ 
+ 
+ 
+Figure 2: Indicative cross-section A-A (see Figure 1 for location) through basement, scale as shown 
+ 
+Figure 3: Structural details, following May (1975), not to scale 
+The geological map of the area (Geological Survey of England and Wales, Sheets TQ 27 SE, TQ 27 NE, 
+1973) shows a scour hollow to lie partially beneath  the site. The origin and frequency  of the scour 
+hollows in London are discussed by Berry (1979). Contour of the surface of the London Clay as revealed 
+by the site investigation are shown in  Figure 1 and show the holl ow to be about 10 m deep. The 
+standard penetration test (SPT) shows that the Flood Plain Gravel towards the base of the hollow are 
+loose to medium dense. 
+Groundwater levels during the 1962 site investigation (pre -construction) and 1989 site investigation 
+(21 years after construction) are indicated on Figure 2.  The 1989 groundwater level in the Flood Plain 
+Gravel outside the site was found to be at about -2 mOD, some 4 m above the lowest floor level of the 
+basement and similar to May’s prediction of -2.5 mOD. Inside the basement, a bleed test performed 
+during the 1989 site investigation showed that the ground water level before bleeding was at -2.5 
+mOD, similar to the external ground water level. The recovery of the water pressure after bleeding 
+was very slo w. These results show that the diaphragm wall was a reasonably effective cut -off to 
+
+----- page 6 -----
+ 
+ 
+seepage flow, though sufficient time had passed since the basement’s construction for ground water 
+equilibrium to re-establish under the slab.  It should be pointed out that  this paper did not consider 
+the global changes in water table in London. 
+The piezometric profile in 1989 ( Figure 4) shows a near-hydrostatic distribution through most of the 
+London Clay, followed by a sharp drop in head through the top of the Lambeth Group. The drop shows 
+drainage into the lower aquifer and suggests that the Lambeth Group clay may have a lower vertical 
+permeability than the London Clay locally.  This finding is concordant with piezometric observations 
+from nearby sites by Simpson et al (1989) and Nicholson & Harris (1994). 
+ 
+Figure 4: Piezometric profile from 1989 site investigation 
+Figure 5 plots the u ndrained shear strength results from boreholes both outside the basement and 
+inside the basement  alongside results from a site investigation in 1962 . The 1962 strength data 
+appears to be  from undisturbed sample testing while the 1989 strength data is based on 
+unconsolidated undrained triaxial tests on 102 mm-diameter samples. The 1989 site investigation also 
+included SPT borings ; this is reproduced in the Supplementary Data for completene ss. The results 
+outside the basement were from 1962 and 1989 while those inside the basement were only from 
+1989, some 21 years after the excavation of the basement.  
+A two-sample heteroscedastic t -test (Welch, 1947) was performed on undrained shear strength 
+results at depths between -8 mOD and -18 mOD, to see whether the samples under the basement in 
+1989 were significantly weaker than the samples from 1962.  This method involves  calculating the 
+mean and standard deviation of each set of strength measurements, then using the t -distribution to 
+establish if the means of the two sets of data are different from each other in a statistically significant 
+
+----- page 7 -----
+ 
+ 
+way. The results showed that the difference in strength profile between samples under the excavation 
+and samples from 1962 was not statistically significant (Table 2).  A similar analysis using the SPT values 
+also showed that the results a re not  statistically significant.  Nevertheless, it is noted that the  
+recommendation by Padfield & Mair (1984)  of 20% reduction in  undrained shear strengths beneath 
+an excavation is within the 95% confidence interval of the 1962 strength profile, which means the 
+scatter of data at this site was too broad to confirm or disprove the 20% recommendation with 
+statistical confidence . The dataset and calculations in this statistical analysis are available in the 
+Supplementary Data. 
+ 
+Figure 5: Undrained shear strength in London Clay 
+ 
+ Samples from 1962 Samples from 1989 
+Location -8 to -18 mOD -8 to -18 mOD, under basement 
+Number of samples 13 37 
+Mean (kPa) 131.3 123.3 
+Standard deviation (kPa) 50.5 39.9 
+p-value (t-test, 1-tail) 0.31 (not significant) 
+Table 2: Summary of statistical test on strength data 
+ 
+ 
+Observations of heave 
+Twelve survey stations were installed into the basement structure at the time when it was 
+constructed.  A temporary benchmark was established at the lift shaft in the form of a steel bolt 
+screwed to the inner wall of the central lift shaft,  which in turn was surveyed from a benchmark 
+located beneath a stopcock cover on Monck Street, 50 m east of the boundary of the site.  The eleven 
+
+----- page 8 -----
+ 
+ 
+other survey stations were in the form of rounded brass studs located within the bases of selected 
+columns and concealed beneath steel covers.  Figure 7 shows the locations of the survey stations. 
+Monitoring of settlement and heave began in September 1967.  Measurements were taken multiple 
+times a year until 1977, and then in May 1978 and November 1980.  Arup undertook two more surveys 
+in February 1989 and June 1989. The full set of monitoring data from 1967 to 1989 can be found in 
+the Supplementary Data .  Inevitably, some heave would have occurred between the star t of 
+excavation in June 1966 and the start of monitoring.  The monitoring data showed negligible vertical 
+movement between September 1967 and March 1968. May (1975) gave the following possible 
+explanations for this: 
+1. As substructure construction progressed, the s ettlement due to  the increase of structural 
+weight offset the heave due to earlier excavation. 
+2. There might have been an error in the September 1967 datum measurement. 
+Noting that construction ceased around the time of the March 1968 survey, the remain der of this 
+paper will take March 1968 as the datum of further analysis.  
+Figure 6 shows the development of heave with time from 1968 to 1989, when monitoring ceased. The 
+locations of the survey points referred to on these figures are given on Figure 1. Figure 7 shows that 
+as of 1989, the heave at the centre of the base slab was about 105 mm, whereas the edges of the slab 
+heaved less than 70 mm over 21 years. This difference reflects the effects of t he diaphragm wall 
+around the perimeter of the basement. 
+The solid lines on Figure 6 show that the development of heave with time was generally consistent 
+with one -dimensional consolidation theory. By 1989, the evolution of heave had reached the 
+exponential decay phase but heave was still noticeable.  It is estimated that long -term heave at the 
+centre of the slab would reach 110 mm if the Channel 4 building was never built. 
+ 

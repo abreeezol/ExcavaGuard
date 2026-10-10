@@ -1,0 +1,703 @@
+{
+  "schema_version": "1.0",
+  "stage": 1,
+  "stage_name": "generic_default",
+  "stage_display": "第一阶段 · 通用默认阈值",
+  "source_id": "GB50497-2019",
+  "source_label": "GB 50497-2019《建筑基坑工程监测技术标准》",
+  "source_type": "national_standard",
+  "builtin": true,
+  "description": "内置通用默认阈值，作为基础能力。所有数值均取自 GB 50497-2019 表8.0.4 / 表8.0.5，可被阶段2、阶段3导入文件按 metric_key 粒度覆盖。",
+
+  "selection_policy": {
+    "range_resolution": "conservative",
+    "range_resolution_display": "区间取严（取区间下限，即较严格值）",
+    "range_resolution_options": ["conservative", "lenient", "midpoint"],
+    "note": "GB 50497-2019 表 8.0.4 给出的是供设计方选择的区间。确定性系统必须取确定值，本配置默认取区间下限（偏安全）。可通过导入文件修改 range_resolution。"
+  },
+
+  "cumulative_limit_policy": {
+    "rule": "min_of_absolute_and_pct_H",
+    "rule_display": "累计值取「绝对量限值」与「相对基坑设计深度 H 的限值」两者的较小值",
+    "evidence": "GB 50497-2019 表 8.0.4 注",
+    "when_H_unknown": "use_absolute_and_flag",
+    "when_H_unknown_display": "H 未知时退化为绝对量限值，并在结果中标记 PCT_H_NOT_EVALUATED"
+  },
+
+  "rate_alarm_policy": {
+    "rule": "达到规定值 或 连续3次超过该值的70%",
+    "evidence": "GB 50497-2019 第 8.0.3 条 / 表 8.0.4 注",
+    "consecutive_ratio": 0.7,
+    "consecutive_count": 3
+  },
+
+  "post_slab_policy": {
+    "rule": "底板浇筑完成后，位移变化速率不宜超过表中速率预警值的 70%",
+    "evidence": "GB 50497-2019 表 8.0.4 注",
+    "rate_factor_after_slab": 0.7
+  },
+
+  "metrics": {
+    "wall_top_horizontal_displacement": {
+      "display_name": "围护墙（边坡）顶部水平位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "WTHD-L1-PILE",
+          "safety_level": ["一级"],
+          "support_type": ["灌注桩", "地下连续墙", "钢板桩", "型钢水泥土墙"],
+          "cumulative_mm": { "min": 20, "max": 30 },
+          "cumulative_pct_H": { "min": 0.2, "max": 0.3 },
+          "rate_mm_per_day": { "min": 2, "max": 3 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4", "note": "灌注桩、地下连续墙、钢板桩、型钢水泥土墙" }
+        },
+        {
+          "rule_id": "WTHD-L1-SOILNAIL",
+          "safety_level": ["一级"],
+          "support_type": ["土钉墙", "复合土钉墙", "喷锚支护", "水泥土墙"],
+          "cumulative_mm": { "min": 30, "max": 40 },
+          "cumulative_pct_H": { "min": 0.3, "max": 0.4 },
+          "rate_mm_per_day": { "min": 3, "max": 5 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4", "note": "土钉墙、复合土钉墙、喷锚支护、水泥土墙" }
+        },
+        {
+          "rule_id": "WTHD-L2-PILE",
+          "safety_level": ["二级"],
+          "support_type": ["灌注桩", "地下连续墙", "钢板桩", "型钢水泥土墙"],
+          "cumulative_mm": { "min": 30, "max": 40 },
+          "cumulative_pct_H": { "min": 0.3, "max": 0.5 },
+          "rate_mm_per_day": { "min": 2, "max": 4 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "WTHD-L2-SOILNAIL",
+          "safety_level": ["二级"],
+          "support_type": ["土钉墙", "复合土钉墙", "喷锚支护", "水泥土墙"],
+          "cumulative_mm": { "min": 40, "max": 50 },
+          "cumulative_pct_H": { "min": 0.5, "max": 0.8 },
+          "rate_mm_per_day": { "min": 4, "max": 5 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "WTHD-L3-PILE",
+          "safety_level": ["三级"],
+          "support_type": ["灌注桩", "地下连续墙", "钢板桩", "型钢水泥土墙"],
+          "cumulative_mm": { "min": 40, "max": 60 },
+          "cumulative_pct_H": { "min": 0.6, "max": 0.8 },
+          "rate_mm_per_day": { "min": 3, "max": 5 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "WTHD-L3-SOILNAIL",
+          "safety_level": ["三级"],
+          "support_type": ["土钉墙", "复合土钉墙", "喷锚支护", "水泥土墙"],
+          "cumulative_mm": { "min": 50, "max": 60 },
+          "cumulative_pct_H": { "min": 0.7, "max": 1.0 },
+          "rate_mm_per_day": { "min": 5, "max": 6 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        }
+      ]
+    },
+
+    "wall_top_vertical_displacement": {
+      "display_name": "围护墙（边坡）顶部竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "WTVD-L1-PILE",
+          "safety_level": ["一级"],
+          "support_type": ["灌注桩", "地下连续墙", "钢板桩"],
+          "cumulative_mm": { "min": 10, "max": 20 },
+          "cumulative_pct_H": { "min": 0.1, "max": 0.2 },
+          "rate_mm_per_day": { "min": 2, "max": 3 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "WTVD-L1-CEMENT",
+          "safety_level": ["一级"],
+          "support_type": ["水泥土墙", "型钢水泥土墙"],
+          "cumulative_mm": { "min": 30, "max": 40 },
+          "cumulative_pct_H": { "min": 0.6, "max": 0.8 },
+          "rate_mm_per_day": { "min": 3, "max": 4 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "WTVD-L2-PILE",
+          "safety_level": ["二级"],
+          "support_type": ["灌注桩", "地下连续墙", "钢板桩"],
+          "cumulative_mm": { "min": 20, "max": 30 },
+          "cumulative_pct_H": { "min": 0.3, "max": 0.5 },
+          "rate_mm_per_day": { "min": 2, "max": 3 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "WTVD-L2-CEMENT",
+          "safety_level": ["二级"],
+          "support_type": ["水泥土墙", "型钢水泥土墙"],
+          "cumulative_mm": { "min": 40, "max": 60 },
+          "cumulative_pct_H": { "min": 0.8, "max": 1.0 },
+          "rate_mm_per_day": { "min": 4, "max": 5 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "WTVD-L3-PILE",
+          "safety_level": ["三级"],
+          "support_type": ["灌注桩", "地下连续墙", "钢板桩"],
+          "cumulative_mm": { "min": 30, "max": 40 },
+          "cumulative_pct_H": { "min": 0.5, "max": 0.6 },
+          "rate_mm_per_day": { "min": 3, "max": 4 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        }
+      ]
+    },
+
+    "deep_horizontal_displacement": {
+      "display_name": "深层水平位移（测斜）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "DHD-L1-PILE",
+          "safety_level": ["一级"],
+          "support_type": ["灌注桩", "地下连续墙"],
+          "cumulative_mm": { "min": 30, "max": 50 },
+          "cumulative_pct_H": { "min": 0.3, "max": 0.4 },
+          "rate_mm_per_day": null,
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4", "note": "原表未给出速率值" }
+        },
+        {
+          "rule_id": "DHD-L1-SHEET",
+          "safety_level": ["一级"],
+          "support_type": ["钢板桩"],
+          "cumulative_mm": { "min": 50, "max": 60 },
+          "cumulative_pct_H": { "min": 0.6, "max": 0.7 },
+          "rate_mm_per_day": { "min": 2, "max": 3 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "DHD-L1-COMPOSITE",
+          "safety_level": ["一级"],
+          "support_type": ["复合土钉墙"],
+          "cumulative_mm": { "min": 40, "max": 60 },
+          "cumulative_pct_H": { "min": 0.4, "max": 0.6 },
+          "rate_mm_per_day": { "min": 3, "max": 4 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "DHD-L2-PILE",
+          "safety_level": ["二级"],
+          "support_type": ["灌注桩", "地下连续墙"],
+          "cumulative_mm": { "min": 40, "max": 60 },
+          "cumulative_pct_H": { "min": 0.4, "max": 0.6 },
+          "rate_mm_per_day": null,
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "DHD-L2-SHEET",
+          "safety_level": ["二级"],
+          "support_type": ["钢板桩"],
+          "cumulative_mm": { "min": 60, "max": 80 },
+          "cumulative_pct_H": { "min": 0.7, "max": 0.8 },
+          "rate_mm_per_day": { "min": 3, "max": 5 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "DHD-L2-COMPOSITE",
+          "safety_level": ["二级"],
+          "support_type": ["复合土钉墙"],
+          "cumulative_mm": { "min": 50, "max": 70 },
+          "cumulative_pct_H": { "min": 0.6, "max": 0.8 },
+          "rate_mm_per_day": { "min": 4, "max": 5 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "DHD-L3-PILE",
+          "safety_level": ["三级"],
+          "support_type": ["灌注桩", "地下连续墙"],
+          "cumulative_mm": { "min": 50, "max": 70 },
+          "cumulative_pct_H": { "min": 0.6, "max": 0.8 },
+          "rate_mm_per_day": null,
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "DHD-L3-SHEET",
+          "safety_level": ["三级"],
+          "support_type": ["钢板桩"],
+          "cumulative_mm": { "min": 70, "max": 90 },
+          "cumulative_pct_H": { "min": 0.8, "max": 1.0 },
+          "rate_mm_per_day": { "min": 4, "max": 5 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "DHD-L3-COMPOSITE",
+          "safety_level": ["三级"],
+          "support_type": ["复合土钉墙"],
+          "cumulative_mm": { "min": 60, "max": 80 },
+          "cumulative_pct_H": { "min": 0.7, "max": 1.0 },
+          "rate_mm_per_day": { "min": 5, "max": 6 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        }
+      ]
+    },
+
+    "column_vertical_displacement": {
+      "display_name": "立柱竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "CVD-L1",
+          "safety_level": ["一级"],
+          "support_type": "any",
+          "cumulative_mm": { "min": 20, "max": 30 },
+          "cumulative_pct_H": null,
+          "rate_mm_per_day": { "min": 2, "max": 3 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "CVD-L2",
+          "safety_level": ["二级"],
+          "support_type": "any",
+          "cumulative_mm": { "min": 20, "max": 30 },
+          "cumulative_pct_H": null,
+          "rate_mm_per_day": { "min": 2, "max": 3 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "CVD-L3",
+          "safety_level": ["三级"],
+          "support_type": "any",
+          "cumulative_mm": { "min": 20, "max": 40 },
+          "cumulative_pct_H": null,
+          "rate_mm_per_day": { "min": 2, "max": 4 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        }
+      ]
+    },
+
+    "support_axial_force": {
+      "display_name": "支撑轴力",
+      "unit": "ratio_of_design_capacity",
+      "limit_mode": "max_ratio",
+      "design_value_key": "f2_component_capacity_design",
+      "rules": [
+        {
+          "rule_id": "SAF-L1",
+          "safety_level": ["一级"],
+          "support_type": "any",
+          "max_ratio_of_design": { "min": 0.60, "max": 0.80 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4", "note": "最大值 (60%~80%) f2，f2 为构件承载能力设计值" }
+        },
+        {
+          "rule_id": "SAF-L2L3",
+          "safety_level": ["二级", "三级"],
+          "support_type": "any",
+          "max_ratio_of_design": { "min": 0.70, "max": 0.80 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        }
+      ],
+      "supplementary": {
+        "rule": "支护结构构件内力超过其设计值时应立即报警",
+        "evidence": { "standard": "JGJ 120-2012", "clause": "8.2.23-3" }
+      }
+    },
+
+    "anchor_axial_force": {
+      "display_name": "锚杆轴力",
+      "unit": "ratio_of_prestress_design",
+      "limit_mode": "min_ratio",
+      "design_value_key": "fy_prestress_design",
+      "rules": [
+        {
+          "rule_id": "AAF-ALL",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "min_ratio_of_design": { "min": 0.80, "max": 1.00 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4", "note": "最小值 (80%~100%) fy，fy 为锚杆预应力设计值；低于该值判为松弛" }
+        }
+      ],
+      "supplementary": {
+        "rule": "锚杆因土体丧失锚固能力而拔动，属承载能力极限状态",
+        "evidence": { "standard": "JGJ 120-2012", "clause": "3.1.4-5" }
+      }
+    },
+
+    "groundwater_level": {
+      "display_name": "地下水位",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "GWL-ALL",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "cumulative_mm": { "min": 1000, "max": 2000 },
+          "cumulative_pct_H": null,
+          "rate_mm_per_day": { "min": 500, "max": 500 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.5", "note": "常年变幅以外；速率 500 mm/d" }
+        }
+      ]
+    },
+
+    "surface_settlement": {
+      "display_name": "周边地表竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SS-L1",
+          "safety_level": ["一级"],
+          "support_type": "any",
+          "cumulative_mm": { "min": 25, "max": 35 },
+          "cumulative_pct_H": null,
+          "rate_mm_per_day": { "min": 2, "max": 3 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "SS-L2",
+          "safety_level": ["二级"],
+          "support_type": "any",
+          "cumulative_mm": { "min": 35, "max": 45 },
+          "cumulative_pct_H": null,
+          "rate_mm_per_day": { "min": 3, "max": 4 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "SS-L3",
+          "safety_level": ["三级"],
+          "support_type": "any",
+          "cumulative_mm": { "min": 45, "max": 55 },
+          "cumulative_pct_H": null,
+          "rate_mm_per_day": { "min": 4, "max": 5 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        }
+      ]
+    },
+
+    "building_settlement": {
+      "display_name": "周边建筑竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "BS-ALL",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "cumulative_mm": null,
+          "cumulative_pct_H": null,
+          "rate_mm_per_day": { "min": 2, "max": 3 },
+          "evidence": {
+            "standard": "GB 50497-2019",
+            "clause": "表8.0.5",
+            "note": "累计值应小于建筑物地基变形允许值，按 GB 50007 取值；本配置不内置绝对累计值，需由项目专项方案（阶段3）补充"
+          }
+        }
+      ]
+    },
+
+    "building_inclination": {
+      "display_name": "周边建筑倾斜",
+      "unit": "ratio",
+      "limit_mode": "inclination",
+      "rules": [
+        {
+          "rule_id": "BI-ALL",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "cumulative_inclination": 0.002,
+          "rate_inclination_per_day": 0.0001,
+          "evidence": {
+            "standard": "GB 50497-2019",
+            "clause": "表8.0.5 注",
+            "note": "整体倾斜度累计值达 2/1000，或倾斜速度连续 3d 大于 0.0001H/d（H 为建筑承重结构高度）时应预警"
+          }
+        }
+      ]
+    },
+
+    "pipeline_settlement": {
+      "display_name": "周边管线竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "PS-RIGID-PRESSURE",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "pipeline_type": ["刚性管道（压力）"],
+          "cumulative_mm": null,
+          "rate_mm_per_day": { "min": 10, "max": 20 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.5" }
+        },
+        {
+          "rule_id": "PS-RIGID-NONPRESSURE",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "pipeline_type": ["刚性管道（非压力）"],
+          "cumulative_mm": null,
+          "rate_mm_per_day": { "min": 10, "max": 30 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.5" }
+        },
+        {
+          "rule_id": "PS-FLEXIBLE",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "pipeline_type": ["柔性管线"],
+          "cumulative_mm": { "min": 3, "max": 5 },
+          "rate_mm_per_day": { "min": 10, "max": 40 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.5" }
+        }
+      ]
+    },
+
+    "road_settlement": {
+      "display_name": "周边道路竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "RS-MAIN",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "road_type": ["高速公路", "道路主干"],
+          "cumulative_mm": null,
+          "rate_mm_per_day": { "min": 10, "max": 30 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.5" }
+        },
+        {
+          "rule_id": "RS-CITY",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "road_type": ["一般城市道路"],
+          "cumulative_mm": { "min": 3, "max": 3 },
+          "rate_mm_per_day": { "min": 20, "max": 40 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.5" }
+        }
+      ]
+    },
+
+    "crack_width_building": {
+      "display_name": "周边建筑裂缝",
+      "unit": "mm",
+      "limit_mode": "crack",
+      "rules": [
+        {
+          "rule_id": "CWB-EXISTING",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "crack_state": ["既有裂缝"],
+          "cumulative_mm": { "min": 1.5, "max": 3 },
+          "requires_continuous_development": true,
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.5", "note": "结构性裂缝持续发展时应预警" }
+        },
+        {
+          "rule_id": "CWB-NEW",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "crack_state": ["新增裂缝"],
+          "cumulative_mm": { "min": 0.2, "max": 0.25 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.5" }
+        }
+      ]
+    },
+
+    "crack_width_surface": {
+      "display_name": "地表裂缝",
+      "unit": "mm",
+      "limit_mode": "crack",
+      "rules": [
+        {
+          "rule_id": "CWS-EXISTING",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "crack_state": ["既有裂缝"],
+          "cumulative_mm": { "min": 10, "max": 15 },
+          "requires_continuous_development": true,
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.5" }
+        },
+        {
+          "rule_id": "CWS-NEW",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "crack_state": ["新增裂缝"],
+          "cumulative_mm": { "min": 1, "max": 3 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.5" }
+        }
+      ]
+    },
+
+    "basal_heave": {
+      "display_name": "坑底隆起（回弹）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "BH-ALL",
+          "safety_level": ["一级", "二级", "三级"],
+          "support_type": "any",
+          "cumulative_mm": { "min": 30, "max": 60 },
+          "cumulative_pct_H": null,
+          "rate_mm_per_day": { "min": 4, "max": 10 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4", "note": "不分安全等级" }
+        }
+      ]
+    },
+
+    "wall_internal_force": {
+      "display_name": "围护墙内力",
+      "unit": "ratio_of_design_capacity",
+      "limit_mode": "max_ratio",
+      "design_value_key": "f2_component_capacity_design",
+      "rules": [
+        {
+          "rule_id": "WIF-L1",
+          "safety_level": ["一级"],
+          "support_type": "any",
+          "max_ratio_of_design": { "min": 0.60, "max": 0.70 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "WIF-L2L3",
+          "safety_level": ["二级", "三级"],
+          "support_type": "any",
+          "max_ratio_of_design": { "min": 0.70, "max": 0.80 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        }
+      ]
+    },
+
+    "earth_pressure": {
+      "display_name": "围护墙侧向土压力",
+      "unit": "ratio_of_design_load",
+      "limit_mode": "max_ratio",
+      "design_value_key": "f1_load_design",
+      "rules": [
+        {
+          "rule_id": "EP-L1",
+          "safety_level": ["一级"],
+          "support_type": "any",
+          "max_ratio_of_design": { "min": 0.60, "max": 0.70 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "EP-L2L3",
+          "safety_level": ["二级", "三级"],
+          "support_type": "any",
+          "max_ratio_of_design": { "min": 0.70, "max": 0.80 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        }
+      ]
+    },
+
+    "pore_pressure": {
+      "display_name": "孔隙水压力",
+      "unit": "ratio_of_design_load",
+      "limit_mode": "max_ratio",
+      "design_value_key": "f1_load_design",
+      "rules": [
+        {
+          "rule_id": "PP-L1",
+          "safety_level": ["一级"],
+          "support_type": "any",
+          "max_ratio_of_design": { "min": 0.60, "max": 0.70 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        },
+        {
+          "rule_id": "PP-L2L3",
+          "safety_level": ["二级", "三级"],
+          "support_type": "any",
+          "max_ratio_of_design": { "min": 0.70, "max": 0.80 },
+          "evidence": { "standard": "GB 50497-2019", "clause": "表8.0.4" }
+        }
+      ]
+    },
+
+    "column_internal_force": {
+      "display_name": "立柱内力",
+      "unit": null,
+      "limit_mode": "none",
+      "rules": [],
+      "note": "GB 50497-2019 表 8.0.4 未给出立柱内力预警值，标记为待补充；需由项目专项方案（阶段3）提供。"
+    }
+  },
+
+  "danger_alarm_conditions": [
+    {
+      "code": "DANGER-1",
+      "condition": "基坑支护结构的位移值突然明显增大，或基坑出现流砂、管涌、隆起、陷落等",
+      "evidence": { "standard": "GB 50497-2019", "clause": "8.0.9-1", "mandatory": true }
+    },
+    {
+      "code": "DANGER-2",
+      "condition": "基坑支护结构的支撑或锚杆体系出现过大变形、压屈、断裂、松弛或拔出的迹象",
+      "evidence": { "standard": "GB 50497-2019", "clause": "8.0.9-2", "mandatory": true }
+    },
+    {
+      "code": "DANGER-3",
+      "condition": "基坑周边建筑的结构部分出现危害结构的变形裂缝",
+      "evidence": { "standard": "GB 50497-2019", "clause": "8.0.9-3", "mandatory": true }
+    },
+    {
+      "code": "DANGER-4",
+      "condition": "基坑周边地面出现较严重的突发裂缝或地下空洞、地面下陷",
+      "evidence": { "standard": "GB 50497-2019", "clause": "8.0.9-4", "mandatory": true }
+    },
+    {
+      "code": "DANGER-5",
+      "condition": "基坑周边管线变形突然明显增长或出现裂缝、泄漏等",
+      "evidence": { "standard": "GB 50497-2019", "clause": "8.0.9-5", "mandatory": true }
+    },
+    {
+      "code": "DANGER-6",
+      "condition": "冻土基坑经受冻融循环时，基坑周边土体温度显著上升，发生明显的冻融变形",
+      "evidence": { "standard": "GB 50497-2019", "clause": "8.0.9-6", "mandatory": true }
+    },
+    {
+      "code": "DANGER-7",
+      "condition": "设计方提出的其他危险报警情况，或根据当地工程经验判断必须报警的情况",
+      "evidence": { "standard": "GB 50497-2019", "clause": "8.0.9-7", "mandatory": true }
+    }
+  ],
+
+  "mandatory_alarm_supplement": [
+    {
+      "code": "JGJ-ALARM-1",
+      "condition": "支护结构位移达到设计规定的位移限值",
+      "evidence": { "standard": "JGJ 120-2012", "clause": "8.2.23-1" }
+    },
+    {
+      "code": "JGJ-ALARM-2",
+      "condition": "支护结构位移速率增长且不收敛",
+      "evidence": { "standard": "JGJ 120-2012", "clause": "8.2.23-2" }
+    },
+    {
+      "code": "JGJ-ALARM-3",
+      "condition": "支护结构构件内力超过其设计值",
+      "evidence": { "standard": "JGJ 120-2012", "clause": "8.2.23-3" }
+    },
+    {
+      "code": "JGJ-ALARM-4",
+      "condition": "周边建筑、道路、地面沉降达到设计限值或出现开裂",
+      "evidence": { "standard": "JGJ 120-2012", "clause": "8.2.23-4/5" }
+    },
+    {
+      "code": "JGJ-ALARM-5",
+      "condition": "基坑出现局部坍塌",
+      "evidence": { "standard": "JGJ 120-2012", "clause": "8.2.23-6" }
+    },
+    {
+      "code": "JGJ-ALARM-6",
+      "condition": "开挖面出现隆起现象",
+      "evidence": { "standard": "JGJ 120-2012", "clause": "8.2.23-7" }
+    },
+    {
+      "code": "JGJ-ALARM-7",
+      "condition": "基坑渗流出现流土、管涌现象",
+      "evidence": { "standard": "JGJ 120-2012", "clause": "8.2.23-8" }
+    }
+  ],
+
+  "disclaimer": "本配置为通用默认阈值，取自国家规范。用于真实工程前，必须由项目设计方确认或由阶段2/阶段3导入经审批的专项阈值覆盖。GB 50497-2019 第 8.0.1 条明确：监测预警值应由基坑工程设计方确定。"
+}

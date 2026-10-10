@@ -1,0 +1,2022 @@
+file: 黏土基坑开挖案例/EXCAV-CLAY152830 database/Supplementary material.pdf
+pages_total: 17
+
+----- page 1 -----
+Table S1. Basic information of EXCAV-CLAY/15/2830 database. The information and parameters are as follows. EM = excavation method; TD = top-down method; BU = bottom-up method; RW = retaining wall type; DW = diaphragm 
+wall; SP = sheet pile wall; SPW = secant pile wall; CPW = contiguous pile wall; CMM = control-movement measures; NR = no reinforcement; BW = buttress wall; CW = cross wall; GI = ground improvement; Ni = Number of inclinometers; 
+Ne = Number of excavation stages; He = excavation depth; B = excavation width; L = excavation length; Hg = depth to hard stratum from the ground surface; d = distance between the inclinometer and the corner of the retaining wall; su/σv' = 
+average normalized undrained shear strength; SPT N = average standard penetration test blow-count value; SDW = retaining wall system stiffness; SST = axial stiffness of the lateral support; K = spring stiffness of retaining wall and CMM; IF 
+= influence factor; R = relative stiffness ratio; δhm,mid: maximum lateral wall displacement ; zm = depth to δhm,mid from the ground surface; PIZ = primary influence zone; SIZ = secondary influence  zone; δvm,mid
+PIZ   = maximum ground 
+settlement at PIZ; dw
+PIZ = distance of δvm,mid
+PIZ  to the retaining wall; δvm,mid
+SIZ   = maximum ground settlement at SIZ; dw
+SIZ = distance of δvm,mid
+SIZ  to the retaining wall 
+Site 
+# Country Reference EM RW CMM Ni Ne He (m) B 
+(m) 
+L 
+(m) 
+dc 
+(m) su/v' N SDW 
+SST 
+(MN/m2) 
+K 
+(MN/m3) IF R zm 
+(m) 
+δhm,mid 
+(mm) 
+dw
+PIZ 
+(m) 
+δvm,mid
+PIZ   
+(mm) 
+dw
+SIZ 
+(m) 
+δvm,mid
+SIZ   
+(mm) 
+1 Taiwan Ou et al (2020) TD DW NR 1 6 2.8 - 
+19.7 43 105 47 0.32 4.3 769 - 
+1508 
+74.3 - 
+119.4 0.9 – 7.3 50 - 
+408 
+18 - 
+33 
+0 - 
+19 
+13.8 - 
+100.7 
+13 - 
+13.5 
+31 - 
+91.4 
+28.5 - 
+29.6 
+10.5 - 
+18.6 
+2 Taiwan Hsieh and Ou 
+(2018) TD DW BW - 
+CW 2 9 3.5 - 
+32.5 
+52 - 
+66 
+25.6 
+- 66 
+12.8 
+- 
+29.7 
+0.30  1508 89.6 - 
+113.8 
+24.6 – 
+320.5 
+312 - 
+6687 
+12.7 - 
+24 
+1.6 - 
+29.2 
+3.4 - 
+75.9 
+11 - 
+18 3 - 30.4 41 - 
+44.2 0.5 - 6.5 
+3 Taiwan Chen et al 
+(2011) BU DW BW 2 2 4.4 - 
+21.7 
+87 - 
+98 
+87 - 
+98 
+31 - 
+38 0.31 4 2440 53.6 - 
+60.3 
+23.6 – 
+111.7 
+8.3 - 
+62.2 
+92.4 - 
+106.1 20.5 19.8 - 
+51.6 
+11 - 
+14 
+7.6 - 
+66.7 
+27.5 - 
+34 
+1.2 - 
+18.3 
+4 Taiwan Ou et al (1993) BU DW NR 1 7 1.6 - 
+18.45 35 75 37.5 0.26  1213 - 
+1877 
+42.0 - 
+84.0 
+1.0 – 
+13.4 
+3.3 - 
+40.7 
+64.4 - 
+231.9 
+0 - 
+17.1 
+17.8 - 
+62 
+5.8 - 
+9.0 
+6.9 - 
+54.4 
+13 - 
+28.8 2.7 - 6.2 
+5 Taiwan Hsieh et al 
+(2016) BU DW NR 2 4 2 - 8.6 42 - 
+44 
+42 - 
+44 
+15.75 
+- 22 0
+----- page 2 -----
+Site 
+# Country Reference EM RW CMM Ni Ne He (m) B 
+(m) 
+L 
+(m) 
+dc 
+(m) su/v' N SDW 
+SST 
+(MN/m2) 
+K 
+(MN/m3) IF R zm 
+(m) 
+δhm,mid 
+(mm) 
+dw
+PIZ 
+(m) 
+δvm,mid
+PIZ   
+(mm) 
+dw
+SIZ 
+(m) 
+δvm,mid
+SIZ   
+(mm) 
+27 Taiwan Kung et al 
+(2007) BU DW NR 1 7 2.1 - 
+16.2 15     4879 - 
+11463 123 1.0 – 8.3 13.5 - 
+142.5 
+ 7 - 
+16.5 7.2 - 62     
+28 Taiwan Kung et al 
+(2007) TD DW NR 1 6 2.53 - 
+15.83 20     374 - 
+4088 296 1.4 – 8.6 155 - 
+1341 
+ 3.2 - 
+18 6 - 47.3     
+29 Taiwan Kung et al 
+(2007) BU DW NR 1 7 2.1 - 
+16.2 18.4     6334 100 1.1 – 8.7 15.5 - 
+161 
+ 5.0 - 
+15.5 
+1.8 - 
+36.4 
+    
+30 Taiwan Kung et al 
+(2007) BU DW NR 1 5 2.5 - 
+14.5 17.6     4709 - 
+7410 105 0.9 – 5.6 12.6 - 
+91.4 
+ 0 - 
+14 
+3.25 - 
+28.7 
+    
+31 Taiwan Kung et al 
+(2007) BU DW NR 1 7 2.4 - 
+19.86 17.6     7410 105  7 - 95  0 - 
+20 
+4.25 - 
+51 
+    
+32 Taiwan Kung et al 
+(2007) BU DW NR 1 11 3.2 - 
+28.8 25.7     3573 72 1.6 – 
+16.0 
+13.9 - 
+142.6 
+ 0 - 
+27 
+8.9 - 
+71.3 
+    
+33 Taiwan Kung et al 
+(2007) BU DW NR 1 10 2.4 - 
+27 20     6334 92 1.6 – 
+19.3 
+20.7 - 
+257.7 
+ 0 - 
+21 
+6.5 - 
+55.7 
+    
+34 Taiwan Kung et al 
+(2007) BU DW NR 1 11 3.2 - 
+28.8 17.2     3573 107 0.7 – 9.3 8.5 - 
+79.8 
+ 0 - 
+20 5.5 - 41     
+35 Taiwan Ou and Hsieh 
+(2011) BU DW NR 1 5 2.5 - 
+18.45 35 60 30   1507 41 1.3 – 
+11.4 3.2 - 28  6.5 - 
+17.9 
+23.3 - 
+62.7 
+7.95 - 
+9.66 
+16.05 - 
+52.74 
+25.87 
+- 
+27.57 
+1.82 - 
+6.98 
+36 US 
+Finno and 
+Harahap 
+(1991) 
+BU SP NR 1 4 4.7 - 
+12.2 12.2     125 - 333 29 - 57 0.3 – 1.2 0.02 - 
+0.1 
+ 8.2 - 
+12.3 
+107.95 
+- 
+162.56 
+3.96 - 
+6.7 
+44.55 - 
+150.5 
+26.54 
+- 
+37.96 
+1.08 -12 
+37 US Finno et al 
+(1989) BU SP NR 1 4 4.5 - 
+12.3 12.2   
+0.27 
+- 
+0.33 
+1.8 - 
+2.4 
+448 - 
+1417 
+    0 - 
+12 
+111.7 - 
+179 
+16.15 
+- 53 
+38.1 - 
+254 
+  
+38 US Finno et al 
+(2002) BU SPW NR 3 1 11.2 22 35.2  0.58  376     4 - 6 18 - 41     
+39 China Xiao et al 
+(2023) BU DW NR 1 5 5.1 - 
+17.1 17.8 58 17  3.87 2968 113 2.5 – 8.8 22.6 - 
+80.6 
+ 9 - 
+19 
+15.97 - 
+77.85 
+8.48 - 
+9.9 
+19.64 - 
+73.8 
+29.4 - 
+36.6 
+7.99 - 
+15.65 
+40 China Tan and Li 
+(2011) TD DW GI 1 8 1.5 - 
+24.24 22.8 68 26.7 0.26  1116 259 2.1 – 
+34.6 
+289.5 - 
+5113.5 
+31.3 - 
+61.7 
+7.0 - 
+24.8 
+2.2 - 
+101.3 
+    
+41 China Ge et al (2022) BU DW NR 4 5 1.5 - 
+25 
+109 - 
+145 
+109 - 
+145 
+52 - 
+66 
+  223 - 316 10 - 60 1.2 – 
+21.7 
+0.9 - 
+17.9 
+ 1.5 - 
+18 
+1.25 - 
+32 
+2.18 - 
+10.04 
+3.82 - 
+36.18 
+22.35 
+- 
+52.53 
+0.81 - 
+8.57 
+42 China Tan and Wei 
+(2012) BU DW GI 2 7 1.5 - 
+18 
+15 - 
+20 
+23 - 
+186 
+11.5 
+- 
+68.5 
+0.27 4 193 - 241 115 1
+----- page 3 -----
+Site 
+# Country Reference EM RW CMM Ni Ne He (m) B 
+(m) 
+L 
+(m) 
+dc 
+(m) su/v' N SDW 
+SST 
+(MN/m2) 
+K 
+(MN/m3) IF R zm 
+(m) 
+δhm,mid 
+(mm) 
+dw
+PIZ 
+(m) 
+δvm,mid
+PIZ   
+(mm) 
+dw
+SIZ 
+(m) 
+δvm,mid
+SIZ   
+(mm) 
+55 China Chen et al 
+(2015) BU SCW NR 1 1 9.5 100 180    205 12     102.4     
+56 China Chen et al 
+(2015) BU SCW NR 1 1 9.6 30 90    205 39     35.0     
+57 China Chen et al 
+(2015) BU SCW NR 1 1 14.9 120 120  0.27  328 12     122.0     
+58 China Chen et al 
+(2015) BU SCW NR 1 1 12.9 160 170    303 13     172.0     
+59 China Chen et al 
+(2015) BU SCW NR 1 1 13.2 58 62    548 22     86.0     
+60 Norway Finstad (1991) BU SP NR 1 1 5.6    0.47       6.0 40.0     
+61 Thailand Likitlersuang 
+et al (2013) BU DW NR 2 4 1.5 - 
+21 
+23 - 
+200 
+23 - 
+200 
+11.5 
+- 100 0.33  109 - 
+16940 7 - 63 0.2 – 
+38.4 
+0.2 - 
+18.9 
+34.7 - 
+285 
+0 - 
+20 
+7.7 - 
+35.8 
+1.58 - 
+6 
+18.4 - 
+33.57 
+30 - 
+35.54 
+8.5 - 
+13.22 
+62 Singapore Wang and 
+Whittle (2024) BU DW GI 1 5 1.5 - 
+21 26 132 55 0.21  183 - 204 11 16.8 – 
+119.7 
+3.6 - 
+166 
+68.5 - 
+403.7 
+0 - 
+16 
+7.17 - 
+55.014 
+    
+63 Singapore Law et al 
+(2013) BU DW NR 1 4 3 - 
+18.5 30 35 14  31 117 - 132 98 0.7 – 9.4 1.7 - 
+23.3 
+ 0 - 
+13 
+10.42 - 
+26.042 
+    
+64 Singapore Goh et al 
+(2003) BU DW NR 1 1 16 20 127.5  0.46  3357      38.60     
+65 Singapore Wong and 
+Chua (1999) BU SP NR 2 1 6.5 15           85 - 90     
+66 Singapore Wong et al 
+(1997) BU SCW NR 1 1 9            30.0     
+67 Singapore Wong et al 
+(1997) BU SCW NR 1 1 9            30.0     
+68 Singapore Wong et al 
+(1997) BU SCW NR 1 1 9            35.0     
+69 Singapore Wong et al 
+(1997) BU SCW NR 1 1 10.2            10.0     
+70 Singapore Wong et al 
+(1997) BU SCW NR 1 1 10.5            20.0     
+71 Singapore Wong et al 
+(1997) BU SCW NR 1 1 11.5            17.0     
+72 Singapore Wong et al 
+(1997) BU SCW NR 1 1 11.5            10.0     
+73 Singapore Wong et al 
+(1997) BU SP NR 1 1 10            8.0     
+74 Singapore Wong et al 
+(1997) BU SP NR 1 1 10            9.0     
+75 Singapore Wong et al 
+(1997) BU SP NR 1 1 10            12.0     
+76 Singapore Wong et al 
+(1997) BU SP NR 1 1 10            37.0     
+77 Singapore Wong et al 
+(1997) BU SP NR 1 1 11            20.0     
+78 Singapore Wong et al 
+(1997) BU SP NR 1 1 11.5            23.0     
+79 Singapore Wong et al 
+(1997) BU SP NR 1 1 11.5            42.0     
+80 Singapore Wong et al 
+(1997) BU SP NR 1 1 12            15.0     
+81 Singapore Wong et al 
+(1997) BU SP NR 1 1 17            17.0     
+82 Singapo
+----- page 4 -----
+Site 
+# Country Reference EM RW CMM Ni Ne He (m) B 
+(m) 
+L 
+(m) 
+dc 
+(m) su/v' N SDW 
+SST 
+(MN/m2) 
+K 
+(MN/m3) IF R zm 
+(m) 
+δhm,mid 
+(mm) 
+dw
+PIZ 
+(m) 
+δvm,mid
+PIZ   
+(mm) 
+dw
+SIZ 
+(m) 
+δvm,mid
+SIZ   
+(mm) 
+87 Singapore Wong et al 
+(1997) BU SCW NR 1 1 12            20.0     
+88 Singapore Wong et al 
+(1997) BU SCW NR 1 1 12.5            15.0     
+89 Singapore Wong et al 
+(1997) BU SCW NR 1 1 13.5            7.0     
+90 Singapore Wong et al 
+(1997) BU SCW NR 1 1 13.5            8.0     
+91 Singapore Wong et al 
+(1997) BU SCW NR 1 1 13.5            17.0     
+92 Singapore Wong et al 
+(1997) BU SCW NR 1 1 20            15.0     
+93 Singapore Wong et al 
+(1997) BU SCW NR 1 1 21.5            25.0     
+94 Singapore Wong et al 
+(1997) BU DW NR 1 1 13.5            15.0     
+95 Singapore Wong et al 
+(1997) BU DW NR 1 1 14.5            27.0     
+96 Canada Powrie and 
+Batten (1997) BU SCW NR 1 1 17            14.5     
+97 South 
+Africa Day (1990) BU SCW NR 1 1 18.3            18.0     
+98 Egypt 
+El-Nahhas and 
+Eisenstein 
+(1989) 
+BU DW NR 1 1 10            15.0     
+99 Brazil Massad (1985) BU SCW NR 1 1 9            15.0     
+100 Brazil Massad (1985) BU SCW NR 1 1 19            18.0     
+101 Austria 
+Fross and 
+Klenovec 
+(1992) 
+BU SCW NR 1 1 24            25.0     
+102 Switzerland Steiner and 
+Werder (1991) BU SCW NR 1 1 17            20.0     
+103 Germany Krajewski et al 
+(1997) BU SCW NR 1 1 19.3            44.0     
+104 Germany Rodatz et al 
+(1996) BU SCW NR 1 1 9.6            3.0     
+105 France Kastner and 
+Ferrand (1992) BU DW NR 1 1 8            14.0     
+106 Portugal Fernandes 
+(1985) BU DW NR 1 1 13.8 11 64 26.2 0.23 7.4 949     7 45.54     
+107 Italy Rampello et al 
+(1992) BU SP NR 1 3 1 - 5.5 4.6   0.28  491 32    4.5 - 
+5.5 
+14.5 - 
+72.5 
+    
+108 Indonesia Hsiung et al 
+(2018) TD DW NR 1 5 1.5 - 
+18.93 30 209 104.5  16 113 - 125 20 0.2 – 4.0 7.8 - 
+780.6 
+ 16 1 - 
+16.77 
+    
+109 UK Lam et al 
+(2014) BU DW NR 1 4 1.2 - 
+5.4 7.2     477 - 
+1164 13 0.4 – 2.1 2.2 - 
+38.1 
+ 0 - 9 1.04 - 
+33.5 
+0.35 - 
+2.96 
+1.83 - 
+34.79 
+21.13 
+- 
+23.97 
+0.54 - 
+6.4 
+110 UK Lam et al 
+(2014) BU SP NR 1 4 0.96 - 
+5.14 7.2     13 - 14 13 0.5 – 2.8 0.06 - 
+1.38 
+ 0 - 
+6.1 7.5 - 99 0.13 - 
+14.4 
+3.06 - 
+103.95 
+20.54 
+- 27.9 
+1.17 - 
+19.4 
+111 UK Lam et al 
+(2014) BU SP NR 1 5 0.96 - 
+5.14 7.2     12 - 13 13 0.5 – 2.8 0.05 - 
+1.38 
+ 0 - 
+4.3 
+2.8 - 
+64.5 
+0.12 - 
+0.15 
+3.48 - 
+68.02 
+20.64 
+- 29.7 
+0.06 - 
+7.35 
+112 UK Lam et al 
+(2014) BU DW NR 1 5 0.96 - 
+5.4 7.2     477 - 
+----- page 5 -----
+Site 
+# Country Reference EM RW CMM Ni Ne He (m) B 
+(m) 
+L 
+(m) 
+dc 
+(m) su/v' N SDW 
+SST 
+(MN/m2) 
+K 
+(MN/m3) IF R zm 
+(m) 
+δhm,mid 
+(mm) 
+dw
+PIZ 
+(m) 
+δvm,mid
+PIZ   
+(mm) 
+dw
+SIZ 
+(m) 
+δvm,mid
+SIZ   
+(mm) 
+116 UK 
+Fernie and 
+Suckling 
+(1996) 
+BU DW NR 1 1 14.5            22     
+117 UK 
+Fernie and 
+Suckling 
+(1996) 
+BU SCW NR 1 1 8            21     
+118 UK 
+Fernie and 
+Suckling 
+(1996) 
+BU SCW NR 1 1 7            8     
+119 UK 
+Fernie and 
+Suckling 
+(1996) 
+BU SCW NR 1 1 5.5            14     
+120 UK 
+Fernie and 
+Suckling 
+(1996) 
+BU DW NR 1 1 8            10     
+121 Hongkong Leung and Ng 
+(2007) TD DW NR 1 1 19 17    10 68 348 1 89.1  18.5 40.0 4.87 32.78 30.76 2.70 
+122 Hongkong Leung and Ng 
+(2007) TD DW NR 1 1 27 107    5 502 55 4 172.5  26.5 63.0 3.26 47.81 25.50 9.70 
+123 Hongkong Leung and Ng 
+(2007) TD DW NR 2 1 27 107    5 502 55 4 172.5  26.5 64.0 2.46 47.83 25.50 8.25 
+124 Hongkong Leung and Ng 
+(2007) TD DW NR 3 1 27 107    5 502 55 4 172.5  26.5 79.0 6.37 42.60 39.50 0.79 
+125 Hongkong Leung and Ng 
+(2007) TD DW NR 1 1 16 68    5 155 87 1 28.1  15.5 30.0 7.35 17.25 17.73 8.21 
+126 Hongkong Leung and Ng 
+(2007) TD DW NR 2 1 18 68    5 298 87 1 21.6  17.5 42.0 3.14 30.25 18.85 0.72 
+127 Hongkong Leung and Ng 
+(2007) BU DW NR 1 1 18 42    4 19 22 1 0.3  17.5 35.0 4.10 35.24 29.56 1.90 
+128 Japan Tominaga et al 
+(1985) BU DW NR 1 2 2.3 - 
+16.5 80.5 54 27 0.15 
+- 0.2 
+      0 - 
+16 50 - 70     
+129 Japan Tamano et al 
+(1996) BU DW NR 1 7 2 - 
+20.6 85.5 58.5 29.25 
+0.33 
+- 
+0.41 
+1.5 - 
+6 
+     0 - 
+17.2 15 - 78     
+130 Japan Tanaka (1994) BU SP NR 1 3 6.6 - 
+11 34.75   0.3 - 
+0.38 
+ 637 - 981 34    6.2 - 
+13.6 
+60 - 
+217.5 
+    
+131 Taiwan Sino 
+Geotechnology BU DW NR 2 8 17.25 
+29.6 
+- 
+32.5 
+36.5 
+- 38 
+18.5 
+- 
+18.7 
+ 3.86 
+- 7.5 
+3389 - 
+24119 20 - 35 1.4 – 
+13.7 
+3.9 - 
+23.3 
+ 0 - 
+15.0 
+6.4 - 
+11.9 
+0.47 - 
+13 
+2.69 - 
+9.15 
+16.8 - 
+26.84 
+0.01 - 
+1.44 
+132 Taiwan Sino 
+Geotechnology BU DW NR 2 8 2 - 
+21.15 
+29 - 
+50 
+29 - 
+50 
+14.5 
+- 
+22.3 
+0.21 3 - 
+5.85 
+1814 - 
+10468 14 - 39 2.3 – 
+50.8 
+7.5 - 
+80.4 
+111.6 
+- 
+310.6 
+0.0 - 
+21.5 
+2.42 - 
+35.19 
+1.23 - 
+8.83 
+4.46 - 
+16.7 
+19.56 
+- 
+29.92 
+0.47 - 
+1.55 
+133 Taiwan Sino 
+Geotechnology BU DW NR 1 4 1.9 - 
+10.3 20 37 13.5  3 - 
+3.2 
+823 - 
+1860 48 - 61 1.4 – 8.7 1.9 - 
+12.2 
+ 0 - 
+12.1 
+8.38 - 
+72.16 
+5.77 - 
+5.9 
+28.46 - 
+42.1 
+  
+134 Taiwan Sino 
+Geotechnology BU DW NR 2 6 2 - 
+15.45 45 45 15 - 
+17 0.23 3.67 
+- 8 
+3126 - 
+24119 17 - 27 2.6 – 
+20.3 
+5.1 - 
+31.8 
+74.2 - 
+195.86 
+0 - 
+
+----- page 6 -----
+Site 
+# Country Reference EM RW CMM Ni Ne He (m) B 
+(m) 
+L 
+(m) 
+dc 
+(m) su/v' N SDW 
+SST 
+(MN/m2) 
+K 
+(MN/m3) IF R zm 
+(m) 
+δhm,mid 
+(mm) 
+dw
+PIZ 
+(m) 
+δvm,mid
+PIZ   
+(mm) 
+dw
+SIZ 
+(m) 
+δvm,mid
+SIZ   
+(mm) 
+142 Taiwan Sino 
+Geotechnology BU DW NR 2 4 2 - 9 41 63 - 
+75 
+29 - 
+35.5 0.25 1 - 
+1.3 
+792 - 
+2261 15 - 19 1.3 – 5.9 0.4 - 
+1.9 
+147.6 
+- 
+299.3 
+0 - 
+12.9 
+27.13 - 
+76.36 
+    
+143 Taiwan Sino 
+Geotechnology TD DW NR 4 8 25.2 58 165 40 - 
+51.5 0.22 5 - 
+5.3 
+2760 - 
+7409 102 0.6 – 8.1 52.96 - 
+921.9 
+11.5 - 
+30.2 
+0  - 
+22.0 
+0.35 - 
+141.7 
+0.06 - 
+12 
+2.86 - 
+72.08 
+40 - 
+50.7 
+0.2 - 
+4.99 
+144 Taiwan Sino 
+Geotechnology TD DW NR 1 8 2 - 
+21.8 31.5 60 22 0.21 7 - 
+7.5 
+3134 - 
+7409 188 0.8 – 
+14.0 
+191 - 
+4777.5 
+6.2 - 
+19.58 
+0 - 
+15 
+7.09 - 
+17.12 0.5 - 5 3.96 - 
+15.69 
+24.5 - 
+25 
+0.21 - 
+2.13 
+145 Taiwan Sino 
+Geotechnology TD DW NR 2 5 2.2 - 
+16.5 30 120 30 0.20 7 - 
+16.3 
+1701 - 
+7150 197 0.9 – 7.6 97.7 33.5 0 - 
+17.3 
+1.22 - 
+63.8 1 - 8 3.66 - 
+68.45 
+23.49 
+- 
+42.66 
+0.13 - 
+2.136 
+146 Taiwan Sino 
+Geotechnology BU DW NR 2 4 2.1 - 
+9.1 20 12 5.2 - 
+7.5 
+  515 - 785 115 - 
+146 
+3.4 – 
+15.0 
+3.7 - 
+18.5 
+ 0 - 
+7.8 
+4.06 - 
+15.66 
+3.31 - 
+3.76 
+7.73 - 
+11.35 
+25 - 
+28 
+0.32 - 
+2.14 
+147 Taiwan Sino 
+Geotechnology TD DW NR 2 8 1.3 - 
+26.6 
+43 - 
+49.5 
+44.8 
+- 63 
+16.7 
+- 29 0.28 3 - 
+7.5 
+291 - 
+1597 
+120 - 
+138 
+0.3 – 
+28.2 
+27.1 - 
+3990 
+6.9 - 
+31.5 
+0.7 - 
+18 
+6.3 - 
+70.368 
+0.43 - 
+10.99 
+10.82 - 
+29.45 
+  
+148 Taiwan Sino 
+Geotechnology BU DW NR 1 6 2.1 - 
+14.5 25.5 47 20.7 0.21 4 - 
+35.7 
+709 - 
+3591 45 - 72 1.6 – 
+13.0 
+4.6 - 
+23.6 
+98 - 
+187.9 
+ 4.04 - 
+12.255 
+    
+149 Taiwan Sino 
+Geotechnology BU DW NR 4 7 2.45 - 
+17.55 
+55 - 
+57 
+55 - 
+57 
+19.5 
+- 27 
+0.21 
+- 
+0.24 
+10.7 
+- 21 
+1253 - 
+33086 12 - 19 1.6 – 
+12.7 
+2.9 - 
+16.9 
+88.2 - 
+164.76 
+0 - 
+16.8 
+4.84 - 
+37.41 
+0.45 - 
+10.7 
+6.28 - 
+8.88 
+24.8 - 
+57.07 
+0.2 - 
+0.82 
+150 Taiwan Sino 
+Geotechnology BU DW NR 6 7 2.4 - 
+19 45 95 16.5 
+- 40 
+0.18 
+- 
+0.19 
+5 - 
+8.22 
+1116 - 
+5048 20 - 33 1.8 – 
+13.8 
+4.4 - 
+25.3 
+127.2 
+- 
+268.9 
+0 - 
+16.5 
+11.97 - 
+85.63 
+0.2 - 
+16 
+4.42 - 
+55.43 
+11.37 
+- 
+61.23 
+0.02 - 
+4.8 
+151 Taiwan Sino 
+Geotechnology BU DW NR 2 4 2 - 
+10.4 19 12.4 5.85 
+- 6.2 
+  478 - 
+7146 48 - 62 8.3 – 
+66.8 6.5 - 49  0 - 
+12.7 
+6.41 - 
+24.92 
+0.04 - 
+5.2 
+3.16 - 
+15.94 
+20 - 
+31 
+0.5 - 
+3.88 
+152 Taiwan Sino 
+Geotechnology BU DW NR 5 8 2.8 - 
+21.05 29 65 10 - 
+25.5 
+0.16 
+- 
+0.17 
+4 - 
+6.4 
+1814 - 
+15956 409 - 78 3.2 – 
+24.1 
+20.5 - 
+153.4 
+194.2 
+- 
+521.1 
+5.8 - 
+22.3 
+
+----- page 7 -----
+Site 
+# Country Reference EM RW CMM Ni Ne He (m) B 
+(m) 
+L 
+(m) 
+dc 
+(m) su/v' N SDW 
+SST 
+(MN/m2) 
+K 
+(MN/m3) IF R zm 
+(m) 
+δhm,mid 
+(mm) 
+dw
+PIZ 
+(m) 
+δvm,mid
+PIZ   
+(mm) 
+dw
+SIZ 
+(m) 
+δvm,mid
+SIZ   
+(mm) 
+169 Taiwan Sino 
+Geotechnology BU DW NR 1 5 2.5 - 
+12.9 60 60 28.7 0.26 9 484 - 
+1471 13 - 16 1.8 – 9.5 0.7 - 
+3.9 
+153 - 
+337.5 
+0 - 
+14 
+6.12 - 
+61.08 
+0.1 - 
+7.2 
+6.49 - 
+40.13 
+20 - 
+30 
+0.22 - 
+2.3 
+170 Taiwan Sino 
+Geotechnology BU DW NR 1 7 2.6 - 
+20.85 16 60 17.5 0.22 9.6 1412 - 
+3665 48 - 77 2.2 – 
+19.2 
+12 - 
+85.5 
+133. 9 
+- 
+313.46 
+0 - 
+21 
+29.29 - 
+100.3 
+0.1 - 
+7.5 
+16.88 - 
+47.44 
+9.51 - 
+20.5 
+0.58 - 
+5.42 
+171 Taiwan Sino 
+Geotechnology BU DW NR 1 2 3 - 6 23 55 17 0.26 8.5 177 33 2.1 – 4.0 0.6 - 
+1.2 
+288 - 
+360 0 - 4 3.96 - 
+12.197 0.2 - 5 5.3 - 
+10.792 
+13.62 
+- 
+14.766 
+0.34 - 
+1.68 
+172 Taiwan Sino 
+Geotechnology BU DW NR 1 4 2.1 - 
+10.45 22 21 7.9 0.33 8.75 264 - 
+1860 30 - 38 3.4 – 
+20.0 2 - 14 244 - 
+321 
+0 - 
+15 
+2.04 - 
+11.315 
+    
+173 Taiwan Sino 
+Geotechnology BU DW NR 1 5 2 - 12 20.5 31 12 0.25 7.16 484 56 - 71 4.5 – 
+26.6 
+8.7 - 
+39.8 
+241 - 
+285 
+0 - 
+16.2 
+12.55 - 
+83.05 5 - 8 19.6 - 
+100.7 
+20.5 - 
+27.5 
+2.86 - 
+2.428 
+174 Taiwan Sino 
+Geotechnology BU DW NR 1 4 1.5 - 
+8.3 29.5 60 27.5 0.26 3.33 255 - 261 22 - 28 1.8 – 9.3 0.7 - 
+6.9 
+291 - 
+378 
+ 15.2 - 
+29.3 
+    
+175 Taiwan Sino 
+Geotechnology BU DW NR 1 5 1. 9 - 
+13.5 16 33 14  25.5 548 48 - 77 2.5 – 
+19.4 5.2 - 43  0 - 
+16.1 
+2.2 - 
+23.88 
+    
+176 Taiwan Sino 
+Geotechnology BU DW CW 1 6 1.5 - 
+16.4 18.5 30 15  22.5 1395 55 - 88 4.0 – 
+46.4 
+16.6 - 
+217 
+  5 - 30     
+177 Taiwan Sino 
+Geotechnology BU DW CW 1 4 4 - 
+16.7 56 117 47.5 0.27 4.3 2068 16 - 21 1.5 – 6.3 2 - 7 96.9 - 
+152.9 
+0 - 
+19 
+10..96 - 
+121.4 5 - 6.5 51.58 - 
+74.55 
+24 - 
+31.1 5 - 9 
+178 Taiwan Sino 
+Geotechnology BU DW NR 1 3 2 - 6.3 30 32 16  5 2507 20 - 26 0.6 – 2.7 0.3 - 
+1.1 
+  2 - 
+15.98 
+    
+179 Taiwan Sino 
+Geotechnology BU DW NR 1 5 1.8 - 
+12 120 130 64.5 0.25 6.5 548 6 - 10 1.2 – 7.4 0.2 - 
+1.7 
+116 - 
+342 
+0 - 
+13.1 
+15 - 
+59.5 
+0.09 - 
+9.55 
+12.4 - 
+54.4 
+23.13 
+- 39.4 
+0.1 - 
+2.22 
+180 Taiwan Sino 
+Geotechnology BU DW BW 1 5 2 - 12 45 47 20.5 0.25 3.75 430 20 - 26 33.8 – 
+200.3 
+1.7 - 
+8.1 
+205.7 
+- 
+330.3 
+0 - 
+15 
+2.58 - 
+42.89 3.5 - 4 35.4 - 
+71.74 
+  
+181 Taiwan Sino 
+Geotechnology BU DW CW 1 4 1.95 - 
+9.5 16.75 14.75 5.6  4 324 69 - 87 10.1 – 
+48.9 
+11 - 
+53.5 
+ 0 - 
+9.5 
+22.3 - 
+58.4 
+    
+182 Taiwan Sino 
+Geotechnology BU DW BW 1 6 2.85 - 
+16.1 40 73 29.8 0.38 9.3 970 24 - 28
+----- page 8 -----
+Site 
+# Country Reference EM RW CMM Ni Ne He (m) B 
+(m) 
+L 
+(m) 
+dc 
+(m) su/v' N SDW 
+SST 
+(MN/m2) 
+K 
+(MN/m3) IF R zm 
+(m) 
+δhm,mid 
+(mm) 
+dw
+PIZ 
+(m) 
+δvm,mid
+PIZ   
+(mm) 
+dw
+SIZ 
+(m) 
+δvm,mid
+SIZ   
+(mm) 
+196 Taiwan Sino 
+Geotechnology BU DW NR 1 6 1.9 - 
+13.85 36 74 33.8 0.26 5.6 548 - 
+4408 21 - 27 1.8 – 
+12.9 
+1.1 - 
+10.8 
+140.6 
+- 
+404.3 
+0 - 
+17 
+5.08 - 
+27.31 
+7 - 
+8.33 
+21.5 - 
+30.49 
+16.12 
+- 
+18.99 
+0.52 - 
+3.2 
+197 Taiwan Sino 
+Geotechnology BU DW BW 1 4 2.25 - 
+9.1 60 67 23.4 0.23 3.5 484 - 
+2242 16 - 20 20.1 – 
+94.9 0.9 - 4 
+102.3 
+- 
+219.8 
+0 - 
+11.2 
+19.48 - 
+59.17 
+    
+198 Taiwan Sino 
+Geotechnology BU DW BW 1 6 2 - 
+17.1 19.5 38 6.4 0.28 6 3396 47 - 60 18.9 – 
+199.0 
+13.6 - 
+98.4 
+59 - 
+107.2 
+0 - 
+18 
+12.75 - 
+41.74 
+0.5 - 
+5.4 
+11.49 - 
+16.11 
+  
+199 Taiwan Sino 
+Geotechnology BU DW CW 1 8 1.5 - 
+18 15.3 13 1.2 0.32 8 1395 - 
+16940 55 - 69 11.9 – 
+261.1 
+26.2 - 
+505.8 
+68.5 - 
+245.12 
+0 - 
+16.8 
+35.6 - 
+122.86 
+0.13 - 
+7.17 
+17.06 - 
+38.05 
+10.19 
+- 
+26.74 
+1.19 - 
+7.7 
+200 Taiwan Sino 
+Geotechnology BU DW CW 1 4 1.8 - 
+10.1 22.8 15.5 3.4 0.25 4.6 1293 - 
+3446 45 - 90 6.4 – 
+82.5 
+11 - 
+50.5 
+90.7 - 
+190.9 
+ 7.65 - 
+29.4 
+    
+201 Taiwan Sino 
+Geotechnology BU DW NR 1 5 1.2 - 
+11.9 18 34 17 0.18 5 709 - 
+2770 64 - 128 2.7 – 
+27.7 
+10.2 - 
+129 
+59.4 - 
+264.7 
+0 - 
+13 
+20.9 - 
+148 0.5 - 3 3.96 - 
+32.19 
+14.47 
+- 
+18.79 
+0.68 - 
+12.33 
+202 Taiwan Sino 
+Geotechnology BU DW NR 1 3 1.7 - 7 15 42 18 0.18 3.5 447 - 
+4332 61 - 78 1.6 – 6.6 2.2 - 
+12.9 
+74 - 
+202.96 
+ 35.6 - 
+88.995 
+0.28 - 
+0.87 
+8.39 - 
+39.54 
+8.66 - 
+15.04 
+0.4 - 
+17.3 
+203 Taiwan Sino 
+Geotechnology BU DW NR 1 4 1.7 - 
+9.45 23.7 33 13.2 0.21 1.75 709 - 
+6879 37 - 60 2.4 – 
+13.6 
+4.1 - 
+25.8 
+68 - 
+195.53 
+0 - 
+9.76 
+2.5 - 
+25.5 0.5 - 4 3.6 - 
+13.77 
+22.36 
+- 
+29.056 
+0.80 
+204 Taiwan Sino 
+Geotechnology BU DW NR 1 3 1.95 - 
+6.15 14 14 7  5 1544 - 
+2502 70 - 89 6.8 – 
+29.0 8 - 23.5  0 - 7 5 - 11.1 0.5 - 
+4.5 
+4.8 - 
+10.8 
+10.4 - 
+12.45 0.3 - 2 
+205 Taiwan Sino 
+Geotechnology BU SP NR 2 4 1.8 - 
+7.4 
+21 - 
+26 
+40 - 
+50 
+17.5 
+- 24 0.18 6.75 714 - 
+1088 35 - 70 1.6 – 7.5 0.8 - 
+3.1 
+270 - 
+468.2 
+ 4.01 - 
+18.37 
+0.22 - 
+11.5 
+3.57 - 
+14.34 
+10.41 
+- 24.1 0.24 - 3 
+206 Taiwan Sino 
+Geotechnology BU DW GI 2 5 2.2 - 
+12.8 76 83 - 
+87 
+28.5 
+- 43 0.22 5.7 1059 - 
+3661 45978 8.0 – 
+30.1 
+0.7 - 
+4.1 
+92.7 - 
+214.58 
+0 - 
+16.25 
+15.06 - 
+180.3 
+0.75 - 
+9.54 
+21.08 - 
+161.9 
+23.27 
+- 52 
+0.97 - 
+10.43 
+207 Taiwan Sino 
+Geotechnology BU DW GI 1 7 2.35 - 
+18.5 22.5 31.5 15.75 0.30 7 20
+----- page 9 -----
+Site 
+# Country Reference EM RW CMM Ni Ne He (m) B 
+(m) 
+L 
+(m) 
+dc 
+(m) su/v' N SDW 
+SST 
+(MN/m2) 
+K 
+(MN/m3) IF R zm 
+(m) 
+δhm,mid 
+(mm) 
+dw
+PIZ 
+(m) 
+δvm,mid
+PIZ   
+(mm) 
+dw
+SIZ 
+(m) 
+δvm,mid
+SIZ   
+(mm) 
+221 Taiwan Sino 
+Geotechnology BU DW NR 4 3 1.4 - 
+6.5 
+15 - 
+26 
+15 - 
+26 
+6.6 - 
+13 0.25 1.5 - 
+1.54 
+224 - 
+1869 35 - 78 1.3 – 
+13.1 
+0.5 - 
+3.4 
+124.6 
+- 
+357.8 
+ 3.74 - 
+21.93 
+0.46 - 
+5.2 
+2.15 - 
+19.58 
+14.3 - 
+20.72 0.04 - 6 
+222 Taiwan Sino 
+Geotechnology BU DW NR 2 3 1.7 - 9 20 - 
+46 
+20 - 
+46 
+9 - 
+21 0.22 5 449 - 860 13 - 37 0.9 – 
+10.9 
+0.2 - 
+0.9 
+421 - 
+889.15 
+ 1.32 - 
+9.04 
+0.46 - 
+5.31 
+2.55 - 
+15.78 
+13.09 
+- 
+32.74 
+0.44 - 
+2.19 
+223 Taiwan Sino 
+Geotechnology BU DW NR 2 5 2.1 - 
+12.15 
+17 - 
+30 
+44 - 
+47 
+21 - 
+22.7 0.22 3 - 
+3.4 
+2954 - 
+3253 68 - 152 1.2 – 7.6 7.7 - 
+35.3 
+64.3 - 
+104.5 
+0 - 
+15 
+7.82 - 
+47.21 
+0.15 - 
+11.4 
+7.25 - 
+54.78 
+15.92 
+- 
+31.79 
+1.46 - 15 
+224 Taiwan Sino 
+Geotechnology TD DW BW 2 6 2.4 - 
+20.45 60 80 36.5 
+- 38 0.25 3.7 1284 - 
+8724 99 10.0 – 
+100.2 
+111.6 - 
+1592 
+8.4 - 
+23.9 
+0 - 
+21 
+7.5 - 
+76.87 
+0.36 - 
+9.67 
+14.35 - 
+67.64 
+18.9 - 
+44.55 
+0.08 - 
+19.64 
+225 Taiwan Sino 
+Geotechnology BU DW 
+NR - 
+BW - 
+CW 
+4 3 3.15 - 
+8.75 
+31 - 
+74 
+18 - 
+74 
+9 - 
+18.5 0.23 7.7 200 23 - 68 2.9 – 
+46.3 
+0.4 - 
+1.1 
+225 - 
+325 
+0 - 
+10 
+4.23 - 
+58.24 
+0.27 - 
+7 
+8.43 - 
+69.4 
+12.83 
+- 
+13.99 
+0.96 - 
+1.64 
+226 Taiwan Sino 
+Geotechnology BU DW BW 1 8 2.3 - 
+18.2 12 42 18 0.22 3.7 3065 128 - 
+204 
+13.8 – 
+118.0 
+20.9 - 
+111.8 
+132 - 
+238.6 
+0 - 
+18 
+1.27 - 
+50.34 
+0.9 - 
+4.18 
+3.43 - 
+52.31 
+10.31 
+- 
+20.44 
+1.01 - 
+18.62 
+227 Taiwan Sino 
+Geotechnology BU DW BW 1 5 2 - 13 11.5 24 11 0.20 4.5 709 73 - 116 34.9 – 
+230.0 
+10.6 - 
+43.3 
+187 - 
+307.9 
+0 - 
+18 
+3.44 - 
+9.13 
+0.14 - 
+7 
+8.94 - 
+18.17 
+12.74 
+- 
+24.04 
+0.13 - 
+0.77 
+228 Taiwan Sino 
+Geotechnology BU DW NR 3 5 1.8 - 
+11.6 
+65 - 
+101 
+65 - 
+101 
+31 - 
+32.5 0.29 4.7 447 - 
+3446 9 - 45 0.8 – 7.5 0.5 - 
+1.9 
+76.8 - 
+222 
+0 - 
+11.5 
+1.67 - 
+37.89 0.5 - 8 2.89 - 
+22.2 
+6.86 - 
+23.98 
+0.29 - 
+13.23 
+229 Taiwan Sino 
+Geotechnology TD DW NR 1 7 1.2 - 
+20.45 40 45 18.8 0.24 5.5 1116 148 2.1 – 
+37.8 
+188 - 
+5926 
+11 - 
+37 
+0 - 
+19.5 
+11.66 - 
+53.705 
+0.53 - 
+5 
+24.3 - 
+39.8 
+11.47 
+- 
+39.37 
+0.04 - 
+7.82 
+230 Taiwan Sino 
+Geotechnology BU DW BW 2 4 2.1 - 
+11.95 
+31 - 
+61.5 
+31 - 
+61.5 
+8.3 - 
+28.5 0.26 5.5 342 - 
+2954 13 - 51 7.7 – 
+60.8 
+0.9 - 
+4.4 
+49.7 - 
+139.75 
+0 - 
+14.9 
+4 - 
+20.68 
+3.14 - 
+4.18 
+12.67 - 
+19.96 
+16.02 
+- 
+19.37 
+0.59 - 
+4.49 
+231 Taiwan Sino 
+
+----- page 10 -----
+Site 
+# Country Reference EM RW CMM Ni Ne He (m) B 
+(m) 
+L 
+(m) 
+dc 
+(m) su/v' N SDW 
+SST 
+(MN/m2) 
+K 
+(MN/m3) IF R zm 
+(m) 
+δhm,mid 
+(mm) 
+dw
+PIZ 
+(m) 
+δvm,mid
+PIZ   
+(mm) 
+dw
+SIZ 
+(m) 
+δvm,mid
+SIZ   
+(mm) 
+246 Taiwan Sino 
+Geotechnology BU DW GI 4 6 2.1 - 
+16.2 50 35 - 
+50 
+13 - 
+19 0.30 4 1507 - 
+6278 18 - 42 6.4 – 
+38.8 
+4.9 - 
+34.2 
+52.9 - 
+130 
+0 - 
+19 
+16.4 - 
+172 
+0.5 - 
+16.6 
+5.3 - 
+157.7 
+5.8 - 
+50.2 
+0.05 - 
+17.3 
+247 Taiwan Sino 
+Geotechnology BU DW NR 3 5 2.3 - 
+12.85 
+26 - 
+54 
+33 - 
+62 
+15.5 
+- 28 0.25 6 812 - 
+2053 12 - 40 2.8 – 
+16.2 
+3.5 - 
+15.6 
+179 - 
+368 
+0 - 
+13 
+3.94 - 
+11.8 
+0.5 - 
+6.8 
+7.24 - 
+14.37 
+  
+248 Taiwan Sino 
+Geotechnology BU DW NR 3 5 1.8 - 
+10.5 80 35 17 - 
+24 0.30 4.7 447 - 
+3446 12 2.1 – 
+12.3 
+0.4 - 
+4.4 
+75.7 - 
+208.8 
+0 - 
+14.2 
+1.13 - 
+31.4 
+0.14 - 
+18 
+3.22 - 
+29.78 
+12.5 - 
+55.7 
+1.6 - 
+6.39 
+249 Taiwan Sino 
+Geotechnology BU DW BW 4 5 3.5 - 
+20.6 
+67 - 
+90 
+67 - 
+90 
+24 - 
+42 0.23 3.33 3573 19 - 235 14.5 – 
+86.7 
+390 - 
+2405 
+14.9 - 
+25.2 
+0 - 
+16.5 1.1 - 46 0.3 - 
+13 
+2.5 - 
+45.1 
+8.6 - 
+39.2 
+0.5 - 
+19.6 
+250 Taiwan Sino 
+Geotechnology BU DW NR 2 4 2.25 - 
+7.85 
+16 - 
+42 
+10 - 
+42 4 - 5 0.33 9 1412 - 
+2261 19 - 50 1.1 – 
+42.8 
+2.4 - 
+8.1 
+51.7 - 
+71.7 
+ 2.31 - 
+130.3 
+    
+251 Taiwan Sino 
+Geotechnology BU DW NR 2 3 2.2 - 
+8.65 
+23.5 
+- 
+47.5 
+23.5 
+- 
+47.5 
+23 - 
+10.5 0.25 9 86 - 894 17 - 38 1.1 – 7.5 0.3 - 
+1.9 
+96.6 - 
+310.35 
+0 - 
+10.5 
+4.9 - 
+29.66 
+0.07 - 
+1.25 
+2.05 - 
+19.57 
+9.18 - 
+21.75 
+0.25 - 
+3.96 
+252 Taiwan Sino 
+Geotechnology TD DW BW 2 6 6.5 - 
+22.4 
+52.5 
+- 101 
+52.5 
+- 101 
+14 - 
+50 0.23 6.5 316 59 - 113 22.4 – 
+81.8 
+104.3 - 
+400.7 
+36.6 - 
+57 
+ 2.06 - 
+46.41 
+    
+253 Taiwan Sino 
+Geotechnology BU DW NR 2 5 3.5 – 
+15.05 
+42.5 
+– 60 
+42.5 
+– 60 
+16.5 
+– 
+26.7 
+0.22 5.6 362 22 - 31 2.2 – 
+11.8 
+1.5 – 
+6.3 
+429.5 
+– 
+654.9 
+0 - 
+19.2 
+4.03 – 
+20.92 
+0.64 – 
+18.39 
+3.13 – 
+11.03 
+30.48 
+– 
+59.66 
+0.38 – 
+7.70 
+254 Taiwan Sino 
+Geotechnology BU DW NR 2 3 1.5 – 
+6.2 16 44 22 0.26 4 860 – 
+1419 36 1.0 – 4.4 0.2 – 
+1.1 
+210.3 
+– 
+378.3 
+0 - 6 2.02 – 
+3.75 
+    
+255 Taiwan Sino 
+Geotechnology BU DW NR 4 7 1.6 – 
+17.9 
+20 – 
+27 
+20 – 
+27 
+9 – 
+13.5 0.26 4.6 681 – 
+5520 26 – 35 3.7 – 
+65.1 
+2.3 – 
+56.0 
+250.8 
+– 
+804.3 
+0 - 
+20 
+5.06 – 
+44.30 
+0.10 – 
+2.38 
+4.83 – 
+16.62 
+8.57 – 
+22.42 
+0.20 – 
+6.00 
+256 Taiwan Sino 
+Geotechnology BU DW NR 1 5 2.1 – 
+11.9 18 35 14.5 0.32 9 1860 91 2.1 – 
+13.3 
+5.0 – 
+32.1 
+115.5 
+– 
+201.9 
+1.21 
+- 14 
+2.46 – 
+22.69 
+0.24 – 
+2.46 
+12.14 – 
+19.41 
+13.62 
+– 
+17.34 
+0

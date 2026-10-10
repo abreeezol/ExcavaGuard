@@ -1,0 +1,1155 @@
+{
+  "schema": "excavaguard.simulated_dataset/v1",
+  "is_simulated": true,
+  "data_origin": "simulated",
+  "source_dataset": "SIMULATED-EXCAVAGUARD-V1",
+  "dataset_file": "SIMULATED_基坑监测数据集_v1.csv",
+  "context_file": "SIMULATED_工程条件_v1.json",
+  "records": 3420,
+  "points": 57,
+  "days": 60,
+  "scenario_count": 27,
+  "scenarios": [
+    {
+      "scenario_id": "S1",
+      "scenario_name": "正常稳定",
+      "description": "开挖后逐步收敛，各判据利用率 < 0.5",
+      "problem_category": "变形过大",
+      "expected_level": "正常",
+      "points": [
+        "ZQS-01",
+        "DB-01",
+        "LZ-01"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S2",
+      "scenario_name": "持续增长",
+      "description": "匀速持续增长，累计值利用率进入 0.7~1.0",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "points": [
+        "ZQS-02",
+        "CX-01",
+        "DB-02"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S3",
+      "scenario_name": "突变异常",
+      "description": "台阶式突变，变化速率超限（跳变后维持在新水平，属真实变形而非粗差）",
+      "problem_category": "变形过大/支护受力异常",
+      "expected_level": "报警",
+      "points": [
+        "ZQS-03",
+        "ZL-01"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S4",
+      "scenario_name": "累计值超限",
+      "description": "累计值越过限值",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "ZQS-04",
+        "CX-02"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S5",
+      "scenario_name": "速率超限",
+      "description": "累计值未超限但变化速率超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "ZQS-05",
+        "DB-03"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S6",
+      "scenario_name": "连续接近预警",
+      "description": "速率长期处于限值 70% 以上（连续 3 次超 70% 判据）",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "points": [
+        "ZQS-06"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S7",
+      "scenario_name": "渗漏水关联",
+      "description": "地下水位骤降并带动周边沉降",
+      "problem_category": "渗漏水与地下水异常",
+      "expected_level": "报警",
+      "points": [
+        "SW-01",
+        "DB-04"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S8",
+      "scenario_name": "支撑轴力异常",
+      "description": "支撑轴力超过构件承载能力设计值的 60%",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "points": [
+        "ZL-02",
+        "ZL-03"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S9",
+      "scenario_name": "锚杆松弛",
+      "description": "锚杆轴力低于预应力设计值的 80%",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "points": [
+        "MG-01",
+        "MG-02"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S10",
+      "scenario_name": "多点联动异常",
+      "description": "墙顶位移 + 深层位移 + 支撑轴力同步接近限值",
+      "problem_category": "支护失稳风险",
+      "expected_level": "预警",
+      "points": [
+        "ZQS-07",
+        "CX-03",
+        "ZL-04"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S11",
+      "scenario_name": "位移不收敛",
+      "description": "二次加速，瞬时速率显著高于序列平均速率（JGJ 120-2012 §8.2.23-2）",
+      "problem_category": "支护失稳风险",
+      "expected_level": "预警",
+      "points": [
+        "ZQS-08",
+        "CX-04"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S12",
+      "scenario_name": "坑底隆起",
+      "description": "坑底回弹累计值超限",
+      "problem_category": "支护失稳风险",
+      "expected_level": "报警",
+      "points": [
+        "KD-01",
+        "KD-02"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S13",
+      "scenario_name": "数据缺测",
+      "description": "多期观测值缺失，该期弃权",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "points": [
+        "ZQS-09"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": [
+        "MISSING_VALUE"
+      ]
+    },
+    {
+      "scenario_id": "S14",
+      "scenario_name": "粗差异常",
+      "description": "孤立尖峰（跳变后立即跳回），该期及相邻期不参与判定",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "points": [
+        "ZQS-10"
+      ],
+      "expected_blocked": true,
+      "expected_quality_codes": [
+        "OUTLIER"
+      ]
+    },
+    {
+      "scenario_id": "S15",
+      "scenario_name": "单位与格式错误",
+      "description": "单位不可识别、数值非数值、日期无法解析",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "points": [
+        "DB-05"
+      ],
+      "expected_blocked": true,
+      "expected_quality_codes": [
+        "UNSUPPORTED_UNIT",
+        "NON_NUMERIC_VALUE",
+        "UNPARSED_TIMESTAMP"
+      ]
+    },
+    {
+      "scenario_id": "S16",
+      "scenario_name": "传感器漂移",
+      "description": "连续多期数值不变（FLATLINE），疑似传感器失效",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "points": [
+        "ZQS-12"
+      ],
+      "expected_blocked": true,
+      "expected_quality_codes": [
+        "FLATLINE"
+      ]
+    },
+    {
+      "scenario_id": "S17",
+      "scenario_name": "危险报警综合",
+      "description": "多参数严重超限 + 触发 GB 50497-2019 第 8.0.9 条危险报警条件",
+      "problem_category": "危险报警",
+      "expected_level": "危险报警",
+      "points": [
+        "ZQS-13",
+        "SW-02",
+        "DB-06",
+        "ZL-05"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S18",
+      "scenario_name": "底板浇筑后速率超限",
+      "description": "速率未超原限值，但超过底板浇筑后折减限值（×0.7）",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "ZQS-14"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S19",
+      "scenario_name": "裂缝发展",
+      "description": "既有裂缝宽度累计增长超过限值",
+      "problem_category": "裂缝发展",
+      "expected_level": "危险报警",
+      "points": [
+        "LF-01",
+        "LF-02"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S20",
+      "scenario_name": "建筑倾斜超限",
+      "description": "周边建筑倾斜度超过 2/1000",
+      "problem_category": "变形过大",
+      "expected_level": "危险报警",
+      "points": [
+        "JQ-01",
+        "JQ-02"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S21",
+      "scenario_name": "管线与道路沉降",
+      "description": "柔性管线与一般城市道路沉降超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "GX-01",
+        "DL-01"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S22",
+      "scenario_name": "土压力与内力超限",
+      "description": "土压力、孔隙水压力、围护墙内力超过设计控制比例",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "points": [
+        "TL-01",
+        "KX-01",
+        "QL-01"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S23",
+      "scenario_name": "建筑沉降速率超限",
+      "description": "周边建筑沉降速率超限",
+      "problem_category": "变形过大",
+      "expected_level": "危险报警",
+      "points": [
+        "JZ-01",
+        "JZ-02"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S24",
+      "scenario_name": "顶部竖向位移超限",
+      "description": "围护墙顶部竖向位移累计值超限（GB 50497-2019 表8.0.4）",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "ZJS-01",
+        "ZJS-02",
+        "ZJS-03"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S25",
+      "scenario_name": "地表裂缝发展",
+      "description": "地表既有裂缝持续发展超限、新增裂缝达到预警（表8.0.5）",
+      "problem_category": "裂缝发展",
+      "expected_level": "报警",
+      "points": [
+        "DBLF-01",
+        "DBLF-02"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S26",
+      "scenario_name": "管线水平位移超限",
+      "description": "柔性管线累计超限；刚性管道无累计值判据，仅速率接近预警（表8.0.5）",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "points": [
+        "GXSP-01",
+        "GXSP-02",
+        "GXSP-03"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    },
+    {
+      "scenario_id": "S27",
+      "scenario_name": "规范判据待补充",
+      "description": "立柱内力、土体分层竖向位移、土体温度：规范未给出预警值，按 §8.0.1 待设计方确定，一律弃权转人工复核",
+      "problem_category": "变形过大",
+      "expected_level": "未知",
+      "points": [
+        "LZNL-01",
+        "FCCJ-01",
+        "WD-01"
+      ],
+      "expected_blocked": false,
+      "expected_quality_codes": []
+    }
+  ],
+  "point_details": [
+    {
+      "point_id": "ZQS-01",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S1",
+      "scenario_name": "正常稳定",
+      "problem_category": "变形过大",
+      "expected_level": "正常",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "DB-01",
+      "metric_key": "surface_settlement",
+      "unit": "mm",
+      "scenario_id": "S1",
+      "scenario_name": "正常稳定",
+      "problem_category": "变形过大",
+      "expected_level": "正常",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "LZ-01",
+      "metric_key": "column_vertical_displacement",
+      "unit": "mm",
+      "scenario_id": "S1",
+      "scenario_name": "正常稳定",
+      "problem_category": "变形过大",
+      "expected_level": "正常",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-02",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S2",
+      "scenario_name": "持续增长",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "CX-01",
+      "metric_key": "deep_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S2",
+      "scenario_name": "持续增长",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "DB-02",
+      "metric_key": "surface_settlement",
+      "unit": "mm",
+      "scenario_id": "S2",
+      "scenario_name": "持续增长",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-03",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S3",
+      "scenario_name": "突变异常",
+      "problem_category": "变形过大/支护受力异常",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZL-01",
+      "metric_key": "support_axial_force",
+      "unit": "kN",
+      "scenario_id": "S3",
+      "scenario_name": "突变异常",
+      "problem_category": "变形过大/支护受力异常",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-04",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S4",
+      "scenario_name": "累计值超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "CX-02",
+      "metric_key": "deep_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S4",
+      "scenario_name": "累计值超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-05",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S5",
+      "scenario_name": "速率超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "DB-03",
+      "metric_key": "surface_settlement",
+      "unit": "mm",
+      "scenario_id": "S5",
+      "scenario_name": "速率超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-06",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S6",
+      "scenario_name": "连续接近预警",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "SW-01",
+      "metric_key": "groundwater_level",
+      "unit": "mm",
+      "scenario_id": "S7",
+      "scenario_name": "渗漏水关联",
+      "problem_category": "渗漏水与地下水异常",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "DB-04",
+      "metric_key": "surface_settlement",
+      "unit": "mm",
+      "scenario_id": "S7",
+      "scenario_name": "渗漏水关联",
+      "problem_category": "渗漏水与地下水异常",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZL-02",
+      "metric_key": "support_axial_force",
+      "unit": "kN",
+      "scenario_id": "S8",
+      "scenario_name": "支撑轴力异常",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZL-03",
+      "metric_key": "support_axial_force",
+      "unit": "kN",
+      "scenario_id": "S8",
+      "scenario_name": "支撑轴力异常",
+      "problem_category": "支护受力异常",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "MG-01",
+      "metric_key": "anchor_axial_force",
+      "unit": "kN",
+      "scenario_id": "S9",
+      "scenario_name": "锚杆松弛",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "MG-02",
+      "metric_key": "anchor_axial_force",
+      "unit": "kN",
+      "scenario_id": "S9",
+      "scenario_name": "锚杆松弛",
+      "problem_category": "支护受力异常",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-07",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S10",
+      "scenario_name": "多点联动异常",
+      "problem_category": "支护失稳风险",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "CX-03",
+      "metric_key": "deep_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S10",
+      "scenario_name": "多点联动异常",
+      "problem_category": "支护失稳风险",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZL-04",
+      "metric_key": "support_axial_force",
+      "unit": "kN",
+      "scenario_id": "S10",
+      "scenario_name": "多点联动异常",
+      "problem_category": "支护失稳风险",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-08",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S11",
+      "scenario_name": "位移不收敛",
+      "problem_category": "支护失稳风险",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "CX-04",
+      "metric_key": "deep_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S11",
+      "scenario_name": "位移不收敛",
+      "problem_category": "支护失稳风险",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "KD-01",
+      "metric_key": "basal_heave",
+      "unit": "mm",
+      "scenario_id": "S12",
+      "scenario_name": "坑底隆起",
+      "problem_category": "支护失稳风险",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "KD-02",
+      "metric_key": "basal_heave",
+      "unit": "mm",
+      "scenario_id": "S12",
+      "scenario_name": "坑底隆起",
+      "problem_category": "支护失稳风险",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-09",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S13",
+      "scenario_name": "数据缺测",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "expected_blocked": false,
+      "expected_quality_codes": [
+        "MISSING_VALUE"
+      ],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-10",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S14",
+      "scenario_name": "粗差异常",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "expected_blocked": true,
+      "expected_quality_codes": [
+        "OUTLIER"
+      ],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "DB-05",
+      "metric_key": "surface_settlement",
+      "unit": "mm",
+      "scenario_id": "S15",
+      "scenario_name": "单位与格式错误",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "expected_blocked": true,
+      "expected_quality_codes": [
+        "UNSUPPORTED_UNIT",
+        "NON_NUMERIC_VALUE",
+        "UNPARSED_TIMESTAMP"
+      ],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-12",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S16",
+      "scenario_name": "传感器漂移",
+      "problem_category": "数据质量异常",
+      "expected_level": "未知",
+      "expected_blocked": true,
+      "expected_quality_codes": [
+        "FLATLINE"
+      ],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-13",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S17",
+      "scenario_name": "危险报警综合",
+      "problem_category": "危险报警",
+      "expected_level": "危险报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {
+        "danger_signals": {
+          "DANGER-1": true,
+          "DANGER-2": true
+        }
+      },
+      "records": 60
+    },
+    {
+      "point_id": "SW-02",
+      "metric_key": "groundwater_level",
+      "unit": "mm",
+      "scenario_id": "S17",
+      "scenario_name": "危险报警综合",
+      "problem_category": "危险报警",
+      "expected_level": "危险报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "DB-06",
+      "metric_key": "surface_settlement",
+      "unit": "mm",
+      "scenario_id": "S17",
+      "scenario_name": "危险报警综合",
+      "problem_category": "危险报警",
+      "expected_level": "危险报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZL-05",
+      "metric_key": "support_axial_force",
+      "unit": "kN",
+      "scenario_id": "S17",
+      "scenario_name": "危险报警综合",
+      "problem_category": "危险报警",
+      "expected_level": "危险报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZQS-14",
+      "metric_key": "wall_top_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S18",
+      "scenario_name": "底板浇筑后速率超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "LF-01",
+      "metric_key": "crack_width_building",
+      "unit": "mm",
+      "scenario_id": "S19",
+      "scenario_name": "裂缝发展",
+      "problem_category": "裂缝发展",
+      "expected_level": "危险报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {
+        "crack_state": "既有裂缝"
+      },
+      "records": 60
+    },
+    {
+      "point_id": "LF-02",
+      "metric_key": "crack_width_building",
+      "unit": "mm",
+      "scenario_id": "S19",
+      "scenario_name": "裂缝发展",
+      "problem_category": "裂缝发展",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {
+        "crack_state": "既有裂缝"
+      },
+      "records": 60
+    },
+    {
+      "point_id": "JQ-01",
+      "metric_key": "building_inclination",
+      "unit": "1",
+      "scenario_id": "S20",
+      "scenario_name": "建筑倾斜超限",
+      "problem_category": "变形过大",
+      "expected_level": "危险报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "JQ-02",
+      "metric_key": "building_inclination",
+      "unit": "1",
+      "scenario_id": "S20",
+      "scenario_name": "建筑倾斜超限",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "GX-01",
+      "metric_key": "pipeline_settlement",
+      "unit": "mm",
+      "scenario_id": "S21",
+      "scenario_name": "管线与道路沉降",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {
+        "pipeline_type": "柔性管线"
+      },
+      "records": 60
+    },
+    {
+      "point_id": "DL-01",
+      "metric_key": "road_settlement",
+      "unit": "mm",
+      "scenario_id": "S21",
+      "scenario_name": "管线与道路沉降",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {
+        "road_type": "一般城市道路"
+      },
+      "records": 60
+    },
+    {
+      "point_id": "TL-01",
+      "metric_key": "earth_pressure",
+      "unit": "kPa",
+      "scenario_id": "S22",
+      "scenario_name": "土压力与内力超限",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "KX-01",
+      "metric_key": "pore_pressure",
+      "unit": "kPa",
+      "scenario_id": "S22",
+      "scenario_name": "土压力与内力超限",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "QL-01",
+      "metric_key": "wall_internal_force",
+      "unit": "kN",
+      "scenario_id": "S22",
+      "scenario_name": "土压力与内力超限",
+      "problem_category": "支护受力异常",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "JZ-01",
+      "metric_key": "building_settlement",
+      "unit": "mm",
+      "scenario_id": "S23",
+      "scenario_name": "建筑沉降速率超限",
+      "problem_category": "变形过大",
+      "expected_level": "危险报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "JZ-02",
+      "metric_key": "building_settlement",
+      "unit": "mm",
+      "scenario_id": "S23",
+      "scenario_name": "建筑沉降速率超限",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZJS-01",
+      "metric_key": "wall_top_vertical_displacement",
+      "unit": "mm",
+      "scenario_id": "S24",
+      "scenario_name": "顶部竖向位移超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZJS-02",
+      "metric_key": "wall_top_vertical_displacement",
+      "unit": "mm",
+      "scenario_id": "S24",
+      "scenario_name": "顶部竖向位移超限",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "ZJS-03",
+      "metric_key": "wall_top_vertical_displacement",
+      "unit": "mm",
+      "scenario_id": "S24",
+      "scenario_name": "顶部竖向位移超限",
+      "problem_category": "变形过大",
+      "expected_level": "正常",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "DBLF-01",
+      "metric_key": "crack_width_surface",
+      "unit": "mm",
+      "scenario_id": "S25",
+      "scenario_name": "地表裂缝发展",
+      "problem_category": "裂缝发展",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {
+        "crack_state": "既有裂缝"
+      },
+      "records": 60
+    },
+    {
+      "point_id": "DBLF-02",
+      "metric_key": "crack_width_surface",
+      "unit": "mm",
+      "scenario_id": "S25",
+      "scenario_name": "地表裂缝发展",
+      "problem_category": "裂缝发展",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {
+        "crack_state": "新增裂缝"
+      },
+      "records": 60
+    },
+    {
+      "point_id": "GXSP-01",
+      "metric_key": "pipeline_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S26",
+      "scenario_name": "管线水平位移超限",
+      "problem_category": "变形过大",
+      "expected_level": "报警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {
+        "pipeline_type": "柔性管线"
+      },
+      "records": 60
+    },
+    {
+      "point_id": "GXSP-02",
+      "metric_key": "pipeline_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S26",
+      "scenario_name": "管线水平位移超限",
+      "problem_category": "变形过大",
+      "expected_level": "预警",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {
+        "pipeline_type": "刚性管道（压力）"
+      },
+      "records": 60
+    },
+    {
+      "point_id": "GXSP-03",
+      "metric_key": "pipeline_horizontal_displacement",
+      "unit": "mm",
+      "scenario_id": "S26",
+      "scenario_name": "管线水平位移超限",
+      "problem_category": "变形过大",
+      "expected_level": "正常",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {
+        "pipeline_type": "柔性管线"
+      },
+      "records": 60
+    },
+    {
+      "point_id": "LZNL-01",
+      "metric_key": "column_internal_force",
+      "unit": "kN",
+      "scenario_id": "S27",
+      "scenario_name": "规范判据待补充",
+      "problem_category": "变形过大",
+      "expected_level": "未知",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "FCCJ-01",
+      "metric_key": "soil_layered_vertical_displacement",
+      "unit": "mm",
+      "scenario_id": "S27",
+      "scenario_name": "规范判据待补充",
+      "problem_category": "变形过大",
+      "expected_level": "未知",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    },
+    {
+      "point_id": "WD-01",
+      "metric_key": "soil_temperature",
+      "unit": "℃",
+      "scenario_id": "S27",
+      "scenario_name": "规范判据待补充",
+      "problem_category": "变形过大",
+      "expected_level": "未知",
+      "expected_blocked": false,
+      "expected_quality_codes": [],
+      "overrides": {},
+      "records": 60
+    }
+  ],
+  "disclaimer": "全部为模拟/生成数据，与真实数据分开统计，不得用于真实工程判定。"
+}
