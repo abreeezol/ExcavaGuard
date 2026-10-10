@@ -20,3 +20,19 @@ next-env.d.ts
 .npm-cache/
 .artifacts/
 *.log
+
+# --- 本项目本地资产（不入库）---------------------------------------------
+# 上传文件（监测数据 / 用户规范）：本地存储层工作目录，含用户上传内容
+var/
+
+# 本地资产快照区：模拟数据快照 + 原始数据只读备份。
+# 原始数据为第三方数据副本（37 MB），不入库；模拟数据快照与
+# 确定性计算层/data_simulated/ 内容重复，由 tools/generate_simulated_dataset.py 重新生成。
+数据资产/
+
+# 大体积派生明细（纯行级结果转储，可由 tools/run_*.py 重新生成）
+确定性计算层/derived/真实数据_三阶段判定明细.csv
+确定性计算层/legacy/derived_旧阶段语义/真实数据_判定明细.csv
+
+# 日报接口载荷体积过大（单份 6~18 MB），由 tools/run_combined_real_and_simulated.py 按需重新生成
+确定性计算层/derived/日报接口载荷_*.json
