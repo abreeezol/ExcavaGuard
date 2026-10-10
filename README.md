@@ -186,3 +186,13 @@ npm start           # 运行已经构建的应用
 5. 实现日报生成 Agent（消费冻结载荷）与导出；接入规范与案例 RAG、服务端模型。
 
 完整要求见 [AGENTS.md](AGENTS.md)、[项目记忆](memory.md)、[开发推进记录](10_开发推进记录.md)、[可视化测试指引](11_可视化测试指引.md) 和 [框架设计](方案与迭代note/框架demo.md)。系统只输出工程师待复核的草稿，不自动发布预警或签发报告。
+
+---
+
+## 离线规范 RAG 知识库原型（`source/`）
+
+与上方 Web 应用解耦的独立离线 RAG 原型：基于 `source/build_kb.py` 构建条款级向量库（bge-small-zh + ChromaDB），支持规范检索、合规核对与日报生成。
+
+- 嵌入模型 `models/bge-small-zh` 随仓库提供（Git LFS），无需联网。
+- 知识库原始规范（`data/ocr_text/`、`data/chunks.jsonl`、`data/chroma_db/`）受版权保护，已通过 `.gitignore` 排除，不进 public 仓库；本机运行请使用本地已授权的规范源，执行 `python source/build_kb.py --rebuild` 重建后再用 `python source/server.py --port 8600` 启动。
+- 完整用法、内置规范清单与 FAQ 见 [`source/README.md`](source/README.md)。
