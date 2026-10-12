@@ -32,7 +32,8 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   `POST /api/runs`（真实三阶段分析）、`GET /api/monitoring-files/sample`（示例数据）；
 - **Node → Python 引擎桥接**：`src/server/skills/python-bridge.ts` + `skills/*/scripts/*.py`
   （`inspect_file.py` / `run_judgement.py` / `check_strictness.py`），子进程协议，零引擎改动；
-- **可视化测试工作台** `/workbench`（见 `11_可视化测试指引.md`）；
+- **可视化测试工作台** `/workbench`
+  （见 `方案与迭代note/11_可视化测试指引.md`）；
 - **规范 RAG 资产与离线原型**：`models/bge-small-zh/`（Git LFS）、`data/ocr_text/`（30 份文本）、
   `data/chunks.jsonl`（8,698 个唯一切片）与 `data/chroma_db/`
   （collection `jikeng_norms`，8,698 条 512 维 cosine 向量）已纳入仓库；
@@ -79,7 +80,8 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 > 已超上界 → 超限结论必然成立，照常判定。`MISSING_H` 不再是死代码。
 >
 > **已验证（④）**：引擎与 Web 入口可打通 —— `skills/evaluate-thresholds/scripts/run_judgement.py`
-> + `tools/bridge-smoke/`，Node 子进程调用 Python，13/13 通过（见 `10_开发推进记录.md`）。
+> + `tools/bridge-smoke/`，Node 子进程调用 Python，13/13 通过
+> （见 `方案与迭代note/10_开发推进记录.md`）。
 
 任何 Agent 都不得把规划中的技术选型描述为已经实现，也不得把已实现的能力描述为尚未实现。
 
@@ -94,11 +96,11 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 5. `确定性计算层/04_日报模块接口契约.md`：日报交接契约（已冻结）；
 6. `确定性计算层/05_参数查漏与补充分析.md`：参数查漏结论与补充参数画像；
 7. `确定性计算层/06_上传数据到风险识别链路_目标实现度评估.md`：**目标实现度、关键差距与风险点**；
-8. `08_阈值口径统一说明.md`：阈值来源的**唯一权威口径**与远程同步方案；
+8. `方案与迭代note/08_阈值口径统一说明.md`：阈值来源的**唯一权威口径**与远程同步方案；
 9. `确定性计算层/09_用户数据文件契约.md`：用户数据文件契约（列名/编码/派生规则）；
-10. `10_开发推进记录.md`：①~⑤ 开发进度、P1-2 修复、交付物与待决事项；
-11. `11_可视化测试指引.md`：**端到端可视化验证的操作手册**（启动、四步操作、三个验证点）；
-12. `07_远程仓库对比与两项可行性分析.md`：本地与远程仓库的差异、打通路径与风险；
+10. `方案与迭代note/10_开发推进记录.md`：①~⑤ 开发进度、P1-2 修复、交付物与待决事项；
+11. `方案与迭代note/11_可视化测试指引.md`：**端到端可视化验证的操作手册**（启动、四步操作、三个验证点）；
+12. `方案与迭代note/07_远程仓库对比与两项可行性分析.md`：本地与远程仓库的差异、打通路径与风险；
 13. `方案与迭代note/初步方案.md`：业务目标和初步技术判断；
 14. `方案与迭代note/框架demo.md`：Skill 编排和多 Agent 设计；
 15. `skills/README.md`：Skill 目录约定；
@@ -165,7 +167,11 @@ ExcavaGuard/
 ├── 方案与迭代note/
 │   ├── 初步方案.md
 │   ├── 框架demo.md
-│   └── 链路口语化.md
+│   ├── 链路口语化.md
+│   ├── 07_远程仓库对比与两项可行性分析.md
+│   ├── 08_阈值口径统一说明.md
+│   ├── 10_开发推进记录.md
+│   └── 11_可视化测试指引.md
 ├── skills/
 │   ├── README.md
 │   ├── .agents/
@@ -179,10 +185,6 @@ ExcavaGuard/
 │   ├── analyze-work-condition/
 │   ├── render-daily-report/
 │   └── validate-report/
-├── 07_远程仓库对比与两项可行性分析.md
-├── 08_阈值口径统一说明.md
-├── 10_开发推进记录.md
-└── 11_可视化测试指引.md
 ```
 
 每个业务 Skill 使用以下结构：
