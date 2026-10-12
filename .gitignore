@@ -19,6 +19,7 @@ next-env.d.ts
 .tools/
 .npm-cache/
 .artifacts/
+.playwright-cli/
 *.log
 
 # --- 本项目本地资产（不入库）---------------------------------------------

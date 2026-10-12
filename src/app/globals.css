@@ -26,7 +26,11 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 .nav-label { margin: 51px 13px 14px; color: #adbeaf; font-size: 10px; letter-spacing: 2px; }
 .sidebar nav { display: flex; flex-direction: column; gap: 9px; }
 .sidebar nav a { display: flex; align-items: center; gap: 13px; padding: 12px 14px; border-radius: 7px; color: #cedbd0; transition: background .15s; }
-.sidebar nav a:first-child, .sidebar nav a:hover { background: #305445; color: #f5f9f0; }
+.app-shell:has(main#workspace):not(:has(#workflow:target)):not(:has(#report:target)) .nav-home,
+.app-shell:has(#workflow:target) .nav-workflow,
+.app-shell:has(#report:target) .nav-report,
+.app-shell:has(main#workbench) .nav-workbench,
+.sidebar nav a:hover { background: #305445; color: #f5f9f0; }
 .sidebar-note { margin-top: auto; padding: 26px 13px 0; color: #c2d9b1; }
 .sidebar-note h2 { margin-top: 13px; font-size: 12px; font-weight: 500; color: #e2ebdd; }
 .sidebar-note p { margin-top: 9px; font-size: 11px; line-height: 1.9; color: #a9bdae; }

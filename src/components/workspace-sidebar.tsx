@@ -10,10 +10,18 @@ export function WorkspaceSidebar() {
       </Link>
       <p className="nav-label">工作空间</p>
       <nav aria-label="工作台导航">
-        <Link href="/"><LayoutDashboard size={18} aria-hidden="true" />日报工作台</Link>
-        <Link href="/workbench"><FlaskConical size={18} aria-hidden="true" />可视化测试工作台</Link>
-        <Link href="/#workflow"><GitBranch size={18} aria-hidden="true" />协作流程</Link>
-        <Link href="/#report"><FileText size={18} aria-hidden="true" />日报草稿</Link>
+        <Link className="nav-home" href="/">
+          <LayoutDashboard size={18} aria-hidden="true" />日报工作台
+        </Link>
+        <Link className="nav-workflow" href="/#workflow">
+          <GitBranch size={18} aria-hidden="true" />协作流程
+        </Link>
+        <Link className="nav-report" href="/#report">
+          <FileText size={18} aria-hidden="true" />日报草稿
+        </Link>
+        <Link className="nav-workbench" href="/workbench">
+          <FlaskConical size={18} aria-hidden="true" />可视化测试工作台
+        </Link>
       </nav>
       <div className="sidebar-note">
         <ShieldCheck size={21} aria-hidden="true" />
