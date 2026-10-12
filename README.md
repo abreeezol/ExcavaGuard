@@ -194,5 +194,5 @@ npm start           # 运行已经构建的应用
 与上方 Web 应用解耦的独立离线 RAG 原型：基于 `source/build_kb.py` 构建条款级向量库（bge-small-zh + ChromaDB），支持规范检索、合规核对与日报生成。
 
 - 嵌入模型 `models/bge-small-zh` 随仓库提供（Git LFS），无需联网。
-- 知识库原始规范（`data/ocr_text/`、`data/chunks.jsonl`、`data/chroma_db/`）受版权保护，已通过 `.gitignore` 排除，不进 public 仓库；本机运行请使用本地已授权的规范源，执行 `python source/build_kb.py --rebuild` 重建后再用 `python source/server.py --port 8600` 启动。
+- 知识库原始规范（`data/ocr_text/`、`data/chunks.jsonl`、`data/chroma_db/`）已随仓库纳入版本管理（经权利人/作者授权决策后公开）；克隆后无需重新构建即可直接使用，或执行 `python source/build_kb.py --rebuild` 重建、`python source/server.py --port 8600` 启动本地服务。
 - 完整用法、内置规范清单与 FAQ 见 [`source/README.md`](source/README.md)。
