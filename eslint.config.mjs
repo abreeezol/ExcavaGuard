@@ -10,6 +10,7 @@ export default defineConfig([
     "out/**",
     "build/**",
     "coverage/**",
+    ".venv/**",
     ".tools/**",
     ".npm-cache/**",
     ".artifacts/**",

@@ -1,4 +1,4 @@
-import { CircleDashed, GitBranch } from "lucide-react";
+import { CircleCheck, CircleDashed, GitBranch } from "lucide-react";
 import { agentIdSchema } from "@/contracts/identifiers";
 import { agentRegistry } from "@/server/agents/registry";
 
@@ -12,15 +12,25 @@ export function WorkflowOverview() {
         </div>
         <GitBranch size={22} aria-hidden="true" />
       </div>
-      <p className="section-description">以下为已规划的角色分工，执行链路尚未接入。</p>
+      <p className="section-description">
+        Supervisor 状态机基础已接入，报告生成与独立审计能力仍待实现。
+      </p>
       <ol className="workflow-list">
         {agentIdSchema.options.map((id, index) => {
           const agent = agentRegistry[id];
+          const foundationReady = agent.status === "foundation";
           return (
             <li key={id}>
               <span className="step-number">{String(index + 1).padStart(2, "0")}</span>
               <div><h3>{agent.name}</h3><p>{agent.responsibility}</p></div>
-              <span className="step-status"><CircleDashed size={14} aria-hidden="true" />待接入</span>
+              <span className="step-status">
+                {foundationReady ? (
+                  <CircleCheck size={14} aria-hidden="true" />
+                ) : (
+                  <CircleDashed size={14} aria-hidden="true" />
+                )}
+                {foundationReady ? "基础已接入" : "待接入"}
+              </span>
             </li>
           );
         })}

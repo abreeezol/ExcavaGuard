@@ -40,11 +40,14 @@ describe("角色与业务 Skill 契约", () => {
   it("角色工具白名单仅引用已登记能力", () => {
     const skillIds = new Set(skillRegistry.map((skill) => skill.id));
     for (const id of agentIdSchema.options) {
-      expect(agentRegistry[id].status).toBe("planned");
       for (const tool of agentRegistry[id].tools) {
         expect(skillIds.has(tool)).toBe(true);
       }
     }
+    expect(agentIdSchema.options).toEqual(["supervisor", "report-delivery", "audit"]);
+    expect(agentRegistry.supervisor.status).toBe("foundation");
+    expect(agentRegistry["report-delivery"].status).toBe("planned");
+    expect(agentRegistry.audit.status).toBe("planned");
   });
 
   it("Supervisor 不直接计算，审计不修改源事实", () => {

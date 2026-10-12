@@ -2,9 +2,6 @@ import { z } from "zod";
 
 export const agentIdSchema = z.enum([
   "supervisor",
-  "data-governance",
-  "criteria-and-standards",
-  "risk-attribution",
   "report-delivery",
   "audit",
 ]);

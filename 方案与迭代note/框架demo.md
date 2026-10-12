@@ -101,8 +101,10 @@ Python 确定性引擎并同步返回 `excavaguard.daily_report_input/v1` 载荷
 
 规范 RAG 通过统一的 `StandardEvidenceRetriever` 服务端接口接入，不让页面、Agent 或 Skill 依赖具体向量库。当前先提供两种适配器：
 
-- `PineconeStandardEvidenceRetriever`：面向托管索引。查询向量由外部注入的 Embedding 函数生成，项目尚未默认选择模型或向量维度。
-- `LocalStandardEvidenceRetriever`：面向本机 loopback HTTP 服务。默认调用 `POST /api/evidence/search`，本地模型、ChromaDB 和规范资产不进入主代码仓。
+- `PineconeStandardEvidenceRetriever`：面向托管索引。查询向量由外部注入的 Embedding 函数生成，Pinecone 侧尚未完成知识导入。
+- `LocalStandardEvidenceRetriever`：面向本机 loopback HTTP 服务。默认调用 `POST /api/evidence/search`；
+  本地 BGE、ChromaDB 和规范文本已进入仓库，但正式运行必须使用 gitignore 的运行时副本，
+  不得直接写版本化的 `data/chroma_db/` 发布基线。
 
 两个 Provider 必须返回同一份经过 Zod 校验的证据结构，包括稳定证据 ID、规范名称、版本、条文号、原文、适用条件、来源位置、生效状态、匹配分数和 Provider 标识。缺少上述字段的旧版检索响应视为不完整证据，适配器应拒绝返回，不得在主链路中补造。
 
@@ -120,7 +122,8 @@ Python 确定性引擎并同步返回 `excavaguard.daily_report_input/v1` 载荷
 
 负责统一点号、时间、监测项名称、方向、数值格式和长度单位，并检查重复记录和非法值。
 
-该 Skill 将不同来源的数据转换为统一的数据契约，为后续计算提供稳定输入。未知单位、无效时间或重复测点不得静默修复，应提交数据治理 Agent 处理。
+该 Skill 将不同来源的数据转换为统一的数据契约，为后续计算提供稳定输入。未知单位、
+无效时间或重复测点不得静默修复，应由 Supervisor 暂停流程并提交工程师处理。
 
 ### 3.3 `evaluate-thresholds`
 
@@ -352,11 +355,11 @@ Supervisor 收集各 Agent 的依据，比较其数据来源、适用条件和�
 
 推荐准备三组独立样例，避免把“整批弃权”和“问题行隔离”混为一谈：
 
-1. 数据错误样例：数据治理 Agent 发现未知单位，按当前 Skill 契约整批停止，不调用下游 Agent，并列出待确认项。
-2. 正常样例：数据治理通过，判据 Agent 确认无异常，Supervisor 跳过案例检索与风险归因，直接生成常规日报草稿。
-3. 异常样例：判据 Agent 确认超限，规范检索返回条文、版本和适用条件，风险归因 Agent 比对工况和相似案例，报告交付 Agent 生成草稿。
-4. 在异常样例中，审计 Agent 发现一处归因证据不足，将任务退回风险归因 Agent。
-5. 风险归因 Agent 降低可信等级或主动弃权，审计通过后系统将草稿与待确认项交给工程师。
+1. 数据错误样例：解析或判定 Skill 返回未知单位，Supervisor 停止下游调用并列出待确认项。
+2. 正常样例：引擎确认无异常，Supervisor 跳过非必要归因，报告交付 Agent 生成常规日报草稿。
+3. 异常样例：引擎保留超限事实；证据和工况能力可用时产出结构化辅助分析，否则明确记录缺口；报告交付 Agent 据此生成草稿。
+4. 审计 Agent 发现数字不一致，将问题退回报告交付 Agent；修改草稿后旧审计立即失效。
+5. 同一报告问题连续两轮未消解，或审计发现上游事实/证据问题时，Supervisor 停止自动修订并提交工程师。
 
 Web 界面需要同步展示 Agent 当前阶段、Skill 调用、证据 ID、退回轨迹和人工确认入口。这个过程用于证明系统具备动态分支、工具调用、多 Agent 协作、反思纠错和人工责任边界，而不只是 RAG 对话。
 

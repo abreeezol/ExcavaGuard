@@ -91,13 +91,14 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 ## Agent 组成
 
 - `Supervisor Agent`
-- `数据治理 Agent`
-- `判据与规范 Agent`
-- `风险归因 Agent`
 - `报告交付 Agent`
 - `审计 Agent`
 
-Supervisor 是唯一总控角色。专业 Agent 不能绕过 Supervisor 改变流程状态，审计 Agent 不能直接修改源事实。
+首版于 2026-10-12 收敛为以上三个逻辑 Agent。数据解析、确定性判定、证据检索和工况分析
+作为 Skill / 服务能力由 Supervisor 调用，不再各自设置 Agent。
+
+Supervisor 是唯一总控角色。报告交付与审计 Agent 不能绕过 Supervisor 改变流程状态，
+审计 Agent 不能直接修改源事实。自动修订最多两轮，达到次数、时间或调用预算后转工程师。
 
 ## Skill 组成
 
@@ -141,7 +142,7 @@ ExcavaGuard/
 ├── AGENTS.md
 ├── memory.md
 ├── src/                              Next.js 16 全栈工程（含 /workbench 与 5 个 API 路由）
-├── tests/                            Vitest 50 项（含 6 项端到端，需 Python）
+├── tests/                            Vitest 60 项（含 10 项 Agent Runtime、6 项端到端）
 ├── var/uploads/                      上传文件存储（gitignore，删除即重置）
 ├── 确定性计算层/                      三阶段引擎（223 项回归测试）
 ├── 数据资产/                          仅本地：模拟数据快照 + 原始数据备份（已 gitignore）
@@ -208,7 +209,8 @@ ExcavaGuard/
 
 待推进（**按优先级**）：
 
-1. **⑥ 编排层**：Supervisor 路由、共享工程状态 Schema、审计回环与退回机制。
+1. **⑥ 编排层继续接线**：共享状态 Schema、Supervisor 路由、两轮退回和失效规则基础已完成；
+   待接入报告/审计 Skill、执行器、API 与持久化。
 2. **鉴权与持久化**：上传与分析接口的用户鉴权、项目归属校验、运行记录落库；
    上传文件的 Supabase/对象存储适配器（当前仅本地文件系统）。
 3. **其余六个 Skill 实体化**：`normalize-monitoring-data` / `retrieve-standard-evidence` /
@@ -238,6 +240,18 @@ ExcavaGuard/
 - 不写入密码、Token、个人身份信息、未经脱敏的工程数据或大段运行日志。
 
 ## 决策记录
+
+### 2026-10-12 · 三 Agent 收敛与 Supervisor 基础状态机
+
+- 首版由原六角色设计收敛为 `Supervisor` / `报告交付` / `独立审计` 三个逻辑 Agent；
+  数据解析、确定性判定、证据检索与工况分析保留为 Skill / 服务能力。
+- `src/contracts/agent-runtime.ts` 定义 `excavaguard.agent_state/v1`，分离保存引擎事实快照、
+  证据、分析、草稿、审计、人工复核和运行轨迹；所有产物带版本与内容哈希。
+- `src/server/agents/supervisor.ts` 使用显式 TypeScript 状态机，不引入 LangGraph.js；
+  支持能力不可用等待、最多两轮报告修订、模型调用/时间预算、责任归属与人工接管。
+- 修改草稿使旧审计失效；修改引擎、证据或分析快照使受影响的下游产物失效。
+- 当前只完成 Supervisor 基础，不代表报告生成与审计 Skill 已实现，也未接入 API 或持久化。
+- `npm run check` 实跑 60 项通过，其中 Agent Runtime 10 项，6 个上传到分析端到端用例未跳过。
 
 ### 2026-10-12 · 规范 RAG 资产入库与本地环境验证
 

@@ -39,12 +39,18 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   `source/query_kb.py` 可使用本地 BGE + ChromaDB 离线检索；
 - **规范证据双 Provider 适配器**：`src/server/evidence/` 已实现 Pinecone / 本地 loopback
   的公共查询契约与工厂，但尚未接入完整业务 Skill；
+- **三 Agent 编排基础**：首版收敛为 Supervisor / 报告交付 / 独立审计；
+  `src/contracts/agent-runtime.ts` 定义版本化快照、草稿、审计、预算与轨迹契约，
+  `src/server/agents/supervisor.ts` 已实现确定性路由、最多两轮修订、能力缺失等待、
+  上游变更导致下游失效及工程师接管；报告与审计 Skill 尚未实体化，未接 API；
 - 引擎回归测试 **223 项全部通过**（`python -B pipeline/tests/test_pipeline_stages.py`）；
-  全栈检查 `npm run check` **50 项通过**（含 6 项端到端），`npm run build` 8 条路由全部生成。
+  全栈检查 `npm run check` **60 项通过**（含 6 项端到端 + 10 项 Agent Runtime），
+  `npm run build` 8 条路由全部生成。
 
 ### 尚未实现
 
-- **编排层（⑥）**：Supervisor 路由、共享工程状态、审计回环均未实现；
+- **编排层（⑥）尚未端到端接通**：Supervisor 路由与共享状态基础已实现，
+  但执行器、API、持久化、报告生成和真实审计回环尚未实现；
 - **鉴权与持久化**：上传与分析接口无用户鉴权、无项目归属校验；运行记录不落库
   （`run_id` 仅用于本次请求追溯）；上传文件用**本地文件系统**存储，Supabase 适配器未实现
   （缺 bucket 与元数据表，无法验证，故不提供空壳）；
@@ -122,10 +128,10 @@ ExcavaGuard/
 │       ├── storage/                       上传文件存储（本地文件系统）
 │       ├── skills/python-bridge.ts        Node → Python 子进程桥接
 │       ├── skills/{parse-monitoring-data,evaluate-thresholds}/runner.ts
-│       ├── agents/registry.ts             六类角色注册
+│       ├── agents/                        三 Agent 注册 + Supervisor 状态机基础
 │       ├── evidence/                      规范证据检索（双 Provider 适配器）
 │       └── config.ts / integrations/      环境配置与外部客户端
-├── tests/                                 Vitest（50 项，`npm run check` 全绿）
+├── tests/                                 Vitest（60 项，含 10 项 Agent Runtime）
 ├── package.json / tsconfig.json / next.config.ts / vitest.config.ts / eslint.config.mjs
 ├── .env.example / .nvmrc / .gitignore
 ├── README.md / 项目介绍.html
@@ -203,16 +209,16 @@ ExcavaGuard/
 
 ## Agent 设计
 
-当前规划包含一个 Supervisor 和五个专业 Agent：
+首版收敛为三个逻辑 Agent：
 
 - `Supervisor Agent`：任务规划、Agent 路由、共享状态管理、冲突处理和终止控制；
-- `数据治理 Agent`：调用解析与标准化 Skill，决定数据是否可以进入分析；
-- `判据与规范 Agent`：调用阈值判断与规范检索 Skill，绑定计算事实和规范依据；
-- `风险归因 Agent`：调用案例检索与工况分析 Skill，给出候选原因和可信等级；
 - `报告交付 Agent`：调用报告生成 Skill，只使用结构化事实生成草稿；
 - `审计 Agent`：调用报告校验 Skill，从反方检查数字、引用、适用性和责任边界。
 
-审计 Agent 发现问题后应退回对应责任 Agent，不得直接修改源事实。自动退回必须有次数上限，无法消解的冲突交给工程师。
+数据解析、确定性判定、规范/案例检索与工况分析属于 Skill / 服务能力，由 Supervisor
+按状态调用，不再为每项能力设置独立 Agent。审计 Agent 发现报告责任问题后可退回
+报告交付 Agent，发现上游事实或证据问题时交给 Supervisor 停止自动修订并转工程师；
+审计不得直接修改源事实。自动修订最多两轮，达到次数、时间或调用预算后转人工接管。
 
 ## Skill 开发规范
 
@@ -364,7 +370,7 @@ node tools/bridge-smoke/run_judgement.mjs                                       
 
 # --- Web 全栈 ---
 npm ci
-npm run check                                                                   # ESLint + TypeScript + Vitest 50 项
+npm run check                                                                   # ESLint + TypeScript + Vitest 60 项
 npm run build                                                                   # 8 条路由
 npm run dev                                                                     # http://localhost:3000/workbench
 
