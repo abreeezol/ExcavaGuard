@@ -10,7 +10,7 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 
 ## 当前状态
 
-更新时间：2026-10-09
+更新时间：2026-10-12
 
 ### 框架层（2026-09-22 建立）
 
@@ -47,7 +47,12 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
   **本层只产出载荷，不生成日报正文与版式文件**；日报由后续独立 Agent 实现。
   A/B/C 三组实跑载荷均已通过契约校验，落盘 `derived/日报接口载荷_*.json`。
 - 旧实现（按阈值来源分层的语义）已移入 `确定性计算层/legacy/` 留档，其 57 项测试仍可通过。
-- RAG：**暂缓**，`rag/` 仍为占位目录。
+- 规范 RAG：本地 BGE + ChromaDB 原型与知识资产已进入仓库。`data/ocr_text/` 含 30 份文本，
+  `data/chunks.jsonl` 含 8,698 个唯一切片，collection `jikeng_norms` 含 8,698 条
+  512 维 cosine 向量；`models/bge-small-zh/pytorch_model.bin` 通过 Git LFS 分发。
+- 双 Provider 适配器已位于 `src/server/evidence/`，但尚未接入完整业务 Skill：
+  本地 FastAPI 仍是旧 `GET /api/search`，Next.js 适配器要求 `POST /api/evidence/search`；
+  Pinecone 尚未导入知识，切片元数据也尚未补齐正式报告所需的版本、来源位置、适用条件和生效状态。
 
 ### Web 入口层（2026-10-10 接通）
 
@@ -109,7 +114,7 @@ Supervisor 是唯一总控角色。专业 Agent 不能绕过 Supervisor 改变�
 
 ## 稳定原则
 
-- 规则主判，RAG 举证（本项目暂缓），模型表达。
+- 规则主判，RAG 举证，模型表达；RAG 不参与或改写风险判定。
 - 规范判据决定超限事实，案例不改变阈值。
 - 阈值判据必须来自现行规范条文并标注条文出处；用于真实工程前须由设计方确认
   （GB 50497-2019 第 8.0.1 条）。
@@ -141,6 +146,9 @@ ExcavaGuard/
 ├── 确定性计算层/                      三阶段引擎（223 项回归测试）
 ├── 数据资产/                          仅本地：模拟数据快照 + 原始数据备份（已 gitignore）
 ├── tools/bridge-smoke/               引擎桥接冒烟测试
+├── source/                            离线 RAG 构建、查询与 FastAPI 原型
+├── data/{ocr_text,chunks.jsonl,chroma_db}  已入库的规范文本、切片与本地向量库
+├── models/bge-small-zh/               本地 Embedding 模型（权重由 Git LFS 分发）
 ├── 确定性计算层_监测参数清单与规范依据.md
 ├── 07/08/10/11 系列文档               可行性分析 / 阈值口径 / 开发推进 / 可视化指引
 ├── 方案与迭代note/
@@ -158,7 +166,7 @@ ExcavaGuard/
 │   ├── render-daily-report/
 │   └── validate-report/
 └── rag/
-    └── README.md
+    └── README.md                      双 Provider 证据接口契约
 ```
 
 ## 尚未确定
@@ -168,8 +176,7 @@ ExcavaGuard/
 - 最终开发语言和前后端框架；
 - 多 Agent 编排框架；
 - 使用本地模型还是远程模型；
-- Embedding 与 rerank 模型；
-- FAISS、Qdrant 或其他向量存储；
+- Pinecone 侧 Embedding 服务与 rerank 模型；
 - 规范和案例资料的具体来源与授权方式；
 - 项目专项方案与通用规范的优先级配置方式；
 - 真实输入文件格式和字段名称；
@@ -231,6 +238,20 @@ ExcavaGuard/
 - 不写入密码、Token、个人身份信息、未经脱敏的工程数据或大段运行日志。
 
 ## 决策记录
+
+### 2026-10-12 · 规范 RAG 资产入库与本地环境验证
+
+- 远端 `main` 新增 `data/ocr_text/`、`data/chunks.jsonl`、`data/chroma_db/`；
+  提交记录声明已完成权利人/作者授权决策。重新分发和公开部署前仍须留存并核验授权依据。
+- 本地知识库实测为 30 个来源、8,698 个唯一切片与 8,698 条 Chroma 向量，
+  collection 为 `jikeng_norms`，向量维度 512，距离度量 cosine。
+- 仓库 `.venv/` 使用 Python 3.13.13 安装完整 `requirements.txt`；
+  已验证 `chromadb 1.5.9`、`sentence-transformers 6.1.0`、`torch 2.14.1`
+  可加载本地 BGE 权重并查询现有 ChromaDB。
+- Git LFS 3.8.0 已完成 `pull` 与 `fsck`。当前开发机存在全局 `core.hooksPath`，
+  应使用 `git lfs install --skip-repo`，不得用 `--force` 覆盖已有 hook。
+- 下一步是统一本地证据接口并实体化 `retrieve-standard-evidence`，随后再按同一
+  512 维 Embedding 口径批量导入 Pinecone；不能直接把 ChromaDB 二进制目录上传为 Pinecone 索引。
 
 ### 2026-10-10（深夜·续）· 推送远端：受阻，已备好通道
 
@@ -408,7 +429,8 @@ ExcavaGuard/
   **本层不生成日报正文与版式文件，不撰写结论与建议措辞。**
 - **`risk_level = "未知"` 语义**：表示弃权，**不是"安全"**；必须转人工复核，
   日报中不得渲染为正常项。此约束已写入 `AGENTS.md` 工程安全边界。
-- **RAG 暂缓**：本项目当前不做 RAG，`AGENTS.md` 的 RAG 章节保留为后续设计约束。
+- **当时决策（已于 2026-10-12 解除）**：本阶段暂缓 RAG，后续设计约束保留；
+  2026-10-12 起已恢复规范证据检索建设。
 
 ### 2026-09-22
 

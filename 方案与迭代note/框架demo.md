@@ -16,6 +16,10 @@ ExcavaGuard 采用五层架构：
 
 多 Agent 的价值不在于角色数量，而在于形成规划、执行、质疑、退回和人工确认的完整过程。
 
+> **2026-10-12 首版收敛决策**：运行时只保留 `Supervisor`、`报告交付`、`独立审计`
+> 三个逻辑 Agent。数据解析、数据准备、确定性计算、规范比对和证据检索继续作为
+> Skill / 服务能力，由 Supervisor 按状态调用，不再为每项能力额外设置 Agent。
+
 ## 二、总体架构
 
 ```mermaid
@@ -25,21 +29,13 @@ flowchart TB
     API --> S[Supervisor Agent]
 
     subgraph A[多 Agent 协作层]
-        S --> D[数据治理 Agent]
-        S --> J[判据与规范 Agent]
-        S --> C[风险归因 Agent]
         S --> R[报告交付 Agent]
         S --> Q[审计 Agent]
 
-        D --> J
-        J --> C
-        C --> R
         R --> Q
 
-        Q -. 数据问题 .-> D
-        Q -. 阈值或引用问题 .-> J
-        Q -. 归因证据不足 .-> C
         Q -. 报告不一致 .-> R
+        Q -. 上游事实或证据问题 .-> S
     end
 
     subgraph K[Skill 工具层]
@@ -57,11 +53,10 @@ flowchart TB
         M4[Supabase 文件、反馈与审计记录]
     end
 
-    D --> K1
-    J --> K2
-    J --> K3
-    C --> K3
-    C --> K4
+    S --> K1
+    S --> K2
+    S --> K3
+    S --> K4
     R --> K5
     Q --> K5
 
@@ -78,8 +73,11 @@ flowchart TB
 
 - 主交付是独立 Web 应用，不依赖桌面 Agent 软件才能运行。
 - MVP 采用 Next.js + TypeScript 单体全栈，Route Handlers 承载服务端接口，不额外拆分 Python 后端。
-- Vercel AI SDK 或等价适配层负责服务端模型调用与流式事件；LangGraph.js 优先用于共享状态、条件路由、重试、退回和人工确认。
-- 六类 Agent 是单一应用进程中的逻辑角色，不要求六个模型或六个独立服务。各角色通过独立提示词、工具白名单、结构化输入输出和终止条件形成职责隔离。
+- 首版使用显式 TypeScript 状态机管理共享状态、条件路由、重试、退回和人工确认；
+  当前不引入 LangGraph.js。后续只有在状态图复杂度确实超过本地实现时再评估框架。
+- 三个 Agent 是单一应用进程中的逻辑角色，不要求三个模型或三个独立服务。
+  Supervisor 首版不依赖模型；报告交付与审计可以使用同一模型供应商，但必须是独立调用，
+  并具有独立输入、工具白名单、结构化输出和终止条件。
 - Zod 负责运行时数据契约；Supabase PostgreSQL/Storage 保存工程状态、会话、文件和审计记录；Pinecone 保存规范与案例向量索引。
 - WorkBuddy 专家、企业智能体或 MCP 接入只作为主链路完成后的附加适配，并复用同一套 Skill、规则和检索能力。
 
@@ -90,14 +88,14 @@ flowchart TB
 - `src/app/`：App Router 页面、布局及 `api/health`、`api/runs` Route Handlers。
 - `src/components/`：工作台空状态、流程说明等界面组件。
 - `src/contracts/`：运行请求、角色与 Skill 标识的 Zod 契约；禁止引用服务端模块。
-- `src/server/agents/`：六类角色及工具白名单的静态注册信息，尚不执行模型或编排。
+- `src/server/agents/`：三类角色及工具白名单；Supervisor 的显式状态机先于报告和审计 Skill 落地。
 - `src/server/skills/`：八个既有 Skill 的契约路径与实现状态；确定性实现仍放在根目录 `skills/<name>/scripts/`。
 - `src/server/integrations/`：LLM、Supabase、Pinecone 的延迟初始化入口，密钥仅在服务端读取。未指定模型前不提供默认模型。
 - `tests/`：接口边界、配置校验和注册信息一致性测试。
 
-`GET /api/health` 只表示应用进程可响应，不代表外部服务可用。`POST /api/runs` 的初始化请求使用 `project_id`、`monitoring_file_id`、`report_date` 三个必填字段；前两项为未来持久化资源的 UUID，日期为有效的 `YYYY-MM-DD`。这些字段仅是接口外壳，尚不验证资源存在性或所有权。
-
-接口拒绝不合法输入；合法请求也返回 HTTP 501、`FEATURE_NOT_IMPLEMENTED`，不分配运行 ID、不写数据库、不执行 Skill、不生成报告。鉴权、项目与文件表、上传、完整共享工程状态及 Supervisor 状态图在后续纵向链路中实现。第六节状态对象仍是目标设计，不能将其空对象直接当作已通过校验的工程事实。
+`GET /api/health` 只表示应用进程可响应，不代表外部服务可用。`POST /api/runs` 已接通
+Python 确定性引擎并同步返回 `excavaguard.daily_report_input/v1` 载荷，但尚不做鉴权、
+项目归属校验或运行记录持久化。Agent Runtime 消费该载荷，不替代或重写其中的判定。
 
 ### 2.3 规范证据检索 Provider（2026-10-09）
 
@@ -167,26 +165,22 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     participant S as Supervisor
-    participant D as 数据治理 Agent
-    participant J as 判据与规范 Agent
-    participant C as 风险归因 Agent
+    participant K as 已有 Skill / 确定性引擎
     participant R as 报告交付 Agent
     participant Q as 审计 Agent
     participant H as 工程师
 
-    S->>D: 导入监测数据
-    D->>D: parse + normalize
-    D-->>S: 标准化数据与质量报告
-    S->>J: 执行规则判断
-    J->>J: evaluate + standard retrieval
-    J-->>S: 异常事实与规范证据
-    S->>C: 分析异常原因
-    C->>C: case retrieval + condition analysis
-    C-->>S: 候选归因与可信等级
+    S->>K: 上传、解析、三阶段确定性判定
+    K-->>S: 不可变引擎事实快照
+    S->>K: 按能力状态检索证据/分析工况
+    K-->>S: 证据、分析或明确弃权
     S->>R: 生成日报草稿
-    R-->>Q: 草稿、事实绑定与引用
+    R-->>S: 草稿、事实绑定与引用
+    S->>Q: 草稿 + 独立事实/证据快照
     Q->>Q: validate + adversarial review
-    Q-->>H: 校验通过的草稿和待确认项
+    Q-->>S: 通过，或带责任归属的问题清单
+    S-->>R: 仅报告责任问题，最多退回两轮
+    S-->>H: 通过的草稿或达到上限后的人工接管
 ```
 
 ### 4.2 条件分支
@@ -195,15 +189,17 @@ Skill 不应始终机械地全部执行，Supervisor 根据中间状态动态选
 
 | 条件 | 后续动作 |
 | --- | --- |
-| 数据字段缺失或单位未知 | 暂停流程，由数据治理 Agent 请求补充 |
+| 数据字段缺失或单位未知 | Supervisor 暂停流程并请求人工补充 |
 | 数据有效且没有异常 | 跳过案例检索和归因，生成常规日报 |
 | 存在异常且工况完整 | 进入规范检索、案例检索和归因流程 |
 | 存在异常但工况缺失 | 保留超限事实，归因部分主动弃权 |
 | 未找到适用规范证据 | 禁止生成规范性解释，提交人工核验 |
 | 没有高质量相似案例 | 不进行案例归因，但不影响超限事实 |
 | 审计发现数字不一致 | 退回报告交付 Agent 重新生成 |
-| 审计发现阈值来源不明 | 退回判据与规范 Agent |
+| 审计发现上游事实或阈值来源问题 | 不修改源事实，停止自动修订并提交工程师 |
 | 证据冲突无法消解 | 停止自动流程，提交工程师裁决 |
+| 报告或审计 Skill 未实现/未配置 | 返回 `CAPABILITY_UNAVAILABLE`，等待能力接入 |
+| 报告自动修订达到两轮 | 停止自动流程，保留问题清单并提交工程师 |
 
 ## 五、多 Agent 设计
 
@@ -221,42 +217,17 @@ Supervisor 是系统唯一的总控角色，负责：
 
 Supervisor 不直接计算监测数值，不直接编造工程结论，也不能绕过审计 Agent。
 
-### 5.2 数据治理 Agent
-
-数据治理 Agent 调用：
-
-- `parse-monitoring-data`
-- `normalize-monitoring-data`
-
-它负责理解不同监测文件的字段结构、识别数据质量问题，并判断数据是否可以进入分析流程。当字段映射存在多种可能时，应询问用户或工程师，而不是自行猜测。
-
-### 5.3 判据与规范 Agent
-
-判据与规范 Agent 调用：
-
-- `evaluate-thresholds`
-- `retrieve-standard-evidence`
-
-它负责把计算事实与规则、规范证据绑定，形成“输入数据—计算过程—判定结果—规范依据”的完整链路。如果项目专项方案与通用规范存在冲突，该 Agent 只呈现冲突，不自行选择。
-
-### 5.4 风险归因 Agent
-
-风险归因 Agent 调用：
-
-- `retrieve-similar-cases`
-- `analyze-work-condition`
-
-它负责提出可验证的候选原因，并区分支持证据、反证和缺失信息。输出应采用分级措辞，例如“证据支持”“可能相关”“仅供参考”和“无法研判”。
-
-### 5.5 报告交付 Agent
+### 5.2 报告交付 Agent
 
 报告交付 Agent 调用：
 
 - `render-daily-report`
 
-它根据不同用户需求组织日报、异常摘要和证据说明，并支持用户展开某个测点的分析过程。它只能消费结构化事实，不能自行修改上游结果。
+它根据已批准模板组织日报、异常摘要和证据说明。它只能消费不可变的引擎事实、
+证据与分析快照，不能自行修改上游结果。每个数字、单位、日期、测点和风险等级都必须
+通过 `fact_bindings` 绑定到结构化事实；证据不足时省略无依据解释并记录缺口。
 
-### 5.6 审计 Agent
+### 5.3 审计 Agent
 
 审计 Agent 调用：
 
@@ -274,33 +245,48 @@ Supervisor 不直接计算监测数值，不直接编造工程结论，也不能
 - 是否遗漏关键数据缺口。
 
 审计 Agent 发现问题后，必须退回责任 Agent，不得直接修改源事实。
+数字与状态一致性优先由确定性校验完成；引用支持性、遗漏和责任措辞可由独立模型调用复核。
+同一个模型供应商可以复用，但审计调用不得继承报告生成对话，也不得拥有报告写权限。
 
 ## 六、共享工程状态
 
-所有 Agent 通过一个由 Zod 校验并持久化的结构化状态对象协作，避免依靠自然语言隐式传值。聊天消息只用于交互，不作为工程事实的唯一存储。
+所有 Agent 通过一个由 Zod 校验的结构化状态对象协作，避免依靠自然语言隐式传值。
+首版先实现内存态与纯函数状态转换；持久化仍待数据库接入。聊天消息只用于交互，
+不作为工程事实的唯一存储。
 
 ```json
 {
-  "task": {
+  "schema": "excavaguard.agent_state/v1",
+  "run": {
     "run_id": "",
-    "status": "created",
-    "current_stage": "",
-    "retry_count": 0
+    "status": "ready_for_report",
+    "current_stage": "report",
+    "revision_count": 0,
+    "created_at": "",
+    "updated_at": ""
   },
-  "project": {},
-  "raw_data": {},
-  "normalized_data": {},
-  "data_quality": {},
-  "judgments": {},
-  "standard_evidence": {},
-  "case_evidence": {},
-  "attributions": {},
-  "report_draft": {},
-  "audit_result": {},
-  "human_decisions": {},
+  "limits": {
+    "max_revision_rounds": 2,
+    "max_model_calls": 0,
+    "model_calls_used": 0,
+    "deadline_at": ""
+  },
+  "engine_snapshot": {},
+  "evidence_snapshot": null,
+  "analysis_snapshot": null,
+  "report_draft": null,
+  "audit_result": null,
+  "human_review": {
+    "required": true,
+    "reasons": []
+  },
   "trace": []
 }
 ```
+
+每个快照和草稿都携带独立的 `artifact_id`、Schema、版本与内容哈希。草稿记录所依赖的
+引擎、证据和分析版本；审计记录所检查的草稿哈希。修改草稿后旧审计结果立即失效，
+替换引擎快照后证据、分析、草稿与审计全部失效；替换证据或分析时只清理受影响的下游产物。
 
 每次 Agent 或 Skill 调用均向 `trace` 追加：
 
@@ -312,6 +298,9 @@ Supervisor 不直接计算监测数值，不直接编造工程结论，也不能
 - 警告和错误；
 - 开始与结束时间；
 - 是否触发重试、退回或人工确认。
+
+未实现的 Skill 不得写入伪造产物。Supervisor 只返回下一步动作与
+`CAPABILITY_UNAVAILABLE` 等明确原因，待真实能力接入后从同一状态继续。
 
 ## 七、冲突处理
 

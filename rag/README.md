@@ -1,6 +1,8 @@
 # RAG 目录
 
-本目录记录 ExcavaGuard 的 RAG 接入合同。仓库不包含规范全文、工程案例、模型权重、条文切片或向量索引；这些资产应在确认授权后作为独立版本化制品管理。
+本目录记录 ExcavaGuard 的 RAG 接入合同。仓库当前包含经提交记录声明已完成授权决策的
+规范 OCR 文本、条文切片、ChromaDB 向量库和本地 BGE 模型；重新分发或公开部署前仍须
+核验并留存授权范围。工程案例与监测数据不得在未脱敏、未授权时进入知识库。
 
 ## Provider 架构
 
@@ -93,15 +95,23 @@ Pinecone 中每条规范记录至少包含：
 - `matched_terms`（字符串数组）
 - 可选的 `monitoring_item`、`excavation_safety_level`、`region`
 
-Pinecone record ID 作为稳定证据 ID。索引维度必须与运行时注入的 Embedding 实现一致；项目当前不默认选择 Embedding 或 rerank 模型。
+Pinecone record ID 作为稳定证据 ID。现有本地向量使用 `BAAI/bge-small-zh`、512 维；
+若复用这些向量，Pinecone 索引必须采用 512 维 cosine，查询也必须使用相同模型和查询前缀。
+更换 Embedding 模型时必须重建全部文档向量，禁止混用向量空间。rerank 模型尚未确定。
 
 ## 资产边界
 
-以下内容不进入主代码仓：
+当前已入库资产：
 
-- 未确认再分发授权的规范原文和 OCR 文本；
-- 由规范派生的条文切片与向量库；
-- 本地 BGE、rerank 或 OCR 模型权重；
-- 未脱敏的工程案例与监测数据。
+- `data/ocr_text/`：30 份规范/项目文本；
+- `data/chunks.jsonl`：8,698 个唯一切片；
+- `data/chroma_db/`：8,698 条 512 维 cosine 向量；
+- `models/bge-small-zh/`：本地 Embedding 模型，权重由 Git LFS 分发。
+
+以下内容仍不得进入主代码仓：
+
+- 未确认再分发授权的新规范原文及其派生产物；
+- 未脱敏、未授权的工程案例和监测数据；
+- 密钥、访问令牌和 Pinecone 连接凭证。
 
 检索实现上线前仍需验证版本有效性、适用范围、来源定位、无结果行为和引用准确率。证据不足或冲突时，上层 Skill 必须主动弃权。

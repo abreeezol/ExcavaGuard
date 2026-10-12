@@ -10,7 +10,7 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 
 项目处于「**确定性计算层已闭环，Web 入口已接通，上层编排层仍在设计**」的阶段。
 
-### 已实现（截至 2026-10-10）
+### 已实现（截至 2026-10-12）
 
 - `确定性计算层/`：三阶段流程 —— **阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对**；
 - 阶段一：数据接入与归一化（单位按量纲换算、日期解析、来源标识）、14 类噪音与缺失识别（只识别不修改）；
@@ -33,6 +33,12 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 - **Node → Python 引擎桥接**：`src/server/skills/python-bridge.ts` + `skills/*/scripts/*.py`
   （`inspect_file.py` / `run_judgement.py` / `check_strictness.py`），子进程协议，零引擎改动；
 - **可视化测试工作台** `/workbench`（见 `11_可视化测试指引.md`）；
+- **规范 RAG 资产与离线原型**：`models/bge-small-zh/`（Git LFS）、`data/ocr_text/`（30 份文本）、
+  `data/chunks.jsonl`（8,698 个唯一切片）与 `data/chroma_db/`
+  （collection `jikeng_norms`，8,698 条 512 维 cosine 向量）已纳入仓库；
+  `source/query_kb.py` 可使用本地 BGE + ChromaDB 离线检索；
+- **规范证据双 Provider 适配器**：`src/server/evidence/` 已实现 Pinecone / 本地 loopback
+  的公共查询契约与工厂，但尚未接入完整业务 Skill；
 - 引擎回归测试 **223 项全部通过**（`python -B pipeline/tests/test_pipeline_stages.py`）；
   全栈检查 `npm run check` **50 项通过**（含 6 项端到端），`npm run build` 8 条路由全部生成。
 
@@ -50,7 +56,9 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 - **日报生成**：由后续独立 Agent 实现。本层只产出结构化载荷（`build_daily_report_input()`），
   **不生成日报正文与版式文件**，不撰写结论与建议措辞；
 - 部署与 CI；
-- RAG 检索（**本项目暂缓**，见「RAG 约束」）。
+- **RAG 业务接线**：离线 FastAPI 仍提供旧 `GET /api/search`，Next.js 本地适配器要求
+  `POST /api/evidence/search`；`retrieve-standard-evidence` 尚未实体化，Pinecone 尚未导入知识；
+  当前切片也缺少完整的版本、来源位置、适用条件和生效状态元数据，不能直接作为正式报告证据。
 
 > **已修复（原 P0-1）**：用户上传原始观测表不再 100% 弃权。
 > 2026-10-10 实测：仅含 5 个必填列的 7 期数据 → 弃权 1/7，正确识别出 6 期危险报警。
@@ -230,9 +238,9 @@ Skill 之间只传递结构化数据，不把自然语言摘要作为下游计�
 
 ## RAG 约束
 
-> **范围说明**：本项目**暂缓** RAG 检索能力建设。确定性计算层明确不做 RAG，
-> 阶段三的规范比对直接读取默认规范库的条文级阈值文件。
-> 本节保留为后续若要引入检索能力时的设计约束，当前不作为实现要求。
+> **范围说明**：规范 RAG 资产与离线检索原型已存在，下一阶段建设统一证据接口与业务 Skill。
+> 确定性计算层仍不做 RAG，阶段三的规范比对直接读取默认规范库的条文级阈值文件；
+> RAG 只负责提供可追溯证据，不得参与或改写风险判定。
 
 - 规范知识必须保存规范名称、版本、条文号、原文、适用条件和来源位置。
 - 案例知识必须保存工程特征、来源、可信等级、相似条件和差异项。
@@ -291,6 +299,38 @@ Skill 之间只传递结构化数据，不把自然语言摘要作为下游计�
 - 不提交密钥、访问令牌、个人信息或未经脱敏的工程数据。
 - 不删除方案、证据或测试资产，除非用户明确要求。
 
+## 环境初始化与依赖
+
+- Node 依赖使用 `npm ci`，不得手工修改 `node_modules/`。
+- Python 依赖安装在仓库内 `.venv/`，不要写入系统或 Conda base 环境。
+- macOS 首次使用先安装 Git LFS。当前开发机配置了全局 `core.hooksPath`，
+  `git lfs install` 会与已有 `pre-push` hook 冲突；不得使用 `--force` 覆盖，
+  应使用 `git lfs install --skip-repo` 后再拉取和校验 LFS 对象。
+- `models/bge-small-zh/pytorch_model.bin` 的实际大小应为 `95,842,633` 字节；
+  只有约 130 字节时仍是 LFS 指针，不能启动离线检索。
+- `data/chroma_db/` 是版本化发布基线，不得提交运行产生的锁记录或迁移结果。
+  Chroma `PersistentClient` 会写入 `acquire_write`；正式接入时必须先复制到
+  `var/rag/chroma_db/` 等 gitignore 运行目录，再由服务读取运行时副本。
+
+```bash
+# --- Git LFS（macOS）---
+brew install git-lfs
+git lfs install --skip-repo
+git lfs pull
+git lfs fsck
+test "$(wc -c < models/bge-small-zh/pytorch_model.bin)" -eq 95842633
+
+# --- Python / RAG ---
+python -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip check
+```
+
+2026-10-12 已在 macOS arm64、Python 3.13.13 验证：
+`chromadb 1.5.9`、`sentence-transformers 6.1.0`、`torch 2.14.1`、
+`fastapi 0.143.0` 可读取现有 8,698 条 Chroma 向量并完成离线查询。
+
 ## 测试要求
 
 每个 Skill 实现后至少覆盖：
@@ -306,7 +346,7 @@ Skill 之间只传递结构化数据，不把自然语言摘要作为下游计�
 
 在项目提供正式构建、检查和测试命令前，不得臆造命令。新增工具链后，应将经过实际验证的命令补充到本文件。
 
-### 已验证的命令（2026-10-10 实跑）
+### 已验证的命令（更新至 2026-10-12）
 
 ```bash
 # --- 引擎（纯标准库 Python，无第三方依赖）---
@@ -327,6 +367,10 @@ npm ci
 npm run check                                                                   # ESLint + TypeScript + Vitest 50 项
 npm run build                                                                   # 8 条路由
 npm run dev                                                                     # http://localhost:3000/workbench
+
+# --- RAG 依赖与发布基线检查 ---
+.venv/bin/python -m pip check
+sqlite3 data/chroma_db/chroma.sqlite3 "SELECT COUNT(*) FROM embeddings;"         # 8698
 ```
 
 `npm run check` 中的 `tests/upload-and-run.test.ts` 需要 Python；

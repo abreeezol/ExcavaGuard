@@ -115,10 +115,17 @@ python source/report_core.py
 | 内存/显存不足 | 本方案全 CPU 运行，bge-small-zh 仅需约 500MB 内存 |
 
 ## 公开仓库说明（合规）
-本公开仓库**不含**规范知识库原始数据：`data/ocr_text/`（规范全文）、`data/chunks.jsonl`、`data/chroma_db/`（向量库）已通过 `.gitignore` 排除，以避免公开分发受版权保护的 GB 标准全文。
-如需在本机运行 RAG / demo，请使用本地已授权的规范源文件，执行：
+
+当前仓库已将 `data/ocr_text/`、`data/chunks.jsonl` 和 `data/chroma_db/` 纳入版本管理；
+提交记录说明这些资产已经过权利人/作者授权决策。克隆后仍需执行 `git lfs pull`
+取得 BGE 模型权重，随后即可使用现成向量库。
+
+重新分发、公开部署或更换规范资料前，仍须核验并留存授权范围与版本依据。需要从已授权的
+规范源文件重建知识库时执行：
+
 ```bash
 python source/ocr_extract.py --workers 8   # 若仅有 PDF 源
 python source/build_kb.py --rebuild        # 重建 data/chroma_db/
 ```
-重建后即可 `python source/server.py --port 8600` 正常检索与生成日报。代码与本地嵌入模型（models/bge-small-zh）随仓库提供。
+
+重建后即可 `python source/server.py --port 8600` 正常检索与生成日报。
