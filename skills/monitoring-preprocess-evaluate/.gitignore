@@ -1,0 +1,6 @@
+# 运行产物（可复现，不入库）
+_out_*/
+_verify_*/
+_selftest*/
+__pycache__/
+*.pyc

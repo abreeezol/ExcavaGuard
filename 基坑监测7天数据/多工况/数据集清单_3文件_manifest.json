@@ -1,0 +1,240 @@
+{
+  "generated": "2026-10-11T22:40:14",
+  "spec": {
+    "interval_min": 5,
+    "n_days": 7,
+    "rows": 2016,
+    "thresholds": {
+      "shallow": {
+        "地下水位": {
+          "warn_c": 1500,
+          "control_c": 2000,
+          "warn_r": 350,
+          "control_r": 500
+        },
+        "地表竖向位移": {
+          "warn_c": 45,
+          "control_c": 55,
+          "warn_r": 2,
+          "control_r": 3
+        },
+        "分层竖向位移": {
+          "warn_c": null,
+          "control_c": null,
+          "warn_r": null,
+          "control_r": null
+        },
+        "坑底隆起": {
+          "warn_c": 30,
+          "control_c": 60,
+          "warn_r": 4,
+          "control_r": 10
+        },
+        "裂缝宽度": {
+          "warn_c": 10,
+          "control_c": 15,
+          "warn_r": null,
+          "control_r": null
+        },
+        "裂缝长度": {
+          "warn_c": null,
+          "control_c": null,
+          "warn_r": null,
+          "control_r": null
+        }
+      },
+      "deep": {
+        "地下水位": {
+          "warn_c": 1500,
+          "control_c": 2000,
+          "warn_r": 350,
+          "control_r": 500
+        },
+        "地表竖向位移": {
+          "warn_c": 25,
+          "control_c": 35,
+          "warn_r": 2,
+          "control_r": 3
+        },
+        "分层竖向位移": {
+          "warn_c": null,
+          "control_c": null,
+          "warn_r": null,
+          "control_r": null
+        },
+        "坑底隆起": {
+          "warn_c": 30,
+          "control_c": 60,
+          "warn_r": 4,
+          "control_r": 10
+        },
+        "裂缝宽度": {
+          "warn_c": 10,
+          "control_c": 15,
+          "warn_r": null,
+          "control_r": null
+        },
+        "裂缝长度": {
+          "warn_c": null,
+          "control_c": null,
+          "warn_r": null,
+          "control_r": null
+        }
+      }
+    },
+    "points": {
+      "E": {
+        "地下水位": [
+          "SW-01",
+          "SW-02",
+          "SW-03",
+          "SW-04",
+          "SW-05",
+          "SW-06",
+          "SW-07",
+          "SW-08"
+        ],
+        "地表竖向位移": [
+          "DBC-01",
+          "DBC-02",
+          "DBC-03",
+          "DBC-04",
+          "DBC-05",
+          "DBC-06",
+          "DBC-07",
+          "DBC-08"
+        ],
+        "分层竖向位移": [
+          "FC-01",
+          "FC-02",
+          "FC-03",
+          "FC-04",
+          "FC-05",
+          "FC-06"
+        ],
+        "坑底隆起": [
+          "KB-01",
+          "KB-02",
+          "KB-03",
+          "KB-04",
+          "KB-05",
+          "KB-06"
+        ]
+      },
+      "F": [
+        "LF-01",
+        "LF-02",
+        "LF-03",
+        "LF-04",
+        "LF-05",
+        "LF-06",
+        "LF-07",
+        "LF-08"
+      ]
+    }
+  },
+  "files": [
+    {
+      "file_tag": "浅基础_正常",
+      "foundation": "shallow",
+      "severity": "normal",
+      "start": "2026-10-09 08:00:00",
+      "anomalies": {},
+      "expected_worst": {},
+      "scenario_expected": "正常",
+      "file": "基坑监测_浅基础_正常_7天.csv",
+      "n_columns": 44
+    },
+    {
+      "file_tag": "浅基础_中等预警",
+      "foundation": "shallow",
+      "severity": "moderate",
+      "start": "2026-10-11 08:00:00",
+      "anomalies": {
+        "地下水位-SW-02-原始值(mm)": "橙色",
+        "坑底隆起-KB-03-原始值(mm)": "橙色",
+        "裂缝-LF-03-宽度-原始值(mm)": "橙色"
+      },
+      "expected_worst": {
+        "地下水位-SW-02-原始值(mm)": "橙色",
+        "坑底隆起-KB-03-原始值(mm)": "橙色",
+        "裂缝-LF-03-宽度-原始值(mm)": "橙色"
+      },
+      "scenario_expected": "橙色",
+      "file": "基坑监测_浅基础_中等预警_7天.csv",
+      "n_columns": 44
+    },
+    {
+      "file_tag": "浅基础_明显预警",
+      "foundation": "shallow",
+      "severity": "obvious",
+      "start": "2026-10-13 08:00:00",
+      "anomalies": {
+        "地下水位-SW-06-原始值(mm)": "红色",
+        "地表竖向位移-DBC-06-原始值(mm)": "红色",
+        "坑底隆起-KB-02-原始值(mm)": "红色",
+        "裂缝-LF-07-宽度-原始值(mm)": "红色"
+      },
+      "expected_worst": {
+        "地下水位-SW-06-原始值(mm)": "红色",
+        "地表竖向位移-DBC-06-原始值(mm)": "红色",
+        "坑底隆起-KB-02-原始值(mm)": "红色",
+        "裂缝-LF-07-宽度-原始值(mm)": "红色"
+      },
+      "scenario_expected": "红色",
+      "file": "基坑监测_浅基础_明显预警_7天.csv",
+      "n_columns": 44
+    },
+    {
+      "file_tag": "深基础_正常",
+      "foundation": "deep",
+      "severity": "normal",
+      "start": "2026-10-15 08:00:00",
+      "anomalies": {},
+      "expected_worst": {},
+      "scenario_expected": "正常",
+      "file": "基坑监测_深基础_正常_7天.csv",
+      "n_columns": 44
+    },
+    {
+      "file_tag": "深基础_中等预警",
+      "foundation": "deep",
+      "severity": "moderate",
+      "start": "2026-10-17 08:00:00",
+      "anomalies": {
+        "地下水位-SW-02-原始值(mm)": "橙色",
+        "坑底隆起-KB-05-原始值(mm)": "橙色",
+        "裂缝-LF-04-宽度-原始值(mm)": "橙色"
+      },
+      "expected_worst": {
+        "地下水位-SW-02-原始值(mm)": "橙色",
+        "坑底隆起-KB-05-原始值(mm)": "橙色",
+        "裂缝-LF-04-宽度-原始值(mm)": "橙色"
+      },
+      "scenario_expected": "橙色",
+      "file": "基坑监测_深基础_中等预警_7天.csv",
+      "n_columns": 44
+    },
+    {
+      "file_tag": "深基础_明显预警",
+      "foundation": "deep",
+      "severity": "obvious",
+      "start": "2026-10-19 08:00:00",
+      "anomalies": {
+        "地下水位-SW-07-原始值(mm)": "红色",
+        "地表竖向位移-DBC-07-原始值(mm)": "红色",
+        "坑底隆起-KB-01-原始值(mm)": "红色",
+        "裂缝-LF-04-宽度-原始值(mm)": "红色"
+      },
+      "expected_worst": {
+        "地下水位-SW-07-原始值(mm)": "红色",
+        "地表竖向位移-DBC-07-原始值(mm)": "红色",
+        "坑底隆起-KB-01-原始值(mm)": "红色",
+        "裂缝-LF-04-宽度-原始值(mm)": "红色"
+      },
+      "scenario_expected": "红色",
+      "file": "基坑监测_深基础_明显预警_7天.csv",
+      "n_columns": 44
+    }
+  ]
+}

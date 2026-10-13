@@ -1,0 +1,15 @@
+{
+  "case": "basic_deep_foundation",
+  "description": "深基础(一级) 3天×每日3次观测样例（覆盖日内变化）：SW-01 累计2010 > 控制值2000（占报警值1000的201%）→红色(报警)；DBC/KB/裂缝正常；分层竖向位移无阈值→未判定(弃权)。等级体系对齐真实日报三级（正常/黄色(需关注)/红色(报警)）+未判定。本次变化/速率按日内首末读数及实际时长计算。",
+  "foundation": "深基础",
+  "interval_minutes": 5,
+  "expected_level_counts": {
+    "正常": 3,
+    "黄色(需关注)": 0,
+    "红色(报警)": 1,
+    "未判定": 1
+  },
+  "expected_red_points": ["SW-01"],
+  "expected_unknown_points": ["FC-01"],
+  "run": "python scripts/run.py --csv tests/sample_basic.csv --foundation 深基础 --output-dir tests/_out_basic"
+}
