@@ -1,0 +1,18 @@
+{
+  "levels": { "yellow_ratio": 0.7 },
+  "items": {
+    "墙顶水平位移": { "alarm": 30, "control": 35, "rate_alarm": 2, "source": "专项监测方案 v2.1 表4.2-1" },
+    "墙顶竖向位移": { "alarm": 25, "control": 30, "rate_alarm": 2, "source": "专项监测方案 v2.1 表4.2-1" },
+    "深层水平位移": { "alarm": 30, "control": 40, "rate_alarm": 3, "source": "专项监测方案 v2.1 表4.2-2" },
+    "围护墙内力": { "alarm": 250, "control": 300, "rate_alarm": 30, "source": "专项监测方案 v2.1 表4.2-6(kPa)" },
+    "立柱内力": { "alarm": 200, "control": 250, "rate_alarm": 25, "source": "专项监测方案 v2.1 表4.2-6(kPa)" },
+    "土压力": { "alarm": 200, "control": 260, "rate_alarm": 30, "source": "专项监测方案 v2.1 表4.2-7(kPa)" },
+    "孔隙水压力": { "alarm": 150, "control": 200, "rate_alarm": 20, "source": "专项监测方案 v2.1 表4.2-7(kPa)" },
+    "支撑轴力": { "alarm": 3000, "control": 3600, "rate_alarm": 500, "source": "专项监测方案 v2.1 表4.2-5(kN)" },
+    "地下水位": { "alarm": 1500, "control": 2000, "rate_alarm": 500, "source": "专项监测方案 v2.1 表4.2-4(单位与附录表E变化量栏一致, mm)" },
+    "地表竖向位移": { "alarm": 24, "control": 30, "rate_alarm": 3, "source": "专项监测方案 v2.1 表4.2-3" },
+    "分层竖向位移": { "alarm": 20, "control": 25, "rate_alarm": 3, "source": "专项监测方案 v2.1 表4.2-8" },
+    "坑底隆起": { "alarm": 20, "control": 25, "rate_alarm": 5, "source": "专项监测方案 v2.1 表4.2-9" },
+    "裂缝": { "alarm": 2.5, "control": 3.0, "rate_alarm": 0.5, "source": "专项监测方案 v2.1 表4.2-10(以宽度累计为判定指标, mm)" }
+  }
+}
