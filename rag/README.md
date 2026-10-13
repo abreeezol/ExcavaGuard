@@ -80,7 +80,50 @@ Content-Type: application/json
 - 非 2xx、非法 JSON 或字段不完整会被主应用拒绝。
 - 错误响应不得包含规范全文、查询凭证、文件路径或密钥。
 
-队友分支原有的 `GET /api/search?q=...` 和 `source/clause/content` 返回结构不满足该合同，需要在接入前调整。
+`source/server.py` 现已实现该合同；旧 `GET /api/search?q=...` 保留给历史原型页面。
+新接口不调用历史原型的判定或报告生成路径。
+
+启动本地 Provider：
+
+```bash
+.venv/bin/python -B source/server.py --port 8600
+```
+
+服务启动时用 Node 运行现有 `preparePineconeImport()`，生成可审计条文清单，不访问云端。
+需要已安装 Node 依赖和仓库 `.venv/` 的 RAG 依赖。启动期预加载模型，首启可能较慢；
+`GET /api/evidence/health` 返回 `{"ready":true}` 后再发起 Next.js 查询。
+
+仅在希望切换本地检索时配置：
+
+```env
+RAG_PROVIDER=local
+LOCAL_RAG_BASE_URL=http://127.0.0.1:8600
+LOCAL_RAG_TIMEOUT_MS=10000
+```
+
+当前在线配置保持有效，兼容修复不强制切换 Provider。浏览器通过 Next.js 服务端
+Retriever 查询本地服务，不持有底层凭证。前端证据展示与三 Agent 执行器仍待串联。
+
+实现要点：
+
+- BGE 和既有 8,698 条 Chroma 向量不重建；PersistentClient 仅打开
+  `var/rag/chroma_db/` 运行副本，首次使用自动复制发布基线；
+- 完整来源的候选 ID 复用在线清单，先按版本/生效状态过滤，再在这些 ID 内检索；
+- 状态清单每次查询重新读取；未登记的地区/测项/等级不能根据文本猜测；
+- 无命中返回空列表；模型、清单或来源正文不完整时显式失败；
+- 模型只从本机加载，不回退联网下载；不写入 `data/chroma_db/`。
+
+验证：
+
+```bash
+.venv/bin/python -B -m unittest discover -s source/tests -v
+# 服务启动后，显式运行真实模型/向量库/Next.js 合同验收：
+EXCAVAGUARD_TEST_LOCAL_RAG=1 npx vitest run tests/local-rag-live.test.ts
+```
+
+2026-10-13 实跑：Python 8 项通过；真实 Next.js 本地 Provider 3 项通过。
+检索“监测预警值应由基坑工程设计方确定”命中 GB 50497-2019 第 8.0.1、
+8.0.5、8.0.4 条，返回稳定证据 ID 和完整来源元数据。
 
 ## Pinecone 在线索引
 

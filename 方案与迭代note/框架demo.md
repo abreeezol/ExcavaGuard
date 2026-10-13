@@ -132,8 +132,9 @@ Pinecone 导入采用独立、可审计的离线步骤：
 
 `retrieve-standard-evidence` 负责统一返回证据、适用性提示和检索轨迹。它不判断监测值是否
 超限，不把低相关结果补造成依据；无命中、非现行证据或 Provider 不可用时主动弃权。
-本地 FastAPI 的旧 `GET /api/search` 仍未满足统一 HTTP 合同，不能据此宣称本地 Provider
-已经端到端接通。
+本地 FastAPI 已新增 `POST /api/evidence/search` 并通过真实 BGE/Chroma →
+Next.js Retriever/Skill 兼容验收；旧 `GET /api/search` 留作历史入口。
+前端展示、三 Agent 执行器与 API 仍待调用这一能力。
 
 #### 本地 Provider 兼容实现设计（2026-10-13）
 

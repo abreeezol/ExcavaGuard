@@ -110,7 +110,18 @@ Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需�
 `npm run rag:prepare` 可从现有资产生成 7,180 条候选记录和审计报告，不访问云端；
 真实导入前必须在 `rag/standard-status.json` 完成 29 个规范编号的状态复核。
 当前清单已由团队人工复核，目标索引 `excava-guard` 的 `standards-v1` namespace 已写入
-7,180 条记录；真实语义查询和本地字段逐项比对通过。本地 sidecar 仍未完成统一 HTTP 合同。
+7,180 条记录；真实语义查询和本地字段逐项比对通过。本地 sidecar 已实现
+统一 HTTP 合同并完成真实 Next.js Retriever/Skill 验收。启动命令：
+
+```bash
+.venv/bin/python -B source/server.py --port 8600
+```
+
+模型在启动期预加载，`/api/evidence/health` 就绪后可使用本地 Provider；
+只打开 `var/rag/chroma_db/` 运行副本，不写版本化知识资产。接口回归及真实验收命令见
+[`rag/README.md`](rag/README.md)。
+最终 7 天混合宽表与日报三件套的接入缺口、数据来源和交付要求见
+[`final_test/README.md`](final_test/README.md)；“支持 xlsx”不等于已支持该宽表。
 
 ## 接口
 

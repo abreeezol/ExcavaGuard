@@ -41,6 +41,10 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 - **规范证据双 Provider 适配器**：`src/server/evidence/` 已实现 Pinecone / 本地 loopback
   的公共查询契约与工厂；Pinecone 已改为 integrated embedding 文本检索，
   `retrieve-standard-evidence` runner 已实现查询校验、弃权、人工复核提示和轨迹；
+- **本地 RAG HTTP 兼容链路**：`source/server.py` 已实现
+  `POST /api/evidence/search`，复用可审计规范元数据并按候选 ID 先过滤后查询；
+  BGE/Chroma 只使用 `var/rag/chroma_db/` 运行副本，已完成真实 Next.js
+  Retriever/Skill 3 项验收；Python 接口回归 8 项通过；
 - **Pinecone 可审计导入链路**：`tools/rag/` 可从现有切片生成 7,180 条候选记录，
   排除项目文件、无条文号/超长切片和重复 OCR 来源；`rag/standard-status.json`
   保存人工复核状态，存在 `unknown` 时禁止真实上传；
@@ -76,9 +80,11 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 - **日报交付主链**：报告与审计 Skill 已能生成和校验结构化草稿/Markdown，
   但尚未接入 Supervisor 执行器、API、持久化和最终版式文件导出；
 - 部署与 CI；
-- **RAG 剩余接线**：离线 FastAPI 仍提供旧 `GET /api/search`，Next.js 本地适配器要求
-  `POST /api/evidence/search`；Pinecone 在线规范库已导入并通过查询验收，但 Supervisor/API
-  尚未调用 `retrieve-standard-evidence`，也尚未完成正式报告场景的引用准确率评测。
+- **RAG 剩余接线**：本地/在线 Provider 与 Skill 已通过独立检索验收，但 Supervisor/API
+  和前端尚未串联 `retrieve-standard-evidence`，正式报告场景引用准确率也未评测。
+- **最终输入兼容性**：`final_test/监测数据整合_7天_10分钟.xlsx` 是 85 通道混合宽表，
+  现有五列长表读取器还不能直接消费。宽表解析、累计值语义、来源/重采样标记、
+  日报聚合口径和附录 A～G 三件套导出尚待接入，见 `final_test/README.md`。
 
 > **已修复（原 P0-1）**：用户上传原始观测表不再 100% 弃权。
 > 2026-10-10 实测：仅含 5 个必填列的 7 期数据 → 弃权 1/7，正确识别出 6 期危险报警。
@@ -190,7 +196,6 @@ ExcavaGuard/
 │   └── 11_可视化测试指引.md
 ├── skills/
 │   ├── README.md
-│   ├── .agents/
 │   ├── parse-monitoring-data/
 │   │   └── scripts/inspect_file.py       ← 解析检查桥接脚本
 │   ├── normalize-monitoring-data/
@@ -397,6 +402,11 @@ npm run dev                                                                     
 # --- 在线 RAG 导入准备（只读源资产，不访问云端）---
 npm run rag:prepare                                                             # 7,180 条已复核候选
 npm run rag:import                                                              # 幂等导入 Pinecone standards-v1
+
+# --- 本地 RAG 接口（模型预加载，运行副本，不修改发布基线）---
+.venv/bin/python -B source/server.py --port 8600
+.venv/bin/python -B -m unittest discover -s source/tests -v                      # 8 项接口回归
+EXCAVAGUARD_TEST_LOCAL_RAG=1 npx vitest run tests/local-rag-live.test.ts           # 服务启动后 3 项真实验收
 
 # --- RAG 依赖与发布基线检查 ---
 .venv/bin/python -m pip check

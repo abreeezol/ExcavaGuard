@@ -23,7 +23,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "source"))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -57,6 +58,15 @@ async def lifespan(application: FastAPI):
 
 
 app = FastAPI(title="ExcavaGuard Local RAG", lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_request: Request, _error: RequestValidationError):
+    # FastAPI's default validation body includes raw input; never echo it.
+    return JSONResponse(
+        {"error": {"code": "INVALID_QUERY", "message": "检索或原型请求参数不合法。"}},
+        status_code=422,
+    )
 
 
 class CheckReq(BaseModel):

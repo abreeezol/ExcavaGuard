@@ -85,9 +85,14 @@ class LocalEvidenceTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     EvidenceQuery.model_validate(request)
         with self.client(), TestClient(server.app) as client:
-            self.assertEqual(client.post(
+            response = client.post(
                 "/api/evidence/search", json={"query": "", "top_k": 0},
-            ).status_code, 422)
+            )
+            self.assertEqual(response.status_code, 422)
+            private_response = client.post(
+                "/api/evidence/search", json={"query": "test-private-canary", "top_k": 0},
+            )
+            self.assertNotIn("test-private-canary", private_response.text)
 
     def test_version_filter_before_vector_query(self):
         result = self.service.search(EvidenceQuery(

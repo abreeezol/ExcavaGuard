@@ -60,7 +60,8 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
   目标索引 `excava-guard` 已完成连接和只读兼容性校验（AWS `us-east-1`、
   NVIDIA `llama-text-embed-v2`、语义字段 `text`）。29 个规范编号经团队人工复核后，
   `standards-v1` 已导入 7,180 records；真实语义查询返回 5 hits，正文与来源元数据
-  和本地清单逐字段一致。旧本地 FastAPI 仍未满足统一 HTTP 合同。
+  和本地清单逐字段一致。本地 FastAPI 已实现统一 `POST /api/evidence/search`，
+  使用可审计规范元数据、BGE 与 Chroma 运行副本，真实 Next.js Retriever/Skill 3 项验收通过。
 
 ### Web 入口层（2026-10-10 接通）
 
@@ -172,7 +173,6 @@ ExcavaGuard/
 │   └── 07/08/10/11 系列文档           可行性分析 / 阈值口径 / 开发推进 / 可视化指引
 ├── skills/
 │   ├── README.md
-│   ├── .agents/
 │   ├── parse-monitoring-data/scripts/inspect_file.py
 │   ├── normalize-monitoring-data/
 │   ├── evaluate-thresholds/scripts/{run_judgement,check_strictness}.py
@@ -251,6 +251,23 @@ ExcavaGuard/
 - 不写入密码、Token、个人身份信息、未经脱敏的工程数据或大段运行日志。
 
 ## 决策记录
+
+### 2026-10-13 · 本地 RAG HTTP 兼容与最终输入核查
+
+- `source/evidence_api.py` 实现统一证据请求/响应与候选 ID 过滤，`source/server.py`
+  提供 `POST /api/evidence/search`；旧 `/api/search` 保留给历史原型。
+- `source/query_kb.py::runtime_database_dir()` 自动复制到 `var/rag/chroma_db/`，
+  查询 CLI 与旧 demo 同样改用运行副本，模型仅从本机完整 BGE 权重加载。
+- Python 接口回归 8 项、真实 BGE/Chroma → Next.js Retriever/Skill 3 项均通过；
+  真实查询命中 GB 50497-2019 8.0.1/8.0.5/8.0.4，未改变发布基线或在线 Provider 配置。
+- `final_test/监测数据整合_7天_10分钟.xlsx` 有 1,008 个时刻、85 通道，
+  包含累计位移和原始观测值混合列。现有长表读取器不能直接接受；
+  来源说明记录时间平移、线性插值和末值保持，不得称为原始同步实测。
+- 最终交付建议采用团队的日报三件套（xlsx + 封面 md + 附表/清单 md）
+  并附工程事实、证据、审计与轨迹 JSON。宽表接入、日频/日内口径和 xlsx 导出
+  尚待落地，先于该输入的三 Agent 完整验收；细则见 `final_test/README.md`。
+- 三 Agent 执行器/API 仍未实现；当前审计为确定性一致性校验，不能宣称已经完成
+  独立 LLM 语义审计或正式规范适用性审计。
 
 ### 2026-10-13 · 报告与审计 Skill 服务端契约接入
 
