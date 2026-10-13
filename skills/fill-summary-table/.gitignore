@@ -1,0 +1,43 @@
+# fill-summary-table —— 打包与入库排除项
+#
+# 说明：assets/ 下的示例输入与示例输出（*.csv / *.xlsx）是**有意保留**的交付示例，
+#       不要排除；assets/standards/*.json 与 assets/rag_hits.json 是运行必需数据。
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---- 虚拟环境 ----
+.venv/
+venv/
+env/
+
+# ---- 测试与静态检查缓存 ----
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- 编辑器 / 操作系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Office 临时文件 ----
+~$*
+*.tmp
+*.bak
+
+# ---- 运行产物（脚本临时输出，非交付示例）----
+/tmp_out/
+/out/

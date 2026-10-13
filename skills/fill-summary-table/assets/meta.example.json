@@ -1,0 +1,15 @@
+{
+  "project": "××市轨道交通 X 号线 XX 站基坑工程",
+  "report_no": "JK-2026-007",
+  "times": 7,
+  "weather": "多云",
+  "observer": "张三",
+  "calculator": "李四",
+  "checker": "王五",
+  "instrument_model": "XP99 频率读数仪",
+  "instrument_no": "XP99-021",
+  "instrument_valid": "2027-06-30",
+  "previous_time": "2026-10-06 23:00",
+  "work_condition": "当日东侧第三层土方开挖，分段长度约 20 m；第二道钢支撑已施工完成并施加预应力；坑内降水井正常运行。",
+  "analysis": "本期应力与轴力测点中，支撑轴力较上期明显增长，累计值已接近报警值，需关注支撑受力状态与温度效应；土压力与孔隙水压力变化平稳。判定阈值取自项目专项监测方案（示例值，非规范判据）。"
+}
