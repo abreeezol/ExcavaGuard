@@ -97,18 +97,42 @@ flowchart TB
 Python 确定性引擎并同步返回 `excavaguard.daily_report_input/v1` 载荷，但尚不做鉴权、
 项目归属校验或运行记录持久化。Agent Runtime 消费该载荷，不替代或重写其中的判定。
 
-### 2.3 规范证据检索 Provider（2026-10-09）
+### 2.3 规范证据检索 Provider（2026-10-13）
 
 规范 RAG 通过统一的 `StandardEvidenceRetriever` 服务端接口接入，不让页面、Agent 或 Skill 依赖具体向量库。当前先提供两种适配器：
 
-- `PineconeStandardEvidenceRetriever`：面向托管索引。查询向量由外部注入的 Embedding 函数生成，Pinecone 侧尚未完成知识导入。
+- `PineconeStandardEvidenceRetriever`：面向托管索引，使用 Pinecone integrated embedding；
+  文档上传与查询均发送文本，由同一索引模型生成向量，主应用不再注入另一套查询 Embedding。
 - `LocalStandardEvidenceRetriever`：面向本机 loopback HTTP 服务。默认调用 `POST /api/evidence/search`；
   本地 BGE、ChromaDB 和规范文本已进入仓库，但正式运行必须使用 gitignore 的运行时副本，
   不得直接写版本化的 `data/chroma_db/` 发布基线。
 
 两个 Provider 必须返回同一份经过 Zod 校验的证据结构，包括稳定证据 ID、规范名称、版本、条文号、原文、适用条件、来源位置、生效状态、匹配分数和 Provider 标识。缺少上述字段的旧版检索响应视为不完整证据，适配器应拒绝返回，不得在主链路中补造。
 
-服务端通过 `RAG_PROVIDER=pinecone|local` 选择 Provider。选择 Pinecone 时必须显式提供查询 Embedding 实现；选择本地模式时地址仅允许 `localhost`、`127.0.0.1` 或 `::1`，避免把“离线模式”静默指向远端服务。适配器只提供检索基础设施，尚未实现 `retrieve-standard-evidence` Skill 的适用性判断、冲突处理和运行轨迹，也不代表本地 FastAPI 服务已经合入。
+服务端通过 `RAG_PROVIDER=pinecone|local` 选择 Provider。选择本地模式时地址仅允许
+`localhost`、`127.0.0.1` 或 `::1`，避免把“离线模式”静默指向远端服务。
+
+Pinecone 导入采用独立、可审计的离线步骤：
+
+1. 从 `data/chunks.jsonl` 与默认规范库索引进行精确映射；
+2. 排除项目内部文件、无条文号切片和同一规范的非首选 OCR 副本；
+3. 从人工维护的状态清单读取 `active` / `inactive` / `unknown`，不得根据文件名猜测现行性；
+4. 生成运行目录下的导入记录与审计报告；
+5. 只在全部规范状态已复核、来源映射无冲突且显式指定执行参数时创建索引或上传。
+
+在线索引的模型和语义文本字段通过环境变量配置；当前目标索引使用 NVIDIA
+`llama-text-embed-v2` 和 `text` 字段。导入清单内部统一保留 `chunk_text`，上传时再映射到
+索引字段。索引记录保留原始 chunk ID、规范编号、名称、条文号、OCR 来源路径、适用范围
+和生效状态。导入模型一经确定，查询必须继续使用同一 integrated embedding 索引；
+不得把本地 BGE 向量与在线模型向量混用。
+
+截至 2026-10-13，29 个规范编号已完成人工复核，`excava-guard / standards-v1`
+已导入 7,180 条记录；远端记录数及真实查询返回的正文、条文号和来源位置已与本地清单核对一致。
+
+`retrieve-standard-evidence` 负责统一返回证据、适用性提示和检索轨迹。它不判断监测值是否
+超限，不把低相关结果补造成依据；无命中、非现行证据或 Provider 不可用时主动弃权。
+本地 FastAPI 的旧 `GET /api/search` 仍未满足统一 HTTP 合同，不能据此宣称本地 Provider
+已经端到端接通。
 
 ## 三、Skill 职责
 

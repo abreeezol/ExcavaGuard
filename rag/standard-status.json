@@ -1,0 +1,96 @@
+{
+  "schema_version": "excavaguard.standard_status/v1",
+  "reviewed_at": "2026-10-13T14:59:13+08:00",
+  "reviewed_by": "项目团队人工复核（用户确认）",
+  "standards": {
+    "GB50007-2011": {
+      "effective_status": "active"
+    },
+    "GB50021-2001": {
+      "effective_status": "active"
+    },
+    "GB50025-2018": {
+      "effective_status": "active"
+    },
+    "GB50201-2012": {
+      "effective_status": "active"
+    },
+    "GB50202-2018": {
+      "effective_status": "active"
+    },
+    "GB50300-2013": {
+      "effective_status": "active"
+    },
+    "GB50324-2014": {
+      "effective_status": "active"
+    },
+    "GB50330-2013": {
+      "effective_status": "active"
+    },
+    "GB50497-2019": {
+      "effective_status": "active"
+    },
+    "GB51004-2015": {
+      "effective_status": "active"
+    },
+    "GB51254-2017": {
+      "effective_status": "active"
+    },
+    "GB55001-2021": {
+      "effective_status": "active"
+    },
+    "GB55003-2021": {
+      "effective_status": "active",
+      "preferred_category": "强制性通用规范",
+      "review_note": "仓库存在两个 OCR 来源，在线索引只使用强制性通用规范目录副本。"
+    },
+    "GB55017-2021": {
+      "effective_status": "active"
+    },
+    "GB55018-2021": {
+      "effective_status": "active"
+    },
+    "GB55030-2022": {
+      "effective_status": "active"
+    },
+    "GB55032-2022": {
+      "effective_status": "active"
+    },
+    "GB55033-2022": {
+      "effective_status": "active"
+    },
+    "GB55034-2022": {
+      "effective_status": "active"
+    },
+    "GBT50942-2014": {
+      "effective_status": "active"
+    },
+    "GBT51238-2018": {
+      "effective_status": "active"
+    },
+    "GBT51351-2019": {
+      "effective_status": "active"
+    },
+    "JGJ111-2016": {
+      "effective_status": "active"
+    },
+    "JGJ120-2012": {
+      "effective_status": "active"
+    },
+    "JGJ180-2009": {
+      "effective_status": "active"
+    },
+    "JGJ311-2013": {
+      "effective_status": "active"
+    },
+    "JGJ33-2012": {
+      "effective_status": "active"
+    },
+    "JGJ46-2005": {
+      "effective_status": "active"
+    },
+    "JGJ59-2011": {
+      "effective_status": "active"
+    }
+  }
+}

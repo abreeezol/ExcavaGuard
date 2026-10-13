@@ -27,6 +27,10 @@ const integrationSchemas = {
     PINECONE_API_KEY: requiredValue,
     PINECONE_INDEX: requiredValue,
     PINECONE_NAMESPACE: optionalValue,
+    PINECONE_TEXT_FIELD: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      requiredValue.default("chunk_text"),
+    ),
   }),
   rag: z.object({
     RAG_PROVIDER: z.enum(["pinecone", "local"]),

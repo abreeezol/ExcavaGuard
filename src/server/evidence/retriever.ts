@@ -10,5 +10,3 @@ export interface StandardEvidenceRetriever {
   readonly provider: StandardEvidenceProvider;
   search(query: StandardEvidenceQuery): Promise<StandardEvidence[]>;
 }
-
-export type QueryEmbedder = (query: string) => Promise<readonly number[]>;

@@ -10,7 +10,7 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 
 项目处于「**确定性计算层已闭环，Web 入口已接通，上层编排层仍在设计**」的阶段。
 
-### 已实现（截至 2026-10-12）
+### 已实现（截至 2026-10-13）
 
 - `确定性计算层/`：三阶段流程 —— **阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对**；
 - 阶段一：数据接入与归一化（单位按量纲换算、日期解析、来源标识）、14 类噪音与缺失识别（只识别不修改）；
@@ -39,13 +39,21 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   （collection `jikeng_norms`，8,698 条 512 维 cosine 向量）已纳入仓库；
   `source/query_kb.py` 可使用本地 BGE + ChromaDB 离线检索；
 - **规范证据双 Provider 适配器**：`src/server/evidence/` 已实现 Pinecone / 本地 loopback
-  的公共查询契约与工厂，但尚未接入完整业务 Skill；
+  的公共查询契约与工厂；Pinecone 已改为 integrated embedding 文本检索，
+  `retrieve-standard-evidence` runner 已实现查询校验、弃权、人工复核提示和轨迹；
+- **Pinecone 可审计导入链路**：`tools/rag/` 可从现有切片生成 7,180 条候选记录，
+  排除项目文件、无条文号/超长切片和重复 OCR 来源；`rag/standard-status.json`
+  保存人工复核状态，存在 `unknown` 时禁止真实上传；
+- **Pinecone 目标索引配置**：`excava-guard` 已创建并完成只读兼容性校验
+  （AWS `us-east-1`、NVIDIA `llama-text-embed-v2`、语义字段 `text`）；
+  29 个规范编号经团队人工复核后，`standards-v1` 已导入 7,180 records，
+  真实语义查询返回 5 hits，文本和来源元数据与本地清单逐字段一致；
 - **三 Agent 编排基础**：首版收敛为 Supervisor / 报告交付 / 独立审计；
   `src/contracts/agent-runtime.ts` 定义版本化快照、草稿、审计、预算与轨迹契约，
   `src/server/agents/supervisor.ts` 已实现确定性路由、最多两轮修订、能力缺失等待、
   上游变更导致下游失效及工程师接管；报告与审计 Skill 尚未实体化，未接 API；
 - 引擎回归测试 **223 项全部通过**（`python -B pipeline/tests/test_pipeline_stages.py`）；
-  全栈检查 `npm run check` **60 项通过**（含 6 项端到端 + 10 项 Agent Runtime），
+- 全栈检查 `npm run check` **75 项通过**（含 6 项端到端 + 10 项 Agent Runtime），
   `npm run build` 8 条路由全部生成。
 
 ### 尚未实现
@@ -55,17 +63,18 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 - **鉴权与持久化**：上传与分析接口无用户鉴权、无项目归属校验；运行记录不落库
   （`run_id` 仅用于本次请求追溯）；上传文件用**本地文件系统**存储，Supabase 适配器未实现
   （缺 bucket 与元数据表，无法验证，故不提供空壳）；
-- 八个业务 Skill 中仍有六个只有 `SKILL.md` 契约
-  （`normalize-monitoring-data` / `retrieve-standard-evidence` / `retrieve-similar-cases` /
+- 八个业务 Skill 中仍有五个只有 `SKILL.md` 契约
+  （`normalize-monitoring-data` / `retrieve-similar-cases` /
   `analyze-work-condition` / `render-daily-report` / `validate-report`）；
-  已实现的两个是 `parse-monitoring-data`（解析检查）与 `evaluate-thresholds`（判定 + 严格度校验）；
+  已实现的三个是 `parse-monitoring-data`（解析检查）、`evaluate-thresholds`
+  （判定 + 严格度校验）与 `retrieve-standard-evidence`（规范证据检索）；
 - **温度补偿**未实现，轴力类判据可能混入温度效应（P2-1）；
 - **日报生成**：由后续独立 Agent 实现。本层只产出结构化载荷（`build_daily_report_input()`），
   **不生成日报正文与版式文件**，不撰写结论与建议措辞；
 - 部署与 CI；
-- **RAG 业务接线**：离线 FastAPI 仍提供旧 `GET /api/search`，Next.js 本地适配器要求
-  `POST /api/evidence/search`；`retrieve-standard-evidence` 尚未实体化，Pinecone 尚未导入知识；
-  当前切片也缺少完整的版本、来源位置、适用条件和生效状态元数据，不能直接作为正式报告证据。
+- **RAG 剩余接线**：离线 FastAPI 仍提供旧 `GET /api/search`，Next.js 本地适配器要求
+  `POST /api/evidence/search`；Pinecone 在线规范库已导入并通过查询验收，但 Supervisor/API
+  尚未调用 `retrieve-standard-evidence`，也尚未完成正式报告场景的引用准确率评测。
 
 > **已修复（原 P0-1）**：用户上传原始观测表不再 100% 弃权。
 > 2026-10-10 实测：仅含 5 个必填列的 7 期数据 → 弃权 1/7，正确识别出 6 期危险报警。
@@ -130,10 +139,11 @@ ExcavaGuard/
 │       ├── storage/                       上传文件存储（本地文件系统）
 │       ├── skills/python-bridge.ts        Node → Python 子进程桥接
 │       ├── skills/{parse-monitoring-data,evaluate-thresholds}/runner.ts
+│       ├── skills/retrieve-standard-evidence/runner.ts
 │       ├── agents/                        三 Agent 注册 + Supervisor 状态机基础
 │       ├── evidence/                      规范证据检索（双 Provider 适配器）
 │       └── config.ts / integrations/      环境配置与外部客户端
-├── tests/                                 Vitest（60 项，含 10 项 Agent Runtime）
+├── tests/                                 Vitest（75 项，含 10 项 Agent Runtime）
 ├── package.json / tsconfig.json / next.config.ts / vitest.config.ts / eslint.config.mjs
 ├── .env.example / .nvmrc / .gitignore
 ├── README.md / 项目介绍.html
@@ -162,7 +172,8 @@ ExcavaGuard/
 │   └── legacy/                           已废弃的旧阶段语义实现（留档）
 ├── 数据资产/                        ← **仅本地**（已 gitignore）：模拟数据快照 + 原始数据只读备份
 ├── tools/
-│   └── bridge-smoke/                     ← 引擎桥接冒烟测试（Node → Python，13 项）
+│   ├── bridge-smoke/                     ← 引擎桥接冒烟测试（Node → Python，13 项）
+│   └── rag/                              ← Pinecone 导入清单、门禁与批量上传工具
 ├── 确定性计算层_监测参数清单与规范依据.md
 ├── 方案与迭代note/
 │   ├── 初步方案.md
@@ -354,7 +365,7 @@ python -m venv .venv
 
 在项目提供正式构建、检查和测试命令前，不得臆造命令。新增工具链后，应将经过实际验证的命令补充到本文件。
 
-### 已验证的命令（更新至 2026-10-12）
+### 已验证的命令（更新至 2026-10-13）
 
 ```bash
 # --- 引擎（纯标准库 Python，无第三方依赖）---
@@ -372,9 +383,13 @@ node tools/bridge-smoke/run_judgement.mjs                                       
 
 # --- Web 全栈 ---
 npm ci
-npm run check                                                                   # ESLint + TypeScript + Vitest 60 项
+npm run check                                                                   # ESLint + TypeScript + Vitest 75 项
 npm run build                                                                   # 8 条路由
 npm run dev                                                                     # http://localhost:3000/workbench
+
+# --- 在线 RAG 导入准备（只读源资产，不访问云端）---
+npm run rag:prepare                                                             # 7,180 条已复核候选
+npm run rag:import                                                              # 幂等导入 Pinecone standards-v1
 
 # --- RAG 依赖与发布基线检查 ---
 .venv/bin/python -m pip check

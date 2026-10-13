@@ -1,21 +1,17 @@
 import "server-only";
-import { EvidenceRetrievalError } from "@/server/evidence/errors";
 import { LocalStandardEvidenceRetriever } from "@/server/evidence/local-standard-evidence-retriever";
 import {
   PineconeStandardEvidenceRetriever,
   type PineconeEvidenceIndex,
 } from "@/server/evidence/pinecone-standard-evidence-retriever";
-import type {
-  QueryEmbedder,
-  StandardEvidenceRetriever,
-} from "@/server/evidence/retriever";
+import type { StandardEvidenceRetriever } from "@/server/evidence/retriever";
 import { readIntegrationConfig } from "@/server/config";
 import { createPineconeIndex } from "@/server/integrations/pinecone";
 
 type RetrieverFactoryDependencies = {
-  embedQuery?: QueryEmbedder;
   fetchImpl?: typeof fetch;
   pineconeIndex?: PineconeEvidenceIndex;
+  pineconeTextField?: string;
 };
 
 export function createStandardEvidenceRetriever(
@@ -32,13 +28,16 @@ export function createStandardEvidenceRetriever(
     });
   }
 
-  if (!dependencies.embedQuery) {
-    throw new EvidenceRetrievalError(
-      "RETRIEVER_NOT_CONFIGURED",
-      "Pinecone 规范证据检索尚未配置查询 Embedding。",
+  if (dependencies.pineconeIndex) {
+    return new PineconeStandardEvidenceRetriever(
+      dependencies.pineconeIndex,
+      dependencies.pineconeTextField,
     );
   }
 
-  const index = dependencies.pineconeIndex ?? createPineconeIndex();
-  return new PineconeStandardEvidenceRetriever(index, dependencies.embedQuery);
+  const config = readIntegrationConfig("pinecone");
+  return new PineconeStandardEvidenceRetriever(
+    createPineconeIndex(),
+    config.PINECONE_TEXT_FIELD,
+  );
 }

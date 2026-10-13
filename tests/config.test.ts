@@ -52,6 +52,21 @@ describe("服务端配置", () => {
     expect(readIntegrationConfig("rag")).toEqual({ RAG_PROVIDER: "local" });
   });
 
+  it("Pinecone 文本字段可配置并保持兼容默认值", () => {
+    vi.stubEnv("PINECONE_API_KEY", "test-only-key");
+    vi.stubEnv("PINECONE_INDEX", "test-index");
+    vi.stubEnv("PINECONE_TEXT_FIELD", "");
+    expect(readIntegrationConfig("pinecone")).toEqual({
+      PINECONE_API_KEY: "test-only-key",
+      PINECONE_INDEX: "test-index",
+      PINECONE_NAMESPACE: undefined,
+      PINECONE_TEXT_FIELD: "chunk_text",
+    });
+
+    vi.stubEnv("PINECONE_TEXT_FIELD", "text");
+    expect(readIntegrationConfig("pinecone").PINECONE_TEXT_FIELD).toBe("text");
+  });
+
   it.each([
     ["SUPABASE_SERVICE_ROLE_KEY", createSupabaseAdmin],
     ["PINECONE_API_KEY", createPineconeIndex],
