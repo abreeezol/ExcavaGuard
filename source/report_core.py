@@ -182,12 +182,8 @@ _coll = None
 def _get_coll():
     global _coll
     if _coll is None:
-        import chromadb
-        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-        model_path = str(MODEL_DIR) if (MODEL_DIR / "config.json").exists() else MODEL_NAME
-        ef = SentenceTransformerEmbeddingFunction(model_name=model_path, device="cpu")
-        client = chromadb.PersistentClient(path=str(DB_DIR))
-        _coll = client.get_collection(name=COLLECTION, embedding_function=ef)
+        from query_kb import get_collection
+        _coll = get_collection()
     return _coll
 
 def kb_search(query: str, topk: int = 3):

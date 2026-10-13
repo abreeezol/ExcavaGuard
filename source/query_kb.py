@@ -8,6 +8,10 @@ Usage:
 """
 import argparse
 import json
+import os
+import shutil
+import tempfile
+from functools import lru_cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -17,12 +21,44 @@ MODEL_NAME = "BAAI/bge-small-zh"
 COLLECTION = "jikeng_norms"
 
 
+def runtime_database_dir() -> Path:
+    """Copy the release baseline once; never open it with PersistentClient."""
+    runtime = ROOT / "var" / "rag" / "chroma_db"
+    if (runtime / "chroma.sqlite3").is_file():
+        return runtime
+    if runtime.exists() or not (DB_DIR / "chroma.sqlite3").is_file():
+        raise RuntimeError("本地向量库运行副本不完整或发布基线缺失。")
+    runtime.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix="chroma-copy-", dir=runtime.parent))
+    try:
+        shutil.copytree(DB_DIR, staging / "database")
+        try:
+            (staging / "database").rename(runtime)
+        except OSError:
+            if not (runtime / "chroma.sqlite3").is_file():
+                raise
+    finally:
+        shutil.rmtree(staging)
+    return runtime
+
+
+@lru_cache(maxsize=1)
 def get_collection():
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
     import chromadb
     from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-    model_path = str(MODEL_DIR) if (MODEL_DIR / "config.json").exists() else MODEL_NAME
-    ef = SentenceTransformerEmbeddingFunction(model_name=model_path, device="cpu")
-    client = chromadb.PersistentClient(path=str(DB_DIR))
+    if (
+        not (MODEL_DIR / "config.json").is_file()
+        or not (MODEL_DIR / "pytorch_model.bin").is_file()
+        or (MODEL_DIR / "pytorch_model.bin").stat().st_size != 95_842_633
+    ):
+        raise RuntimeError("本地 BGE 模型缺失或仍为 Git LFS 指针。")
+    ef = SentenceTransformerEmbeddingFunction(
+        model_name=str(MODEL_DIR), device="cpu", local_files_only=True,
+    )
+    client = chromadb.PersistentClient(path=str(runtime_database_dir()))
     return client.get_collection(name=COLLECTION, embedding_function=ef)
 
 

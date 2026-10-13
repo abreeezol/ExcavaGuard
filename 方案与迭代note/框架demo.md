@@ -135,6 +135,23 @@ Pinecone 导入采用独立、可审计的离线步骤：
 本地 FastAPI 的旧 `GET /api/search` 仍未满足统一 HTTP 合同，不能据此宣称本地 Provider
 已经端到端接通。
 
+#### 本地 Provider 兼容实现设计（2026-10-13）
+
+在 `source/server.py` 增加 `POST /api/evidence/search`，接受与 Next.js 相同的
+`query / filters / top_k`，返回 `{"evidence":[...]}`。旧 `GET /api/search` 保留供
+原型页面使用。新接口只检索证据，不调用 `report_core` 的旧判定或报告生成。
+
+本地查询使用现有 BGE 模型和 Chroma 向量。规范名称、版本、适用范围和来源位置复用
+`npm run rag:prepare` 生成的可审计清单；生效状态以 `rag/standard-status.json` 为准。
+先筛选具备完整元数据且满足请求条件的稳定 chunk ID，再在 Chroma 中检索这些 ID，
+不得把无条文号或无法确认来源的记录补造成证据。可选的测项/地区/等级过滤字段未登记时
+返回无命中，不从问题文本猜测适用条件。查到的正文须与清单逐字一致。
+
+首次启动把 `data/chroma_db/` 复制到 gitignore 的 `var/rag/chroma_db/`，所有
+PersistentClient 只打开运行副本。模型必须完整存在于本机，离线 Provider 不回退联网下载。
+加载模型在服务启动期完成，避免首个 Next.js 请求在模型冷启动时超时；失败返回明确不可用。
+接口响应、错误和轨迹都不能泄漏密钥或底层异常正文。
+
 ## 三、Skill 职责
 
 ### 3.1 `parse-monitoring-data`
