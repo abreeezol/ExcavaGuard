@@ -14,7 +14,9 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run lint && npm run typecheck && npm test"
+    "check": "npm run lint && npm run typecheck && npm test",
+    "rag:prepare": "node --env-file-if-exists=.env.local tools/rag/pinecone-import.ts",
+    "rag:import": "node --env-file-if-exists=.env.local tools/rag/pinecone-import.ts --execute"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.91",

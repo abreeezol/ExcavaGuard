@@ -10,7 +10,7 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 
 ## 当前状态
 
-更新时间：2026-10-12
+更新时间：2026-10-13
 
 ### 框架层（2026-09-22 建立）
 
@@ -20,7 +20,8 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 - `skills/` 已建立八个业务 Skill 的目录和 `SKILL.md`。
 - `skills/.agents/` 已建立编排层说明。
 - 本地项目已初始化 Git 仓库，当前分支为 `main`，远程 `origin` 指向 `https://github.com/abreeezol/ExcavaGuard.git`。
-- 八个 Skill 的 `references/`、`scripts/`、`tests/` **仍未建立**（仅有 `SKILL.md` 契约）。
+- 八个 Skill 中已有三个具备可调用实现：`parse-monitoring-data`、
+  `evaluate-thresholds`、`retrieve-standard-evidence`；其余五个仍只有 `SKILL.md` 契约。
 
 ### 确定性计算层（2026-10-09 落地）
 
@@ -50,9 +51,13 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 - 规范 RAG：本地 BGE + ChromaDB 原型与知识资产已进入仓库。`data/ocr_text/` 含 30 份文本，
   `data/chunks.jsonl` 含 8,698 个唯一切片，collection `jikeng_norms` 含 8,698 条
   512 维 cosine 向量；`models/bge-small-zh/pytorch_model.bin` 通过 Git LFS 分发。
-- 双 Provider 适配器已位于 `src/server/evidence/`，但尚未接入完整业务 Skill：
-  本地 FastAPI 仍是旧 `GET /api/search`，Next.js 适配器要求 `POST /api/evidence/search`；
-  Pinecone 尚未导入知识，切片元数据也尚未补齐正式报告所需的版本、来源位置、适用条件和生效状态。
+- 双 Provider 适配器与 `retrieve-standard-evidence` runner 已接通；Pinecone 使用
+  integrated embedding 文本检索，runner 负责查询校验、弃权、人工复核提示和轨迹。
+  `tools/rag/` dry-run 从现有资产生成 7,180 条候选记录，来源映射零遗漏、ID 零冲突。
+  目标索引 `excava-guard` 已完成连接和只读兼容性校验（AWS `us-east-1`、
+  NVIDIA `llama-text-embed-v2`、语义字段 `text`）。29 个规范编号经团队人工复核后，
+  `standards-v1` 已导入 7,180 records；真实语义查询返回 5 hits，正文与来源元数据
+  和本地清单逐字段一致。旧本地 FastAPI 仍未满足统一 HTTP 合同。
 
 ### Web 入口层（2026-10-10 接通）
 
@@ -143,7 +148,7 @@ ExcavaGuard/
 ├── AGENTS.md
 ├── memory.md
 ├── src/                              Next.js 16 全栈工程（含 /workbench 与 5 个 API 路由）
-├── tests/                            Vitest 60 项（含 10 项 Agent Runtime、6 项端到端）
+├── tests/                            Vitest 75 项（含 10 项 Agent Runtime、6 项端到端）
 ├── var/uploads/                      上传文件存储（gitignore，删除即重置）
 ├── 确定性计算层/                      三阶段引擎（223 项回归测试）
 ├── 数据资产/                          仅本地：模拟数据快照 + 原始数据备份（已 gitignore）
@@ -179,7 +184,7 @@ ExcavaGuard/
 - 最终开发语言和前后端框架；
 - 多 Agent 编排框架；
 - 使用本地模型还是远程模型；
-- Pinecone 侧 Embedding 服务与 rerank 模型；
+- Pinecone rerank 模型仍未确定；
 - 规范和案例资料的具体来源与授权方式；
 - 项目专项方案与通用规范的优先级配置方式；
 - 真实输入文件格式和字段名称；
@@ -215,15 +220,15 @@ ExcavaGuard/
    待接入报告/审计 Skill、执行器、API 与持久化。
 2. **鉴权与持久化**：上传与分析接口的用户鉴权、项目归属校验、运行记录落库；
    上传文件的 Supabase/对象存储适配器（当前仅本地文件系统）。
-3. **其余六个 Skill 实体化**：`normalize-monitoring-data` / `retrieve-standard-evidence` /
-   `retrieve-similar-cases` / `analyze-work-condition` / `render-daily-report` / `validate-report`。
+3. **其余五个 Skill 实体化**：`normalize-monitoring-data` / `retrieve-similar-cases` /
+   `analyze-work-condition` / `render-daily-report` / `validate-report`。
 4. **日报生成 Agent（独立实现，非本层）**：消费 `excavaguard.daily_report_input/v1` 载荷，
    按 GB 50497-2019 第 9.0.7 条组织日报章节。本层已完成接口预留，不再改动载荷契约。
 5. **P2-1 温度补偿**：轴力类判据可能混入温度效应（已接入 `soil_temperature` 数据）。
 6. **P1-3 工程条件交互补全**：缺什么提示补什么（目前页面已给出提示，但未做逐项引导）。
 7. 部署与 CI。
 6. P2-1 温度补偿（轴力类判据）。
-7. 为其余六个 Skill 补充 `references/`、`scripts/` 和 `tests/`。
+7. 为其余五个 Skill 补充 `references/`、`scripts/` 和 `tests/`。
 8. 定义共享工程状态 Schema，并把 `pipeline` 封装为可被 Skill 调用的能力。
 9. 定义 Supervisor 的路由、重试和终止规则。
 10. **日报生成 Agent（独立实现，非本层）**：消费 `excavaguard.daily_report_input/v1` 载荷，
@@ -242,6 +247,26 @@ ExcavaGuard/
 - 不写入密码、Token、个人身份信息、未经脱敏的工程数据或大段运行日志。
 
 ## 决策记录
+
+### 2026-10-13 · Pinecone 在线规范 RAG 导入与检索基础
+
+- 在线索引采用 Pinecone integrated embedding；文档与查询都发送文本，不复用或混入
+  本地 BGE 的 512 维向量。目标索引 `excava-guard` 使用 NVIDIA
+  `llama-text-embed-v2`、1024 维 cosine、语义字段 `text`；`standards-v1` 已导入
+  7,180 records，远端记录数和本地清单一致。
+- `tools/rag/` 已实现来源精确映射、状态门禁、索引兼容性检查、显式建索引和 96 条一批的
+  幂等 upsert；dry-run 生成 7,180 条候选记录。
+- 排除项为：项目文件 16 条、GB55003 非首选 OCR 来源 108 条、无条文号切片 1,375 条；
+  超过 420 字符的切片 24 条；规范来源映射零遗漏、候选 ID 零冲突。
+- `rag/standard-status.json` 是生效状态的人工复核入口。任何 `unknown`、缺复核人或缺复核时间
+  都会阻止真实上传；2026-10-13 用户确认 29 个规范编号均已由团队人工复核，现均为 `active`。
+- `PineconeStandardEvidenceRetriever` 已改用 `searchRecords`，`retrieve-standard-evidence`
+  runner 已实现成功、无命中、非法输入、Provider 不可用和非现行证据弃权路径。
+- 首次导入在 2,016 records 处因瞬时网络错误中断；工具补充单批指数退避后幂等重跑完成。
+  真实语义查询返回 5 hits，返回正文、规范编号、条文号、来源位置和状态均与本地清单一致。
+- `npm run check` 实跑 75 项通过，`npm run build` 成功生成 8 条路由。
+- `.env.local` 已配置索引、namespace、cloud/region、模型和文本字段，真实密钥保持在
+  gitignore 文件中。
 
 ### 2026-10-12 · 三 Agent 收敛与 Supervisor 基础状态机
 

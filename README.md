@@ -50,7 +50,7 @@ src/
     └── integrations/              # LLM、Supabase、Pinecone 客户端入口
 tests/                             # 接口边界、契约一致性、上传到分析端到端
 skills/                            # 业务契约；scripts/ 下是引擎桥接脚本（Python）
-rag/                               # 知识资产占位，尚未导入规范或案例
+rag/                               # RAG 接入合同与规范有效性审核清单
 方案与迭代note/                     # 业务方案、架构和实现范围
 确定性计算层/                       # 三阶段确定性引擎（223 项回归测试）
 var/uploads/                       # 上传文件存储（gitignore，删除即重置）
@@ -88,12 +88,13 @@ cp .env.example .env.local
 | LLM | `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` | 创建 OpenAI 兼容 Chat 适配器；不默认指定供应商或模型 |
 | Supabase | `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_STORAGE_BUCKET` | 创建服务端管理客户端；**尚无表结构与上传逻辑**，存储适配器未实现 |
 | RAG 选择 | `RAG_PROVIDER` | 必须显式选择 `pinecone` 或 `local` |
-| Pinecone | `PINECONE_API_KEY`、`PINECONE_INDEX`、可选 `PINECONE_NAMESPACE` | 查询已有索引；Embedding 函数由服务端显式注入 |
+| Pinecone | `PINECONE_API_KEY`、`PINECONE_INDEX`、`PINECONE_TEXT_FIELD`、可选 `PINECONE_NAMESPACE` | 查询 integrated embedding 索引 |
+| Pinecone 导入 | `PINECONE_CLOUD`、`PINECONE_REGION`、`PINECONE_EMBED_MODEL` | 仅供离线建索引/批量导入工具使用 |
 | 本地 RAG | `LOCAL_RAG_BASE_URL`、`LOCAL_RAG_TIMEOUT_MS` | 调用 loopback 服务的统一证据接口 |
 
 确定性引擎与上传存储**不需要外部服务即可工作**，是当前唯一可端到端跑通的链路。
 
-客户端按需创建，不在页面渲染和构建时读取密钥或发送请求。配置缺失或格式不合法会抛出 `IntegrationConfigError`，错误不携带原始配置值。当前未验证真实云服务连接；完整配置也不代表分析链路已经可用。
+客户端按需创建，不在页面渲染和构建时读取密钥或发送请求。配置缺失或格式不合法会抛出 `IntegrationConfigError`，错误不携带原始配置值。目标 Pinecone 索引已完成连接、配置、导入和查询验收；完整配置仍不代表 Supervisor 主链路已经接通。
 
 Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需要实现用户鉴权、项目权限校验和文件所有权校验。不要将任何密钥改为 `NEXT_PUBLIC_*`，也不要提交 `.env.local`。
 
@@ -101,11 +102,15 @@ Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需�
 
 `src/server/evidence/` 提供统一的 `StandardEvidenceRetriever`，上层 Skill 不区分具体向量库：
 
-- `PineconeStandardEvidenceRetriever`：接收显式注入的查询 Embedding，应用规范版本、监测项、基坑等级、地区和生效状态过滤。
+- `PineconeStandardEvidenceRetriever`：调用 integrated embedding 的 `searchRecords` 文本检索，应用规范版本、监测项、基坑等级、地区和生效状态过滤。
 - `LocalStandardEvidenceRetriever`：只接受 `localhost`、`127.0.0.1` 或 `::1`，调用 `POST /api/evidence/search`。
 - `createStandardEvidenceRetriever`：根据 `RAG_PROVIDER` 选择实现，不会在本地模式读取 Pinecone 配置。
 
-完整本地 HTTP 合同见 [`rag/README.md`](rag/README.md)。两个适配器都要求稳定证据 ID、规范名称和版本、条文号、原文、来源位置及适用条件；旧版只有 `source/clause/content` 的响应会被拒绝。当前没有默认 Embedding 模型、本地 sidecar、规范资产或可供查询的生产索引，`retrieve-standard-evidence` Skill 仍为未实现状态。
+`retrieve-standard-evidence` 服务端 runner 已实现无命中弃权、非现行证据拦截、人工复核提示和查询轨迹。完整合同与 Pinecone 导入流程见 [`rag/README.md`](rag/README.md)。
+`npm run rag:prepare` 可从现有资产生成 7,180 条候选记录和审计报告，不访问云端；
+真实导入前必须在 `rag/standard-status.json` 完成 29 个规范编号的状态复核。
+当前清单已由团队人工复核，目标索引 `excava-guard` 的 `standards-v1` namespace 已写入
+7,180 条记录；真实语义查询和本地字段逐项比对通过。本地 sidecar 仍未完成统一 HTTP 合同。
 
 ## 接口
 

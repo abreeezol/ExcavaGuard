@@ -15,26 +15,33 @@ describe("角色与业务 Skill 契约", () => {
   it("实现状态与脚本清单一致，且脚本真实存在", () => {
     for (const skill of skillRegistry) {
       if (skill.status === "implemented") {
-        expect(skill.scripts.length).toBeGreaterThan(0);
+        expect(skill.scripts.length > 0 || skill.runner !== null).toBe(true);
         for (const script of skill.scripts) {
           // 文件不存在会抛错 —— 不允许"注册了但脚本没写"
           expect(() => readFileSync(script, "utf8")).not.toThrow();
           expect(script.startsWith(`skills/${skill.id}/`)).toBe(true);
         }
+        if (skill.runner) {
+          expect(() => readFileSync(skill.runner!, "utf8")).not.toThrow();
+          expect(skill.runner.startsWith("src/server/skills/")).toBe(true);
+        }
       } else {
         expect(skill.scripts).toEqual([]);
+        expect(skill.runner).toBeNull();
       }
     }
   });
 
-  it("引擎已接通的 Skill 仅限解析与阈值判定", () => {
+  it("已接通的 Skill 包含解析、阈值判定和规范证据检索", () => {
     const implemented = skillRegistry
       .filter((skill) => skill.status === "implemented")
       .map((skill) => skill.id)
       .sort();
-    // 其余六个 Skill（数据标准化、证据检索、相似案例、工况分析、日报渲染、报告校验）
-    // 仍只有 SKILL.md 契约，尚无实现
-    expect(implemented).toEqual(["evaluate-thresholds", "parse-monitoring-data"]);
+    expect(implemented).toEqual([
+      "evaluate-thresholds",
+      "parse-monitoring-data",
+      "retrieve-standard-evidence",
+    ]);
   });
 
   it("角色工具白名单仅引用已登记能力", () => {

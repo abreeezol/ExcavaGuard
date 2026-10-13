@@ -22,6 +22,7 @@ description: "检索带来源与适用条件的规范条文证据。需要解释
 
 成功时返回：
 
+- `status = "success"`；
 - `evidence`：证据列表，每项含稳定证据标识 `id`、条文文本 `text`、匹配分数 `score`、检索来源 `provider`、`matched_terms`，以及以下 `metadata`：
   - `standard_name`：规范名称；
   - `standard_version`：规范版本；
@@ -32,6 +33,9 @@ description: "检索带来源与适用条件的规范条文证据。需要解释
   - 可选的 `monitoring_item`、`excavation_safety_level` 和 `region`；
 - `notice`：检索结果适用性须由专业工程师核验；
 - `trace`：查询条件、命中数量和证据 ID。
+
+弃权时返回 `status = "abstained"`、`code`、`message`、候选 `evidence`（如有）、
+`notice` 和同结构 `trace`，不得把弃权结果当作确定依据。
 
 ## 执行流程
 
@@ -48,3 +52,9 @@ description: "检索带来源与适用条件的规范条文证据。需要解释
 - 未找到适用条文：以 `EVIDENCE_NOT_FOUND` 弃权，并明确不得作规范性结论。
 - 证据版本失效、适用条件不明或多条证据冲突：以 `EVIDENCE_CONFLICT` 弃权并要求人工复核。
 - 不伪造条文、版本、页码或来源，不把低相关命中表述为确定依据。
+
+## 参考实现
+
+- 服务端 runner：`src/server/skills/retrieve-standard-evidence/runner.ts`
+- Provider 适配器：`src/server/evidence/`
+- Pinecone 导入与元数据门禁：`tools/rag/`、`rag/standard-status.json`

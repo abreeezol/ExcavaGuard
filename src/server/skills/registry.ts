@@ -4,9 +4,8 @@ import { skillIdSchema, type SkillId } from "@/contracts/identifiers";
 /**
  * 业务 Skill 注册表。
  *
- * `SKILL.md` 是能力契约；`scripts/` 下是**已可调用的实现**（Python 桥接脚本，
- * 由 `src/server/skills/python-bridge.ts` 以子进程方式调用）。
- * 只有两者都存在时才标记为 `implemented`。
+ * `SKILL.md` 是能力契约；业务实现可以是 Python 桥接脚本，也可以是服务端 TypeScript
+ * runner。只有契约和至少一种真实实现都存在时才标记为 `implemented`。
  */
 
 export type SkillStatus = "not_implemented" | "implemented";
@@ -17,24 +16,43 @@ export type SkillDefinition = {
   status: SkillStatus;
   /** 相对仓库根的脚本路径；未实现时为空数组。 */
   scripts: readonly string[];
+  /** 相对仓库根的服务端 runner 路径；没有时为 null。 */
+  runner: string | null;
 };
 
-/** 已实现（或部分实现）的 Skill 及其脚本。 */
-const IMPLEMENTED: Partial<Record<SkillId, readonly string[]>> = {
-  "parse-monitoring-data": ["skills/parse-monitoring-data/scripts/inspect_file.py"],
-  "evaluate-thresholds": [
-    "skills/evaluate-thresholds/scripts/run_judgement.py",
-    "skills/evaluate-thresholds/scripts/check_strictness.py",
-  ],
+type SkillImplementation = {
+  scripts?: readonly string[];
+  runner?: string;
+};
+
+const IMPLEMENTED: Partial<Record<SkillId, SkillImplementation>> = {
+  "parse-monitoring-data": {
+    scripts: ["skills/parse-monitoring-data/scripts/inspect_file.py"],
+  },
+  "evaluate-thresholds": {
+    scripts: [
+      "skills/evaluate-thresholds/scripts/run_judgement.py",
+      "skills/evaluate-thresholds/scripts/check_strictness.py",
+    ],
+  },
+  "retrieve-standard-evidence": {
+    runner: "src/server/skills/retrieve-standard-evidence/runner.ts",
+  },
 };
 
 // SKILL.md 是能力契约，不能当作已可调用的业务实现。
 export const skillRegistry: readonly SkillDefinition[] = skillIdSchema.options.map((id) => {
-  const scripts = IMPLEMENTED[id] ?? [];
+  const implementation = IMPLEMENTED[id];
+  const scripts = implementation?.scripts ?? [];
+  const runner = implementation?.runner ?? null;
   return {
     id,
     contractPath: `skills/${id}/SKILL.md`,
-    status: scripts.length > 0 ? "implemented" : "not_implemented",
+    status:
+      scripts.length > 0 || runner !== null
+        ? "implemented"
+        : "not_implemented",
     scripts,
+    runner,
   };
 });

@@ -16,7 +16,9 @@ retrieve-standard-evidence Skill
       Pinecone       本地 loopback HTTP
 ```
 
-适配器目前只提供检索基础设施，不执行条文适用性裁决、证据冲突处理或报告生成。案例检索合同将在 `retrieve-similar-cases` 实现时单独定义。
+`retrieve-standard-evidence` 已提供服务端 runner，负责参数校验、无结果弃权、
+非现行证据拦截和查询轨迹；它不执行条文语义裁决或报告生成。案例检索合同将在
+`retrieve-similar-cases` 实现时单独定义。
 
 ## 本地 HTTP 合同
 
@@ -80,24 +82,70 @@ Content-Type: application/json
 
 队友分支原有的 `GET /api/search?q=...` 和 `source/clause/content` 返回结构不满足该合同，需要在接入前调整。
 
-## Pinecone 元数据
+## Pinecone 在线索引
 
-Pinecone 中每条规范记录至少包含：
+在线索引使用 Pinecone integrated embedding。模型与语义文本字段分别由
+`PINECONE_EMBED_MODEL`、`PINECONE_TEXT_FIELD` 配置；写入和查询均发送文本，
+不在应用侧另行生成查询向量。当前目标索引使用 NVIDIA `llama-text-embed-v2`
+和 `text` 字段。已有本地 BGE 向量不能直接复制到该索引，也不能与在线模型向量混用。
+
+导入前先运行：
+
+```bash
+npm run rag:prepare
+```
+
+该命令不访问云端，只在 `var/rag/` 生成：
+
+- `pinecone-records.jsonl`：候选在线记录；
+- `pinecone-import-report.json`：来源映射、排除项、生效状态和冲突审计报告。
+
+当前资产会形成 7,180 条候选记录：项目文件、无条文号切片、超过本地构建器 420 字符
+上限的切片和同一规范的非首选 OCR 副本不会进入索引。创建索引时显式配置
+`truncate=NONE`，避免超长正文被静默截断为不完整证据。`rag/standard-status.json`
+中任何规范仍为 `unknown`，或未填写复核人和复核时间时，真实上传一律拒绝。
+当前 29 个规范编号均已由项目团队人工复核并标记为 `active`。
+
+状态清单与 `.env.local` 均确认后，导入已有索引：
+
+```bash
+npm run rag:import
+```
+
+仅在索引尚不存在并明确同意创建云资源时使用：
+
+```bash
+npm run rag:import -- --create-index
+```
+
+创建时启用删除保护，按 96 条顺序批量 upsert；瞬时失败按指数退避最多尝试 5 次。
+重复执行使用稳定 chunk ID 覆盖同一记录，可在中断后重跑。命令不会打印 API key
+或远端错误正文。
+
+### 记录字段
+
+导入清单统一使用本地字段 `chunk_text`，上传时映射到 `PINECONE_TEXT_FIELD`。Pinecone
+中每条规范记录至少包含：
 
 - `evidence_kind=standard`
-- `text`
+- 配置指定的 integrated embedding 文本字段（当前为 `text`）
 - `standard_name`
 - `standard_version`
 - `clause`
 - `source_location`
 - `applicability`（字符串数组）
 - `effective_status`
-- `matched_terms`（字符串数组）
+- `standard_code`
+- `source_category`
+- `source_name`
+- `registry_relevance`
 - 可选的 `monitoring_item`、`excavation_safety_level`、`region`
 
-Pinecone record ID 作为稳定证据 ID。现有本地向量使用 `BAAI/bge-small-zh`、512 维；
-若复用这些向量，Pinecone 索引必须采用 512 维 cosine，查询也必须使用相同模型和查询前缀。
-更换 Embedding 模型时必须重建全部文档向量，禁止混用向量空间。rerank 模型尚未确定。
+Pinecone record ID 直接使用现有稳定 chunk ID。`source_location` 指向
+`data/ocr_text/<分类>/<来源>.txt#chunk=<id>`；没有可靠页码时不补造页码。
+`monitoring_item`、基坑等级和地区当前不从正文猜测，因此现有记录不包含这些可选字段。
+integrated dense retrieval 不提供词项命中信息，统一证据输出中的 `matched_terms` 返回空数组。
+更换 integrated embedding 模型时必须新建或重建索引。rerank 模型尚未确定。
 
 ## 资产边界
 
@@ -115,3 +163,7 @@ Pinecone record ID 作为稳定证据 ID。现有本地向量使用 `BAAI/bge-sm
 - 密钥、访问令牌和 Pinecone 连接凭证。
 
 检索实现上线前仍需验证版本有效性、适用范围、来源定位、无结果行为和引用准确率。证据不足或冲突时，上层 Skill 必须主动弃权。
+
+当前 `excava-guard / standards-v1` 已导入 7,180 条记录；远端记录数与本地清单一致，
+真实语义查询返回的正文和来源元数据已逐字段比对通过。Supervisor/API 尚未调用该 Skill，
+正式报告场景的引用准确率评测也尚未完成。

@@ -31,24 +31,28 @@ afterEach(() => {
 });
 
 describe("Pinecone 规范证据适配器", () => {
-  it("应用元数据过滤并返回统一证据结构", async () => {
-    const query = vi.fn<PineconeEvidenceIndex["query"]>().mockResolvedValue({
-      matches: [
-        {
-          id: candidate.id,
-          score: candidate.score,
-          metadata: {
-            ...candidate.metadata,
-            text: candidate.text,
-            matched_terms: candidate.matched_terms,
-            ignored_index_field: "允许索引包含额外元数据",
-          },
+  it("使用 integrated embedding 文本查询并返回统一证据结构", async () => {
+    const searchRecords = vi
+      .fn<PineconeEvidenceIndex["searchRecords"]>()
+      .mockResolvedValue({
+        result: {
+          hits: [
+            {
+              _id: candidate.id,
+              _score: candidate.score,
+              fields: {
+                ...candidate.metadata,
+                text: candidate.text,
+                ignored_index_field: "允许索引包含额外元数据",
+              },
+            },
+          ],
         },
-      ],
-    });
+        usage: { readUnits: 1, embedTotalTokens: 10 },
+      });
     const retriever = new PineconeStandardEvidenceRetriever(
-      { query },
-      async () => [0.1, 0.2, 0.3],
+      { searchRecords },
+      "text",
     );
 
     await expect(
@@ -61,61 +65,96 @@ describe("Pinecone 规范证据适配器", () => {
           region: "测试区域",
         },
       }),
-    ).resolves.toEqual([{ ...candidate, provider: "pinecone" }]);
+    ).resolves.toEqual([
+      { ...candidate, matched_terms: [], provider: "pinecone" },
+    ]);
 
-    expect(query).toHaveBeenCalledWith({
-      vector: [0.1, 0.2, 0.3],
-      topK: 3,
-      includeMetadata: true,
-      includeValues: false,
-      filter: {
-        evidence_kind: { $eq: "standard" },
-        effective_status: { $eq: "active" },
-        standard_version: { $in: ["demo-2026"] },
-        monitoring_item: { $eq: "测试监测项" },
-        excavation_safety_level: { $eq: "demo" },
-        region: { $eq: "测试区域" },
+    expect(searchRecords).toHaveBeenCalledWith({
+      query: {
+        inputs: { text: "测试监测项适用什么规范" },
+        topK: 3,
+        filter: {
+          evidence_kind: { $eq: "standard" },
+          effective_status: { $eq: "active" },
+          standard_version: { $in: ["demo-2026"] },
+          monitoring_item: { $eq: "测试监测项" },
+          excavation_safety_level: { $eq: "demo" },
+          region: { $eq: "测试区域" },
+        },
       },
+      fields: [
+        "text",
+        "standard_name",
+        "standard_version",
+        "clause",
+        "source_location",
+        "applicability",
+        "effective_status",
+        "monitoring_item",
+        "excavation_safety_level",
+        "region",
+      ],
     });
   });
 
-  it("拒绝空向量和缺少规范版本的索引记录", async () => {
+  it("拒绝缺少规范版本的索引记录", async () => {
     const index: PineconeEvidenceIndex = {
-      query: vi.fn().mockResolvedValue({
-        matches: [
-          {
-            id: candidate.id,
-            score: candidate.score,
-            metadata: {
-              ...candidate.metadata,
-              standard_version: undefined,
-              text: candidate.text,
-              matched_terms: candidate.matched_terms,
+      searchRecords: vi.fn().mockResolvedValue({
+        result: {
+          hits: [
+            {
+              _id: candidate.id,
+              _score: candidate.score,
+              fields: {
+                ...candidate.metadata,
+                standard_version: undefined,
+                chunk_text: candidate.text,
+              },
             },
-          },
-        ],
+          ],
+        },
       }),
     };
 
-    const emptyEmbedding = new PineconeStandardEvidenceRetriever(index, async () => []);
-    await expect(emptyEmbedding.search({ query: "测试" })).rejects.toMatchObject({
-      code: "INVALID_RESPONSE",
-    });
-
-    const retriever = new PineconeStandardEvidenceRetriever(index, async () => [0.1]);
+    const retriever = new PineconeStandardEvidenceRetriever(index);
     await expect(retriever.search({ query: "测试" })).rejects.toMatchObject({
       code: "INVALID_RESPONSE",
     });
   });
 
   it("拒绝 Pinecone 非预期响应结构", async () => {
-    const retriever = new PineconeStandardEvidenceRetriever(
-      { query: vi.fn().mockResolvedValue({ matches: null }) },
-      async () => [0.1],
-    );
+    const retriever = new PineconeStandardEvidenceRetriever({
+      searchRecords: vi.fn().mockResolvedValue({
+        result: { hits: null },
+      }),
+    });
     await expect(retriever.search({ query: "测试" })).rejects.toMatchObject({
       code: "INVALID_RESPONSE",
     });
+  });
+
+  it("查询失败时不暴露远端错误正文", async () => {
+    const retriever = new PineconeStandardEvidenceRetriever({
+      searchRecords: vi
+        .fn()
+        .mockRejectedValue(new Error("test-only-secret-canary")),
+    });
+    await expect(retriever.search({ query: "测试" })).rejects.toEqual(
+      expect.objectContaining({
+        code: "RETRIEVER_UNAVAILABLE",
+        message: "Pinecone 规范证据检索暂不可用。",
+      }),
+    );
+  });
+
+  it("拒绝与来源元数据冲突的文本字段配置", () => {
+    expect(
+      () =>
+        new PineconeStandardEvidenceRetriever(
+          { searchRecords: vi.fn() },
+          "standard_name",
+        ),
+    ).toThrow("Pinecone integrated embedding 文本字段配置不合法。");
   });
 });
 
@@ -218,10 +257,23 @@ describe("规范证据适配器工厂", () => {
     expect(createStandardEvidenceRetriever().provider).toBe("local");
   });
 
-  it("Pinecone 模式未注入 Embedding 时明确失败", () => {
+  it("Pinecone 模式使用 integrated embedding，不要求注入查询向量函数", () => {
     vi.stubEnv("RAG_PROVIDER", "pinecone");
+    const retriever = createStandardEvidenceRetriever({
+      pineconeIndex: {
+        searchRecords: vi.fn().mockResolvedValue({
+          result: { hits: [] },
+        }),
+      },
+    });
+    expect(retriever.provider).toBe("pinecone");
+  });
+
+  it("Pinecone 模式仍需索引连接配置", () => {
+    vi.stubEnv("RAG_PROVIDER", "pinecone");
+    vi.stubEnv("PINECONE_API_KEY", "");
     expect(() => createStandardEvidenceRetriever()).toThrow(
-      "Pinecone 规范证据检索尚未配置查询 Embedding。",
+      "pinecone 配置缺失或不合法。",
     );
   });
 });
