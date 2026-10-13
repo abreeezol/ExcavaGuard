@@ -1,0 +1,15 @@
+{
+  "_说明": "验证演示用阈值，模拟某项目经审批的专项监测方案取值；实际使用须替换为项目正式文件。",
+  "levels": { "yellow_ratio": 0.7 },
+  "gross_error_sigma": 3.0,
+  "gross_error_min_abs_mm": 1.0,
+  "defaults": { "alarm": null, "control": null, "rate_alarm": null, "source": "未配置" },
+  "items": {
+    "围护墙顶部水平位移": { "alarm": 25, "control": 35, "rate_alarm": 3, "source": "《XX基坑工程专项监测方案》v2.0 表4.2-1" },
+    "周边地表竖向位移": { "alarm": 20, "control": 30, "rate_alarm": 2, "source": "《XX基坑工程专项监测方案》v2.0 表4.2-2" },
+    "深层水平位移": { "alarm": 40, "control": 50, "rate_alarm": 3, "source": "《XX基坑工程专项监测方案》v2.0 表4.2-3" },
+    "地下水位": { "alarm": 1.5, "control": 2.5, "rate_alarm": 0.5, "source": "《XX基坑工程专项监测方案》v2.0 表4.2-4（单位 m）" },
+    "支撑轴力": { "alarm": 3000, "control": 3500, "rate_alarm": 500, "source": "《XX基坑工程专项监测方案》v2.0 表4.2-5（单位 kN）" }
+  },
+  "points": {}
+}

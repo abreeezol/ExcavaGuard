@@ -1,0 +1,33 @@
+{
+  "_说明": "阈值必须由项目经审批的专项监测方案或设计文件确定。未配置报警值的测项一律标为待复核，不得由模型补值或套用其他项目经验值。",
+  "levels": {
+    "yellow_ratio": 0.7,
+    "_分级说明": "默认分级仅供无项目规则时的临时骨架：正常 <70%报警值；黄色 ≥70%；橙色 ≥100%；红色 ≥控制值 或 速率达到速率限值。必须按项目规则覆盖。"
+  },
+  "gross_error_sigma": 3.0,
+  "gross_error_ratio": 3.0,
+  "gross_error_min_abs": 2.0,
+  "_粗差识别说明": "需同时满足: |本次变化量| > sigma×历史变化量标准差, 且 |本次变化量| > max(gross_error_min_abs, ratio×历史平均|变化量|)。双门槛避免把“变化稳步加快”的真实趋势误判为粗差。",
+  "defaults": {
+    "alarm": null,
+    "control": null,
+    "rate_alarm": null,
+    "source": "未配置"
+  },
+  "items": {
+    "围护墙顶部水平位移": {
+      "alarm": null,
+      "control": null,
+      "rate_alarm": null,
+      "source": "项目专项监测方案（填写版本号与表号）"
+    },
+    "围护墙顶部竖向位移": { "alarm": null, "control": null, "rate_alarm": null, "source": "" },
+    "周边地表竖向位移": { "alarm": null, "control": null, "rate_alarm": null, "source": "" },
+    "支撑轴力": { "alarm": null, "control": null, "rate_alarm": null, "source": "", "_单位提示": "轴力单位为 kN，不使用 mm 分级，需单独配置" },
+    "地下水位": { "alarm": null, "control": null, "rate_alarm": null, "source": "" }
+  },
+  "points": {
+    "_用法": "个别测点因临近建筑、管线或设计要求需单独限值时，在此按测点编号覆盖 items 配置；键为测点编号。",
+    "ZCL-01": { "alarm": null, "control": null, "rate_alarm": null, "source": "设计专项要求（填写出处）" }
+  }
+}

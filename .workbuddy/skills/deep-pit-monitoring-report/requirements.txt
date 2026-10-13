@@ -1,0 +1,4 @@
+# 基坑监测日报 skill 依赖
+# 仅形态①（附录表式 Excel）与汇总表 xlsx 输出需要 openpyxl；
+# 形态②（CSV 流水）全流程仅用 Python 标准库，可不装。
+openpyxl>=3.0

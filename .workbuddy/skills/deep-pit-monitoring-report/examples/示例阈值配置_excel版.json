@@ -1,0 +1,10 @@
+{
+  "levels": { "yellow_ratio": 0.7 },
+  "items": {
+    "墙顶水平位移": { "alarm": 25, "control": 35, "rate_alarm": 2, "source": "专项监测方案 v2.0 表4.2-1" },
+    "深层水平位移": { "alarm": 30, "control": 40, "rate_alarm": 3, "source": "专项监测方案 v2.0 表4.2-2" },
+    "地表竖向位移": { "alarm": 20, "control": 25, "rate_alarm": 2, "source": "专项监测方案 v2.0 表4.2-3" },
+    "地下水位": { "alarm": 1500, "control": 2500, "rate_alarm": 500, "source": "专项监测方案 v2.0 表4.2-4(单位与附录表E变化量栏一致, mm)" },
+    "支撑轴力": { "alarm": 3000, "control": 4000, "rate_alarm": 500, "source": "专项监测方案 v2.0 表4.2-5" }
+  }
+}
