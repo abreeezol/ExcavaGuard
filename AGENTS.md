@@ -51,26 +51,30 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 - **三 Agent 编排基础**：首版收敛为 Supervisor / 报告交付 / 独立审计；
   `src/contracts/agent-runtime.ts` 定义版本化快照、草稿、审计、预算与轨迹契约，
   `src/server/agents/supervisor.ts` 已实现确定性路由、最多两轮修订、能力缺失等待、
-  上游变更导致下游失效及工程师接管；报告与审计 Skill 尚未实体化，未接 API；
+  上游变更导致下游失效及工程师接管；
+- **报告与审计 Skill 基础**：`render-daily-report` 已实现冻结载荷到结构化草稿、
+  Markdown、事实绑定和证据引用的适配；`validate-report` 已实现独立重渲染、事实哈希、
+  引用、章节与责任措辞校验。两者复用 `deep-pit-monitoring-report` 的表式经验，
+  不使用其中的第二套计算、重判或本地 RAG；三 Agent 执行器与 API 尚未接通；
 - 引擎回归测试 **223 项全部通过**（`python -B pipeline/tests/test_pipeline_stages.py`）；
-- 全栈检查 `npm run check` **75 项通过**（含 6 项端到端 + 10 项 Agent Runtime），
+- 全栈检查 `npm run check` **79 项通过**（含 6 项端到端 + 10 项 Agent Runtime
+  + 4 项报告/审计 Skill），
   `npm run build` 8 条路由全部生成。
 
 ### 尚未实现
 
 - **编排层（⑥）尚未端到端接通**：Supervisor 路由与共享状态基础已实现，
-  但执行器、API、持久化、报告生成和真实审计回环尚未实现；
+  但执行器、API、持久化和报告—审计纵向回环尚未实现；
 - **鉴权与持久化**：上传与分析接口无用户鉴权、无项目归属校验；运行记录不落库
   （`run_id` 仅用于本次请求追溯）；上传文件用**本地文件系统**存储，Supabase 适配器未实现
   （缺 bucket 与元数据表，无法验证，故不提供空壳）；
-- 八个业务 Skill 中仍有五个只有 `SKILL.md` 契约
-  （`normalize-monitoring-data` / `retrieve-similar-cases` /
-  `analyze-work-condition` / `render-daily-report` / `validate-report`）；
-  已实现的三个是 `parse-monitoring-data`（解析检查）、`evaluate-thresholds`
-  （判定 + 严格度校验）与 `retrieve-standard-evidence`（规范证据检索）；
+- 八个业务 Skill 中仍有三个只有 `SKILL.md` 契约：
+  `normalize-monitoring-data` / `retrieve-similar-cases` / `analyze-work-condition`。
+  已实现的五个是 `parse-monitoring-data`、`evaluate-thresholds`、
+  `retrieve-standard-evidence`、`render-daily-report` 与 `validate-report`；
 - **温度补偿**未实现，轴力类判据可能混入温度效应（P2-1）；
-- **日报生成**：由后续独立 Agent 实现。本层只产出结构化载荷（`build_daily_report_input()`），
-  **不生成日报正文与版式文件**，不撰写结论与建议措辞；
+- **日报交付主链**：报告与审计 Skill 已能生成和校验结构化草稿/Markdown，
+  但尚未接入 Supervisor 执行器、API、持久化和最终版式文件导出；
 - 部署与 CI；
 - **RAG 剩余接线**：离线 FastAPI 仍提供旧 `GET /api/search`，Next.js 本地适配器要求
   `POST /api/evidence/search`；Pinecone 在线规范库已导入并通过查询验收，但 Supervisor/API
@@ -140,10 +144,11 @@ ExcavaGuard/
 │       ├── skills/python-bridge.ts        Node → Python 子进程桥接
 │       ├── skills/{parse-monitoring-data,evaluate-thresholds}/runner.ts
 │       ├── skills/retrieve-standard-evidence/runner.ts
+│       ├── skills/{render-daily-report,validate-report}/runner.ts
 │       ├── agents/                        三 Agent 注册 + Supervisor 状态机基础
 │       ├── evidence/                      规范证据检索（双 Provider 适配器）
 │       └── config.ts / integrations/      环境配置与外部客户端
-├── tests/                                 Vitest（75 项，含 10 项 Agent Runtime）
+├── tests/                                 Vitest（79 项，含 10 项 Agent Runtime）
 ├── package.json / tsconfig.json / next.config.ts / vitest.config.ts / eslint.config.mjs
 ├── .env.example / .nvmrc / .gitignore
 ├── README.md / 项目介绍.html
@@ -194,8 +199,10 @@ ExcavaGuard/
 │   ├── retrieve-standard-evidence/
 │   ├── retrieve-similar-cases/
 │   ├── analyze-work-condition/
-│   ├── render-daily-report/
-│   └── validate-report/
+│   ├── render-daily-report/scripts/       ← 冻结载荷到草稿的薄适配器
+│   ├── validate-report/scripts/           ← 结构化事实与引用审计
+│   ├── deep-pit-monitoring-report/        ← 日报表式与实现参考资产
+│   └── _archive/prototypes/               ← 非主链团队原型留档
 ```
 
 每个业务 Skill 使用以下结构：
@@ -383,7 +390,7 @@ node tools/bridge-smoke/run_judgement.mjs                                       
 
 # --- Web 全栈 ---
 npm ci
-npm run check                                                                   # ESLint + TypeScript + Vitest 75 项
+npm run check                                                                   # ESLint + TypeScript + Vitest 79 项
 npm run build                                                                   # 8 条路由
 npm run dev                                                                     # http://localhost:3000/workbench
 

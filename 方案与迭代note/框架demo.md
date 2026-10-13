@@ -88,7 +88,8 @@ flowchart TB
 - `src/app/`：App Router 页面、布局及 `api/health`、`api/runs` Route Handlers。
 - `src/components/`：工作台空状态、流程说明等界面组件。
 - `src/contracts/`：运行请求、角色与 Skill 标识的 Zod 契约；禁止引用服务端模块。
-- `src/server/agents/`：三类角色及工具白名单；Supervisor 的显式状态机先于报告和审计 Skill 落地。
+- `src/server/agents/`：三类角色及工具白名单；Supervisor 显式状态机与报告/审计
+  Skill 基础已落地，端到端执行器和 API 尚待接入。
 - `src/server/skills/`：八个既有 Skill 的契约路径与实现状态；确定性实现仍放在根目录 `skills/<name>/scripts/`。
 - `src/server/integrations/`：LLM、Supabase、Pinecone 的延迟初始化入口，密钥仅在服务端读取。未指定模型前不提供默认模型。
 - `tests/`：接口边界、配置校验和注册信息一致性测试。
@@ -184,6 +185,20 @@ Pinecone 导入采用独立、可审计的离线步骤：
 负责在报告交付前检查数字、超限状态、规则 ID、引用、模板字段和责任边界。
 
 发现不一致时只返回错误清单，不输出可以被误认为正式报告的成品。该 Skill 不修改事实来适应报告，也不代替工程师审核和签发。
+
+### 3.9 日报实现资产映射
+
+仓库中的 `skills/deep-pit-monitoring-report/` 是团队交付的完整日报生成与表式参考资产，
+不是新增的第九个业务 Skill，也不新增 Agent。服务端只通过以下两个稳定契约使用它：
+
+- `render-daily-report`：消费冻结的 `excavaguard.daily_report_input/v1` 引擎快照，
+  复用其附录 A~G 表式映射与草稿组织经验；
+- `validate-report`：独立核对草稿中的事实绑定、风险状态、引用、必填章节和责任措辞。
+
+`deep-pit-monitoring-report` 自带的数值计算、阈值重判和本地 Chroma 检索是独立原型路径，
+**不得进入服务端主链**。主链中的数字和风险等级只认 `evaluate-thresholds` 输出，
+规范证据只认 `retrieve-standard-evidence` 返回的稳定证据 ID。适配层不得重算数值、
+重新分级、用本地规则覆盖引擎事实，或把缺失单位和工程信息补造成确定值。
 
 ## 四、Skill 编排
 

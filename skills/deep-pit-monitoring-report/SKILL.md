@@ -8,6 +8,11 @@ agent_created: true
 
 把已采集的监测数据加工成**可审核、可追溯的监测日报草稿**。核心立场：数值由脚本算、判定由规则给、文字由模型写、结论由工程师签。
 
+> **服务端接入边界**：本目录是团队交付的日报实现与表式参考资产。ExcavaGuard 服务端
+> 通过 canonical `render-daily-report` / `validate-report` 适配器复用渲染和校验能力；
+> 本目录自带的计算、阈值重判与本地 RAG 路径不进入主链，不能覆盖
+> `evaluate-thresholds` 与 `retrieve-standard-evidence` 的结构化结果。
+
 ## 硬性约束（任何步骤都不得违反）
 
 0. **日报内容以 GB 50497-2019 第 9.0.7 条为准**：当日天气与工况、各测点本次测试值/单次变化值/变化速率/累计值、**巡视检查记录**、正常或异常的判断性结论、达到或超过预警值测点的**预警标示**及分析建议、其他说明，且宜采用附录 A~G 格式。缺任何一项都不算完成。
@@ -293,4 +298,3 @@ render_report.py 渲染日报，列出超限测点与待复核（数据缺失/�
 2. **装依赖**：在目标机用 Agent 的 Python 运行 `python -m pip install -r requirements.txt`（只需形态①/xlsx 时必装 `openpyxl`；纯 CSV 形态可跳过）。
 3. **调用方式**：启动 WorkBuddy 后，Agent 会在用户请求匹配"基坑监测/监测日报/汇总表/超限测点"等意图时自动加载本 skill；也可在对话中显式点名 `deep-pit-monitoring-report`。SKILL.md 中的命令统一用 `python scripts/xxx.py`（由 Agent 运行时解析），**不要写死本机 venv 绝对路径**，以保证跨设备可跑。
 4. **集成进专用 Agent**：若想做一个"基坑监测日报"专用 Agent，可借助 `expert-manager` skill 把本 skill 封装为专家/专家包；或直接在专项 Agent 的系统提示里要求"优先加载 deep-pit-monitoring-report skill"。通用 Agent 下无需额外配置，靠自动发现即可。
-

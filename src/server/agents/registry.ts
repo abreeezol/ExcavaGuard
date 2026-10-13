@@ -8,7 +8,7 @@ type AgentDefinition = {
   status: "foundation" | "planned";
 };
 
-// Supervisor 已有状态与路由基础；报告和审计仍等待对应 Skill 实体化。
+// 三个角色均已有基础能力；端到端执行器、API 与持久化仍待接入。
 export const agentRegistry = {
   supervisor: {
     name: "Supervisor",
@@ -20,12 +20,12 @@ export const agentRegistry = {
     name: "报告交付",
     responsibility: "使用结构化事实组织日报草稿，保留数字与证据绑定。",
     tools: ["render-daily-report"],
-    status: "planned",
+    status: "foundation",
   },
   audit: {
     name: "独立审计",
     responsibility: "核对数字和引用，将问题退回责任角色。",
     tools: ["validate-report", "retrieve-standard-evidence", "retrieve-similar-cases"],
-    status: "planned",
+    status: "foundation",
   },
 } as const satisfies Record<AgentId, AgentDefinition>;

@@ -49,6 +49,16 @@ description: "将结构化事实、证据和受约束分析渲染为监测日报
 5. 对弃权项原样写入“信息不足，建议人工复核”。
 6. 标记为草稿并交给 `validate-report`，校验通过前不得导出为正式报告。
 
+## 当前实现
+
+- 服务端 runner：`src/server/skills/render-daily-report/runner.ts`。
+- 协议适配器：`scripts/render_daily_report.py`，直接消费冻结的
+  `excavaguard.daily_report_input/v1`。
+- 表式映射与模板经验来自 `skills/deep-pit-monitoring-report/`；该目录自带的计算、
+  阈值重判和本地 RAG 路径不进入服务端主链。
+- 当前产出结构化草稿与 Markdown 预览；每个事实字段带 SHA-256 绑定，证据引用携带稳定 ID。
+- 载荷未提供可唯一识别单位时显示 `—` 并加入复核缺口，不从监测项名称猜测单位。
+
 ## 失败与弃权边界
 
 - 模板、项目必填字段、事实映射或上游关键结果缺失：以 `MISSING_FIELD` 或 `VALIDATION_FAILED` 弃权。

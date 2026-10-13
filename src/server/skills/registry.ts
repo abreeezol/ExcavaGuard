@@ -38,6 +38,14 @@ const IMPLEMENTED: Partial<Record<SkillId, SkillImplementation>> = {
   "retrieve-standard-evidence": {
     runner: "src/server/skills/retrieve-standard-evidence/runner.ts",
   },
+  "render-daily-report": {
+    scripts: ["skills/render-daily-report/scripts/render_daily_report.py"],
+    runner: "src/server/skills/render-daily-report/runner.ts",
+  },
+  "validate-report": {
+    scripts: ["skills/validate-report/scripts/validate_report.py"],
+    runner: "src/server/skills/validate-report/runner.ts",
+  },
 };
 
 // SKILL.md 是能力契约，不能当作已可调用的业务实现。

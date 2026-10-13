@@ -18,10 +18,13 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 - `方案与迭代note/初步方案.md` 已记录项目定位、总体架构、MVP 和评测方向。
 - `方案与迭代note/框架demo.md` 已记录 Skill 编排、多 Agent 设计、共享状态和审计回路。
 - `skills/` 已建立八个业务 Skill 的目录和 `SKILL.md`。
-- `skills/.agents/` 已建立编排层说明。
+- Skill 目录已清理：根 `skills/` 第一层只保留 8 个 canonical 业务 Skill、
+  `deep-pit-monitoring-report` 参考资产与 `_archive/`；原编排说明合并进
+  `skills/README.md`。
 - 本地项目已初始化 Git 仓库，当前分支为 `main`，远程 `origin` 指向 `https://github.com/abreeezol/ExcavaGuard.git`。
-- 八个 Skill 中已有三个具备可调用实现：`parse-monitoring-data`、
-  `evaluate-thresholds`、`retrieve-standard-evidence`；其余五个仍只有 `SKILL.md` 契约。
+- 八个 Skill 中已有五个具备可调用实现：`parse-monitoring-data`、
+  `evaluate-thresholds`、`retrieve-standard-evidence`、`render-daily-report`、
+  `validate-report`；其余三个仍只有 `SKILL.md` 契约。
 
 ### 确定性计算层（2026-10-09 落地）
 
@@ -78,6 +81,10 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
   **页面不做任何判定**，只展示引擎结果。操作手册见
   `方案与迭代note/11_可视化测试指引.md`。
 - **未做**：鉴权、项目归属校验、运行记录持久化（`run_id` 仅本次请求追溯）、部署与 CI。
+- **报告/审计 Skill 基础**：团队交付的 `deep-pit-monitoring-report` 已归位到 `skills/`；
+  canonical 报告适配器只消费冻结日报载荷与稳定证据 ID，生成结构化草稿、Markdown、
+  SHA-256 事实绑定和引用；独立审计通过重渲染核对事实、引用、章节与责任措辞。
+  原型自带的计算、阈值重判和本地 RAG 不进入服务端主链。
 
 ## 已确认架构
 
@@ -148,7 +155,8 @@ ExcavaGuard/
 ├── AGENTS.md
 ├── memory.md
 ├── src/                              Next.js 16 全栈工程（含 /workbench 与 5 个 API 路由）
-├── tests/                            Vitest 75 项（含 10 项 Agent Runtime、6 项端到端）
+├── tests/                            Vitest 79 项（含 10 项 Agent Runtime、6 项端到端、
+│                                     4 项报告/审计 Skill）
 ├── var/uploads/                      上传文件存储（gitignore，删除即重置）
 ├── 确定性计算层/                      三阶段引擎（223 项回归测试）
 ├── 数据资产/                          仅本地：模拟数据快照 + 原始数据备份（已 gitignore）
@@ -171,8 +179,10 @@ ExcavaGuard/
 │   ├── retrieve-standard-evidence/
 │   ├── retrieve-similar-cases/
 │   ├── analyze-work-condition/
-│   ├── render-daily-report/
-│   └── validate-report/
+│   ├── render-daily-report/scripts/
+│   ├── validate-report/scripts/
+│   ├── deep-pit-monitoring-report/   日报表式与实现参考资产
+│   └── _archive/prototypes/          非主链团队原型留档
 └── rag/
     └── README.md                      双 Provider 证据接口契约
 ```
@@ -216,26 +226,20 @@ ExcavaGuard/
 
 待推进（**按优先级**）：
 
-1. **⑥ 编排层继续接线**：共享状态 Schema、Supervisor 路由、两轮退回和失效规则基础已完成；
-   待接入报告/审计 Skill、执行器、API 与持久化。
+1. **⑥ 编排层继续接线**：共享状态 Schema、Supervisor 路由、两轮退回、失效规则、
+   报告/审计 Skill 基础已完成；待接入执行器、API 与持久化。
 2. **鉴权与持久化**：上传与分析接口的用户鉴权、项目归属校验、运行记录落库；
    上传文件的 Supabase/对象存储适配器（当前仅本地文件系统）。
-3. **其余五个 Skill 实体化**：`normalize-monitoring-data` / `retrieve-similar-cases` /
-   `analyze-work-condition` / `render-daily-report` / `validate-report`。
-4. **日报生成 Agent（独立实现，非本层）**：消费 `excavaguard.daily_report_input/v1` 载荷，
-   按 GB 50497-2019 第 9.0.7 条组织日报章节。本层已完成接口预留，不再改动载荷契约。
+3. **其余三个 Skill 实体化**：`normalize-monitoring-data` /
+   `retrieve-similar-cases` / `analyze-work-condition`。
+4. **日报生成 Agent 接线**：把已实现的报告/审计 runner 接入 Supervisor 执行器，
+   再补 API、人工确认与最终 xlsx 导出；不改动冻结载荷契约。
 5. **P2-1 温度补偿**：轴力类判据可能混入温度效应（已接入 `soil_temperature` 数据）。
 6. **P1-3 工程条件交互补全**：缺什么提示补什么（目前页面已给出提示，但未做逐项引导）。
 7. 部署与 CI。
-6. P2-1 温度补偿（轴力类判据）。
-7. 为其余五个 Skill 补充 `references/`、`scripts/` 和 `tests/`。
-8. 定义共享工程状态 Schema，并把 `pipeline` 封装为可被 Skill 调用的能力。
-9. 定义 Supervisor 的路由、重试和终止规则。
-10. **日报生成 Agent（独立实现，非本层）**：消费 `excavaguard.daily_report_input/v1` 载荷，
-    按 GB 50497-2019 第 9.0.7 条组织日报章节。本层已完成接口预留，不再改动载荷契约。
-11. 增加审计 Agent 的退回机制。
-12. 开发可视化 Demo 与前端。
-13. 案例知识库（脱敏后）—— 可选，须先确认授权。
+8. 为其余三个 Skill 补充 `references/`、`scripts/` 和 `tests/`。
+9. 接入三 Agent 执行器、API、运行轨迹展示与人工确认入口。
+10. 案例知识库（脱敏后）—— 可选，须先确认授权。
 
 ## 记忆维护规则
 
@@ -247,6 +251,21 @@ ExcavaGuard/
 - 不写入密码、Token、个人身份信息、未经脱敏的工程数据或大段运行日志。
 
 ## 决策记录
+
+### 2026-10-13 · 报告与审计 Skill 服务端契约接入
+
+- `deep-pit-monitoring-report` 作为团队交付的日报表式与实现参考资产归入 `skills/`，
+  不新增第九个业务 Skill 或第四个 Agent。
+- canonical `render-daily-report` 只消费 `excavaguard.daily_report_input/v1`、
+  结构化证据与分析快照，生成草稿、Markdown、事实绑定和证据引用；不重算数值或风险等级。
+- canonical `validate-report` 使用相同上游快照独立重渲染，核对事实值与 SHA-256 绑定、
+  稳定 evidence ID、批准模板版本、必填章节和责任措辞；失败只返回问题清单。
+- `deep-pit-monitoring-report` 自带的计算、阈值重判和本地 Chroma 检索不进入服务端主链，
+  判定唯一来源仍是 `evaluate-thresholds`，规范证据唯一入口仍是
+  `retrieve-standard-evidence`。
+- 八个业务 Skill 中现有五个可调用实现；报告交付与审计 Agent 标记为 `foundation`，
+  但三 Agent 执行器、API、持久化和最终 xlsx 导出尚未接通。
+- `npm run check` 实跑 79 项通过，`npm run build` 成功生成 8 条路由。
 
 ### 2026-10-13 · Pinecone 在线规范 RAG 导入与检索基础
 

@@ -43,6 +43,15 @@ description: "校验日报草稿中的数字、状态、引用、字段和责任
 5. 检查是否出现未经授权的预警、签发或过度归因措辞。
 6. 汇总全部问题；仅当关键检查全部通过时允许进入人工复核与导出环节。
 
+## 当前实现
+
+- 服务端 runner：`src/server/skills/validate-report/runner.ts`。
+- 确定性校验器：`scripts/validate_report.py`。
+- 校验器使用当前引擎、证据与分析快照重新渲染期望草稿，核对报告内容哈希、
+  事实路径和值、SHA-256 绑定、证据 ID、必填章节、草稿标记和责任措辞。
+- `skills/deep-pit-monitoring-report/scripts/validate_report.py` 保留为原型与 Markdown
+  数值自检资产；服务端使用本目录的结构化校验协议，不解析自然语言来修改事实。
+
 ## 失败与弃权边界
 
 - 任一数字或超限状态不一致：以 `VALIDATION_FAILED` 拒绝输出正式报告。
