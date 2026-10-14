@@ -80,19 +80,22 @@ def build_point_series(norm: Sequence[Any]) -> tuple[dict, dict]:
     """按测点建立时间序列。
 
     返回 (series, idx_map)：
-      series[point_id] = [(timestamp, day_index, value), ...]（按时间升序，已剔除空值）
-      idx_map[(point_id, timestamp)] = 在序列中的下标
+      series[(point_id, metric_key)] = [(timestamp, day_index, value), ...]
+      idx_map[(point_id, metric_key, timestamp)] = 在序列中的下标
+
+    同一点号下的不同监测项必须分开建序列，避免裂缝长度与宽度等共享点号时串线。
     """
-    buckets: dict[str, list[tuple[str | None, float]]] = {}
+    buckets: dict[tuple[str, str], list[tuple[str | None, float]]] = {}
     for r in norm:
         pid = getattr(r, "point_id", None) or ""
+        metric_key = getattr(r, "metric_key", None) or ""
         if getattr(r, "value", None) is None:
             continue
-        buckets.setdefault(pid, []).append((getattr(r, "timestamp", None), float(r.value)))
+        buckets.setdefault((pid, metric_key), []).append((getattr(r, "timestamp", None), float(r.value)))
 
-    series: dict[str, list[tuple[str | None, float, float]]] = {}
+    series: dict[tuple[str, str], list[tuple[str | None, float, float]]] = {}
     idx_map: dict[tuple, int] = {}
-    for pid, items in buckets.items():
+    for series_key, items in buckets.items():
         items.sort(key=lambda x: (str(x[0] or ""),))
         seq: list[tuple[str | None, float, float]] = []
         base = None
@@ -103,9 +106,9 @@ def build_point_series(norm: Sequence[Any]) -> tuple[dict, dict]:
             if base is None:
                 base = di
             seq.append((ts, di - base, v))
-        series[pid] = seq
+        series[series_key] = seq
         for i, (ts, _d, _v) in enumerate(seq):
-            idx_map[(pid, ts)] = i
+            idx_map[(*series_key, ts)] = i
     return series, idx_map
 
 
@@ -119,8 +122,9 @@ def compute_batch_with_series(
     out = []
     for r in norm:
         pid = getattr(r, "point_id", None) or ""
-        seq = series.get(pid, [])
-        i = idx_map.get((pid, getattr(r, "timestamp", None)), len(seq) - 1)
+        metric_key = getattr(r, "metric_key", None) or ""
+        seq = series.get((pid, metric_key), [])
+        i = idx_map.get((pid, metric_key, getattr(r, "timestamp", None)), len(seq) - 1)
         hist = [(d, v) for (_ts, d, v) in seq[: max(0, i + 1)]]
         out.append(
             compute(
@@ -132,6 +136,9 @@ def compute_batch_with_series(
                 point_id=getattr(r, "point_id", None),
                 timestamp=getattr(r, "timestamp", None),
                 data_origin=getattr(r, "data_origin", "real"),
+                measurement_semantics=getattr(r, "measurement_semantics", "raw_observation"),
+                source_flags=getattr(r, "source_flags", None),
+                source_metadata=getattr(r, "source_metadata", None),
                 history=hist,
                 expected_interval_days=expected_interval_days,
                 input_flags=getattr(r, "flags", None),
@@ -141,7 +148,7 @@ def compute_batch_with_series(
 
 
 def build_blocked_map(quality_report: Any) -> dict[tuple, list[str]]:
-    """把阶段一的高严重度质量问题整理成 {(point_id, timestamp): [问题码]}。
+    """把阶段一高严重度问题整理成 ``{(point_id, metric_key, timestamp): [问题码]}``。
 
     这些记录不参与风险判定，一律弃权并转人工复核。
     """
@@ -151,21 +158,22 @@ def build_blocked_map(quality_report: Any) -> dict[tuple, list[str]]:
     for issue in getattr(quality_report, "issues", []):
         if issue.code not in BLOCKING_ISSUE_CODES:
             continue
-        key = (issue.point_id, issue.timestamp)
+        key = (issue.point_id, issue.metric_key, issue.timestamp)
         codes = out.setdefault(key, [])
         if issue.code not in codes:
             codes.append(issue.code)
     return out
 
 
-def build_rate_history(calcs: Sequence[Any]) -> dict[str, list]:
-    """把阶段二的速率结果整理成 {point_id: [(timestamp, rate), ...]}，供阶段三的连续 3 次判定。"""
-    hist: dict[str, list] = {}
+def build_rate_history(calcs: Sequence[Any]) -> dict[tuple[str, str], list]:
+    """按测点和监测项整理速率历史，供阶段三连续 3 次判定。"""
+    hist: dict[tuple[str, str], list] = {}
     for c in calcs:
         if c.rate is None:
             continue
         pid = getattr(c, "point_id", None) or ""
-        hist.setdefault(pid, []).append((c.timestamp, c.rate))
+        metric_key = getattr(c, "metric_key", None) or ""
+        hist.setdefault((pid, metric_key), []).append((c.timestamp, c.rate))
     for v in hist.values():
         v.sort(key=lambda x: str(x[0] or ""))
     return hist
@@ -330,6 +338,7 @@ DAILY_REPORT_SCHEMA = "excavaguard.daily_report_input/v1"
 
 # 需要进入日报"报警清单 / 建议措施"章节的等级
 ALERT_LEVELS = ("报警", "危险报警")
+REPORT_LEVEL_RANK = {"未知": -1, "正常": 0, "关注": 1, "预警": 2, "报警": 3, "危险报警": 4}
 
 
 def _calc_index(stage2: dict) -> dict[tuple, dict]:
@@ -341,12 +350,40 @@ def _calc_index(stage2: dict) -> dict[tuple, dict]:
     return idx
 
 
+def _summarize_report_items(items: Sequence[dict]) -> dict:
+    by_level: dict[str, int] = {}
+    by_category: dict[str, int] = {}
+    by_origin: dict[str, int] = {}
+    abstain: dict[str, int] = {}
+    worst = "未知"
+    for item in items:
+        level = str(item.get("risk_level") or "未知")
+        category = str(item.get("problem_category") or "其他")
+        origin = str(item.get("data_origin") or "unknown")
+        by_level[level] = by_level.get(level, 0) + 1
+        by_category[category] = by_category.get(category, 0) + 1
+        by_origin[origin] = by_origin.get(origin, 0) + 1
+        for code in item.get("abstain", []) or []:
+            abstain[str(code)] = abstain.get(str(code), 0) + 1
+        if REPORT_LEVEL_RANK.get(level, -1) > REPORT_LEVEL_RANK.get(worst, -1):
+            worst = level
+    return {
+        "total": len(items),
+        "by_risk_level": by_level,
+        "by_problem_category": by_category,
+        "by_data_origin": by_origin,
+        "abstain": abstain,
+        "overall_risk_level": worst if items else "未知",
+    }
+
+
 def build_daily_report_input(
     result: PipelineResult,
     *,
     project: dict | None = None,
     points_meta: dict | None = None,
     report_date: str | None = None,
+    item_date: str | None = None,
 ) -> dict:
     """把三阶段结果整理成日报生成模块可直接消费的结构化输入。
 
@@ -388,6 +425,9 @@ def build_daily_report_input(
                 "previous": inputs.get("previous"),
                 "current": inputs.get("current"),
                 "interval_days": inputs.get("interval_days"),
+                "measurement_semantics": inputs.get("measurement_semantics", "raw_observation"),
+                "source_flags": inputs.get("source_flags", []),
+                "source_metadata": inputs.get("source_metadata", {}),
                 "cumulative": outputs.get("cumulative"),
                 "single_change": outputs.get("single_change"),
                 "rate": outputs.get("rate"),
@@ -408,8 +448,48 @@ def build_daily_report_input(
             }
         )
 
+    history_records = len(items)
+    if item_date:
+        items = [
+            item for item in items
+            if str(item.get("timestamp") or "")[:10] == item_date
+        ]
+
     alerts = [it for it in items if it["risk_level"] in ALERT_LEVELS]
     review_queue = [it for it in items if it["needs_review"]]
+    report_summary = _summarize_report_items(items) if item_date else {
+        "total": result.summary.get("total"),
+        "by_risk_level": result.summary.get("by_risk_level", {}),
+        "by_problem_category": result.summary.get("by_problem_category", {}),
+        "by_data_origin": result.summary.get("by_data_origin", {}),
+        "abstain": result.summary.get("abstain", {}),
+        "overall_risk_level": result.summary.get("overall_risk_level"),
+    }
+
+    quality_report = s1.get("quality_report", {}) or {}
+    if item_date:
+        report_issues = [
+            issue for issue in quality_report.get("issues", [])
+            if str(issue.get("timestamp") or "")[:10] == item_date
+        ]
+        quality_by_code: dict[str, int] = {}
+        for issue in report_issues:
+            code = str(issue.get("code") or "UNKNOWN")
+            quality_by_code[code] = quality_by_code.get(code, 0) + 1
+        data_quality = {
+            "issue_count": len(report_issues),
+            "by_code": quality_by_code,
+            "blocked_records": sum(
+                1 for item in items
+                if "DATA_QUALITY_BLOCKED" in (item.get("abstain") or [])
+            ),
+        }
+    else:
+        data_quality = {
+            "issue_count": quality_report.get("issue_count"),
+            "by_code": quality_report.get("by_code", {}),
+            "blocked_records": s1.get("blocked_records"),
+        }
 
     # 用户阈值比默认规范更宽松的告警（同一测点+监测项去重）
     override_warnings: list[dict] = []
@@ -457,28 +537,19 @@ def build_daily_report_input(
             **(project or {}),
         },
         "context": {
-            "real_records": result.summary.get("real_records"),
-            "simulated_records": result.summary.get("simulated_records"),
-            "records": result.summary.get("records"),
+            "real_records": sum(1 for item in items if item.get("data_origin") == "real"),
+            "simulated_records": sum(1 for item in items if item.get("data_origin") == "simulated"),
+            "records": len(items),
+            "history_records": history_records,
+            "item_date": item_date,
             "effective_standard_origin": result.summary.get("effective_standard_origin"),
             "effective_standard_stage": "阶段三 · 规范比对",
             "real_is_primary": True,
             "simulated_note": "模拟数据仅用于验证流程健壮性，不替代真实数据，统计时与真实数据分开。",
         },
         "standards_sources": s3.get("standards_sources", []),
-        "data_quality": {
-            "issue_count": s1.get("quality_report", {}).get("issue_count"),
-            "by_code": s1.get("quality_report", {}).get("by_code", {}),
-            "blocked_records": s1.get("blocked_records"),
-        },
-        "summary": {
-            "total": result.summary.get("total"),
-            "by_risk_level": result.summary.get("by_risk_level", {}),
-            "by_problem_category": result.summary.get("by_problem_category", {}),
-            "by_data_origin": result.summary.get("by_data_origin", {}),
-            "abstain": result.summary.get("abstain", {}),
-            "overall_risk_level": result.summary.get("overall_risk_level"),
-        },
+        "data_quality": data_quality,
+        "summary": report_summary,
         "alerts": alerts,
         "review_queue": review_queue,
         "standard_override_warnings": override_warnings,
@@ -487,5 +558,9 @@ def build_daily_report_input(
             "阈值取自现行规范条文（见各条目 evidence 字段），实际工程使用前须经设计方确认；"
             "本载荷为结构化中间结果，不含日报结论与建议措辞。"
         ),
-        "note": "结构化中间结果，供日报生成模块消费；日报文件由后续模块生成。",
+        "note": (
+            f"结构化中间结果仅含报告日 {item_date} 的条目；历史记录只用于计算。"
+            if item_date
+            else "结构化中间结果，供日报生成模块消费；日报文件由后续模块生成。"
+        ),
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -12,6 +12,9 @@ import {
   Upload,
 } from "lucide-react";
 import type { ReadReport, StoredFile, StrictnessReport } from "@/contracts/monitoring-files";
+import type { AccessStatus } from "@/contracts/access";
+import type { CreateRunRequest, PersistedRun, ReviewRequest, RunSummary } from "@/contracts/runs";
+import { decisionLabel, executionLabel, RunDelivery } from "./run-delivery";
 
 /**
  * 可视化测试工作台（客户端）
@@ -94,6 +97,7 @@ type Payload = {
 };
 
 type RunResponse = {
+  record: PersistedRun;
   run_id?: string;
   created_at?: string;
   monitoring_file_id?: string;
@@ -170,6 +174,14 @@ async function readError(response: Response): Promise<string> {
 // --- 主组件 ---------------------------------------------------------------
 
 export function WorkbenchClient() {
+  const [session, setSession] = useState<AccessStatus | null>(null);
+  const [password, setPassword] = useState("");
+  const [history, setHistory] = useState<RunSummary[]>([]);
+  const [generateReport, setGenerateReport] = useState(true);
+  const [selectedStandardId, setSelectedStandardId] = useState<string | null>(null);
+  const [rerunInput, setRerunInput] = useState<CreateRunRequest | null>(null);
+  const [parentRunId, setParentRunId] = useState<string | null>(null);
+  const operation = useRef(false);
   const [safetyLevel, setSafetyLevel] = useState<"一级" | "二级" | "三级">("一级");
   const [supportType, setSupportType] = useState("地下连续墙");
   const [depthInput, setDepthInput] = useState("20");
@@ -186,9 +198,120 @@ export function WorkbenchClient() {
   const [standardText, setStandardText] = useState("");
 
   const [result, setResult] = useState<RunResponse | null>(null);
-  const [busy, setBusy] = useState<"upload" | "standard" | "run" | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/api/session");
+        if (!response.ok) throw new Error(await readError(response));
+        const status = await response.json() as AccessStatus;
+        if (cancelled) return;
+        setSession(status);
+        if (status.authenticated) {
+          const response = await fetch("/api/runs");
+          if (!response.ok) throw new Error(await readError(response));
+          const body = await response.json() as { runs: RunSummary[] };
+          if (!cancelled) setHistory(body.runs);
+        }
+      } catch (caught) {
+        if (!cancelled) setError(caught instanceof Error ? caught.message : "初始化失败。");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function refreshHistory() {
+    const response = await fetch("/api/runs");
+    if (!response.ok) throw new Error(await readError(response));
+    setHistory((await response.json() as { runs: RunSummary[] }).runs);
+  }
+
+  function begin(name: string): boolean {
+    if (operation.current) return false;
+    operation.current = true;
+    reset();
+    setBusy(name);
+    return true;
+  }
+
+  function finish() {
+    operation.current = false;
+    setBusy(null);
+  }
+
+  async function perform(name: string, work: () => Promise<void>) {
+    if (!begin(name)) return;
+    try {
+      await work();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "操作失败。");
+    } finally {
+      finish();
+    }
+  }
+
+  async function openRun(runId: string) {
+    const response = await fetch(`/api/runs/${runId}`);
+    if (!response.ok) throw new Error(await readError(response));
+    setResult(await response.json() as RunResponse);
+  }
+
+  async function loadInputs() {
+    const record = result?.record;
+    if (!record) return;
+    const response = await fetch("/api/monitoring-files");
+    if (!response.ok) throw new Error(await readError(response));
+    const files = (await response.json() as { files: StoredFile[] }).files;
+    const file = files.find((file) => file.file_id === record.request.monitoring_file_id);
+    if (!file) throw new Error("原监测文件已不可用，请重新上传。");
+    const input = record.request;
+    setMonitoring({ file, read_report: (record.result?.read_report as ReadReport | null) ?? null });
+    setSafetyLevel(input.context.safety_level);
+    setSupportType(input.context.support_type);
+    setDepthInput(input.context.excavation_depth_m?.toString() ?? "");
+    setPostSlabFrom(input.context.post_slab_from ?? "");
+    setProjectName(input.project?.name ?? "");
+    setReportDate(input.report_date);
+    setGenerateReport(input.options?.generate_report ?? true);
+    setSelectedStandardId(input.standards_file_id ?? null);
+    setStandard(null);
+    setStandardText("");
+    setRerunInput(input);
+    setParentRunId(record.run_id);
+    setNotice(`已加载 ${record.run_id.slice(0, 8)} 的输入；修正后点“运行分析”将创建关联运行。`);
+  }
+
+  async function review(decision: ReviewRequest["decision"], reason: string) {
+    const record = result?.record;
+    const draft = record?.result?.agent_run?.state.report_draft;
+    if (!record || !draft) return;
+    const response = await fetch(`/api/runs/${record.run_id}/review`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expected_revision: record.revision, draft_ref: draft.ref, decision, reason }),
+    });
+    if (!response.ok) {
+      const message = await readError(response);
+      if (response.status === 409) await openRun(record.run_id);
+      throw new Error(message);
+    }
+    setResult(await response.json() as RunResponse);
+    await refreshHistory();
+  }
+
+  async function download(url: string, fileName: string) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(await readError(response));
+    const blobUrl = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement("a");
+    anchor.href = blobUrl;
+    anchor.download = fileName;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  }
 
   const depth = depthInput.trim() === "" ? null : Number(depthInput);
   const depthValid = depth === null || (Number.isFinite(depth) && depth > 0 && depth <= 200);
@@ -199,8 +322,7 @@ export function WorkbenchClient() {
   }
 
   async function uploadMonitoring(file: File) {
-    reset();
-    setBusy("upload");
+    if (!begin("upload")) return;
     setResult(null);
     try {
       const form = new FormData();
@@ -218,11 +340,12 @@ export function WorkbenchClient() {
     } catch (caught) {
       setError(`上传失败：${caught instanceof Error ? caught.message : String(caught)}`);
     } finally {
-      setBusy(null);
+      finish();
     }
   }
 
   async function uploadStandard() {
+    if (operation.current) return;
     reset();
     const text = standardText.trim();
     if (!text) {
@@ -236,7 +359,7 @@ export function WorkbenchClient() {
       setError(`不是有效 JSON：${caught instanceof Error ? caught.message : String(caught)}`);
       return;
     }
-    setBusy("standard");
+    if (!begin("standard")) return;
     try {
       const response = await fetch("/api/standards", {
         method: "POST",
@@ -256,6 +379,7 @@ export function WorkbenchClient() {
         report: string;
       };
       setStandard(body);
+      setSelectedStandardId(body.file.file_id);
       setNotice(
         body.strictness.has_looser
           ? "用户规范已上传，但存在比默认规范更宽松的阈值，请先阅读下方差异。"
@@ -264,11 +388,12 @@ export function WorkbenchClient() {
     } catch (caught) {
       setError(`上传规范失败：${caught instanceof Error ? caught.message : String(caught)}`);
     } finally {
-      setBusy(null);
+      finish();
     }
   }
 
   async function runAnalysis() {
+    if (operation.current) return;
     reset();
     if (!monitoring) {
       setError("请先上传监测数据文件。");
@@ -278,23 +403,26 @@ export function WorkbenchClient() {
       setError("基坑设计深度需为 0~200 之间的数字，或留空表示暂未提供。");
       return;
     }
-    setBusy("run");
+    if (!begin("run")) return;
     try {
       const response = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          project_id: "11111111-1111-4111-8111-111111111111",
+          project_id: session?.project_id,
+          parent_run_id: parentRunId ?? undefined,
           monitoring_file_id: monitoring.file.file_id,
-          standards_file_id: standard?.file.file_id ?? null,
+          standards_file_id: selectedStandardId,
           report_date: reportDate,
           context: {
+            ...rerunInput?.context,
             safety_level: safetyLevel,
             support_type: supportType,
             excavation_depth_m: depth,
             post_slab_from: postSlabFrom.trim() || null,
           },
-          project: projectName.trim() ? { name: projectName.trim() } : undefined,
+          project: projectName.trim() ? { ...rerunInput?.project, name: projectName.trim() } : undefined,
+          options: { ...rerunInput?.options, generate_report: generateReport },
         }),
       });
       if (!response.ok) {
@@ -302,10 +430,14 @@ export function WorkbenchClient() {
         return;
       }
       setResult((await response.json()) as RunResponse);
+      setRerunInput(null);
+      setParentRunId(null);
     } catch (caught) {
       setError(`分析失败：${caught instanceof Error ? caught.message : String(caught)}`);
     } finally {
-      setBusy(null);
+      // 包括失败运行也进入历史，便于读取已保存的检查点。
+      try { await refreshHistory(); } catch { /* 主错误保留在页面。 */ }
+      finish();
     }
   }
 
@@ -313,8 +445,41 @@ export function WorkbenchClient() {
   const byLevel = payload?.summary?.by_risk_level ?? {};
   const maxLevelCount = Math.max(1, ...Object.values(byLevel));
 
+  if (!session || !session.authenticated) {
+    return (
+      <section className="wb-card">
+        <h2>{session ? "登录工作台" : "正在检查访问状态…"}</h2>
+        {error && <div className="wb-alert wb-alert-error" role="alert">{error}</div>}
+        {session && <form onSubmit={(event) => {
+          event.preventDefault();
+          void perform("login", async () => {
+            const response = await fetch("/api/session", {
+              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }),
+            });
+            if (!response.ok) throw new Error(await readError(response));
+            setPassword("");
+            setSession({ ...session, authenticated: true });
+            await refreshHistory();
+          });
+        }}>
+          <Field label="访问密码"><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field>
+          <button className="wb-btn" disabled={busy !== null || !password}>登录</button>
+        </form>}
+      </section>
+    );
+  }
+
   return (
     <>
+      {session.mode === "password" && <div className="wb-actions">
+        <button className="wb-btn wb-btn-sm" disabled={busy !== null} onClick={() => void perform("logout", async () => {
+          const response = await fetch("/api/session", { method: "DELETE" });
+          if (!response.ok) throw new Error(await readError(response));
+          setSession({ ...session, authenticated: false });
+          setResult(null);
+          setHistory([]);
+        })}>退出登录</button>
+      </div>}
       <div className="wb-steps">
         <span className={monitoring ? "done" : ""}>① 工程条件</span>
         <span className={monitoring ? "done" : ""}>② 上传监测数据</span>
@@ -338,6 +503,24 @@ export function WorkbenchClient() {
       <div className="wb-grid">
         {/* ---------------- 左列：输入 ---------------- */}
         <div className="wb-col">
+          <section className="wb-card" aria-label="运行历史">
+            <div className="wb-card-head"><h2>运行历史</h2></div>
+            <div className="wb-actions">
+              <button className="wb-btn wb-btn-sm" disabled={busy !== null} onClick={() => void perform("history", refreshHistory)}>刷新历史</button>
+              {result && <button className="wb-btn wb-btn-sm" disabled={busy !== null}
+                onClick={() => void perform("history", () => openRun(result.record.run_id))}>刷新当前运行</button>}
+            </div>
+            <p className="wb-hint">最近 100 次运行。打开历史可恢复结果、检查点和复核记录。</p>
+            <div className="wb-history">
+              {history.map((run) => <button className="wb-history-item" key={run.run_id}
+                disabled={busy !== null} onClick={() => void perform("history", () => openRun(run.run_id))}>
+                <strong>{run.project_name} · {run.report_date}</strong>
+                <span>{run.run_id.slice(0, 8)} · {run.decision ? decisionLabel(run.decision) : executionLabel(run.execution_status)}</span>
+              </button>)}
+              {history.length === 0 && <p className="wb-hint">暂无运行记录。</p>}
+            </div>
+          </section>
+          <fieldset className="wb-inputs" disabled={busy !== null}>
           <section className="wb-card">
             <div className="wb-card-head">
               <span className="wb-step">1</span>
@@ -420,6 +603,7 @@ export function WorkbenchClient() {
               <input
                 id="wb-file"
                 type="file"
+                aria-label="上传监测数据文件"
                 accept=".csv,.tsv,.txt,.xlsx,.xlsm"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
@@ -514,18 +698,19 @@ export function WorkbenchClient() {
                 disabled={busy === "standard" || !standardText.trim()}
               >
                 {busy === "standard" ? (
-                  <Loader2 size={14} aria-hidden="true" />
+                  <Loader2 size={14} className="wb-spin" aria-hidden="true" />
                 ) : (
                   <Upload size={14} aria-hidden="true" />
                 )}
                 上传并校验
               </button>
-              {standard && (
+              {selectedStandardId && (
                 <button
                   className="wb-btn wb-btn-sm"
                   type="button"
                   onClick={() => {
                     setStandard(null);
+                    setSelectedStandardId(null);
                     reset();
                   }}
                 >
@@ -533,6 +718,7 @@ export function WorkbenchClient() {
                 </button>
               )}
             </div>
+            {selectedStandardId && !standard && <p className="wb-hint">已恢复原用户规范引用 {selectedStandardId.slice(0, 8)}；更宽松差异见原运行结果。</p>}
 
             {standard && (
               <>
@@ -568,8 +754,12 @@ export function WorkbenchClient() {
             </div>
             <p className="wb-hint">
               阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对。
-              输出为结构化载荷，<strong>不生成日报正文</strong>。
+              可继续生成日报草稿并进行独立一致性审计。
             </p>
+            <label className="wb-report-toggle">
+              <input type="checkbox" checked={generateReport} onChange={(event) => setGenerateReport(event.target.checked)} />
+              生成并审计日报三件套
+            </label>
             <div className="wb-actions">
               <button
                 className="wb-btn wb-btn-primary"
@@ -578,7 +768,7 @@ export function WorkbenchClient() {
                 disabled={busy !== null || !monitoring}
               >
                 {busy === "run" ? (
-                  <Loader2 size={15} aria-hidden="true" />
+                  <Loader2 size={15} className="wb-spin" aria-hidden="true" />
                 ) : (
                   <Play size={15} aria-hidden="true" />
                 )}
@@ -592,6 +782,9 @@ export function WorkbenchClient() {
                     setResult(null);
                     setMonitoring(null);
                     setStandard(null);
+                    setSelectedStandardId(null);
+                    setRerunInput(null);
+                    setParentRunId(null);
                     setStandardText("");
                     reset();
                   }}
@@ -601,10 +794,24 @@ export function WorkbenchClient() {
               )}
             </div>
           </section>
+          </fieldset>
         </div>
 
         {/* ---------------- 右列：结果 ---------------- */}
         <div className="wb-col">
+          {result?.record && <RunDelivery key={result.record.run_id} record={result.record} disabled={busy !== null}
+            onReview={(decision, reason) => void perform("review", () => review(decision, reason))}
+            onDownload={(url, fileName) => void perform("download", () => download(url, fileName))}
+            onLoadInputs={() => void perform("inputs", loadInputs)}
+            onResume={() => void perform("resume", async () => {
+              const response = await fetch(`/api/runs/${result.record.run_id}/resume`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ expected_revision: result.record.revision }),
+              });
+              if (!response.ok) throw new Error(await readError(response));
+              setResult(await response.json() as RunResponse);
+              await refreshHistory();
+            })} />}
           {!result && (
             <section className="wb-card">
               <div className="wb-empty">

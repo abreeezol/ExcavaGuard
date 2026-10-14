@@ -32,15 +32,18 @@ describe("角色与业务 Skill 契约", () => {
     }
   });
 
-  it("已接通的 Skill 包含解析、阈值判定和规范证据检索", () => {
+  it("已接通的 Skill 包含解析、标准化、判定、规范证据、报告和审计", () => {
     const implemented = skillRegistry
       .filter((skill) => skill.status === "implemented")
       .map((skill) => skill.id)
       .sort();
     expect(implemented).toEqual([
       "evaluate-thresholds",
+      "normalize-monitoring-data",
       "parse-monitoring-data",
+      "render-daily-report",
       "retrieve-standard-evidence",
+      "validate-report",
     ]);
   });
 
@@ -52,9 +55,9 @@ describe("角色与业务 Skill 契约", () => {
       }
     }
     expect(agentIdSchema.options).toEqual(["supervisor", "report-delivery", "audit"]);
-    expect(agentRegistry.supervisor.status).toBe("foundation");
-    expect(agentRegistry["report-delivery"].status).toBe("planned");
-    expect(agentRegistry.audit.status).toBe("planned");
+    expect(agentRegistry.supervisor.status).toBe("implemented");
+    expect(agentRegistry["report-delivery"].status).toBe("implemented");
+    expect(agentRegistry.audit.status).toBe("implemented");
   });
 
   it("Supervisor 不直接计算，审计不修改源事实", () => {

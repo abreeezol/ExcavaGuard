@@ -29,6 +29,10 @@ const IMPLEMENTED: Partial<Record<SkillId, SkillImplementation>> = {
   "parse-monitoring-data": {
     scripts: ["skills/parse-monitoring-data/scripts/inspect_file.py"],
   },
+  "normalize-monitoring-data": {
+    scripts: ["skills/normalize-monitoring-data/scripts/normalize_records.py"],
+    runner: "src/server/skills/normalize-monitoring-data/runner.ts",
+  },
   "evaluate-thresholds": {
     scripts: [
       "skills/evaluate-thresholds/scripts/run_judgement.py",
@@ -37,6 +41,14 @@ const IMPLEMENTED: Partial<Record<SkillId, SkillImplementation>> = {
   },
   "retrieve-standard-evidence": {
     runner: "src/server/skills/retrieve-standard-evidence/runner.ts",
+  },
+  "render-daily-report": {
+    scripts: ["skills/render-daily-report/scripts/render_daily_report.py"],
+    runner: "src/server/skills/render-daily-report/runner.ts",
+  },
+  "validate-report": {
+    scripts: ["skills/validate-report/scripts/validate_report.py"],
+    runner: "src/server/skills/validate-report/runner.ts",
   },
 };
 

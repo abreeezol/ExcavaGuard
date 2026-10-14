@@ -3,6 +3,6 @@
   "status": "skipped",
   "gate_status": "skipped",
   "missing_inputs": ["feature", "prd_url"],
-  "reason": "本轮依据仓库内已确认方案新增规范证据双 Provider 适配器，未提供 Lume feature 或飞书 PRD。按技能早退规则跳过正式 TestCases.yaml 生成。",
-  "local_validation": "Pinecone 与本地 RAG 适配器的统一 Schema、过滤、loopback 限制、不完整响应拒绝和配置工厂由 tests/evidence-retrievers.test.ts 与 tests/config.test.ts 验证；不等同于真实知识库、Embedding 或 retrieve-standard-evidence Skill 联调。"
+  "reason": "本轮依据用户指令修复本地 FastAPI 与 Next.js 的统一证据接口，未提供 Lume feature 或飞书 PRD。按技能早退规则跳过正式 TestCases.yaml 生成。",
+  "local_validation": "source/tests/test_evidence_api.py 覆盖请求边界、来源字段、预过滤、状态撤回、错误脱敏与运行副本隔离；tests/local-rag-live.test.ts 已显式运行，完成真实 BGE/Chroma → FastAPI → Next.js Retriever/Skill 3 项验收。常规 npm run check 不自动加载真实模型；以上不等同于三 Agent API 串联或报告规范适用性验收。"
 }

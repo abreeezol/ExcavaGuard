@@ -88,7 +88,8 @@ flowchart TB
 - `src/app/`：App Router 页面、布局及 `api/health`、`api/runs` Route Handlers。
 - `src/components/`：工作台空状态、流程说明等界面组件。
 - `src/contracts/`：运行请求、角色与 Skill 标识的 Zod 契约；禁止引用服务端模块。
-- `src/server/agents/`：三类角色及工具白名单；Supervisor 的显式状态机先于报告和审计 Skill 落地。
+- `src/server/agents/`：三类角色及工具白名单；Supervisor 显式状态机与报告/审计
+  Skill 基础已落地，端到端执行器和 API 尚待接入。
 - `src/server/skills/`：八个既有 Skill 的契约路径与实现状态；确定性实现仍放在根目录 `skills/<name>/scripts/`。
 - `src/server/integrations/`：LLM、Supabase、Pinecone 的延迟初始化入口，密钥仅在服务端读取。未指定模型前不提供默认模型。
 - `tests/`：接口边界、配置校验和注册信息一致性测试。
@@ -131,14 +132,34 @@ Pinecone 导入采用独立、可审计的离线步骤：
 
 `retrieve-standard-evidence` 负责统一返回证据、适用性提示和检索轨迹。它不判断监测值是否
 超限，不把低相关结果补造成依据；无命中、非现行证据或 Provider 不可用时主动弃权。
-本地 FastAPI 的旧 `GET /api/search` 仍未满足统一 HTTP 合同，不能据此宣称本地 Provider
-已经端到端接通。
+本地 FastAPI 已新增 `POST /api/evidence/search` 并通过真实 BGE/Chroma →
+Next.js Retriever/Skill 兼容验收；旧 `GET /api/search` 留作历史入口。
+前端展示及当前三 Agent 同步 API 仍未自动调用这一证据能力。
+
+#### 本地 Provider 兼容实现设计（2026-10-13）
+
+在 `source/server.py` 增加 `POST /api/evidence/search`，接受与 Next.js 相同的
+`query / filters / top_k`，返回 `{"evidence":[...]}`。旧 `GET /api/search` 保留供
+原型页面使用。新接口只检索证据，不调用 `report_core` 的旧判定或报告生成。
+
+本地查询使用现有 BGE 模型和 Chroma 向量。规范名称、版本、适用范围和来源位置复用
+`npm run rag:prepare` 生成的可审计清单；生效状态以 `rag/standard-status.json` 为准。
+先筛选具备完整元数据且满足请求条件的稳定 chunk ID，再在 Chroma 中检索这些 ID，
+不得把无条文号或无法确认来源的记录补造成证据。可选的测项/地区/等级过滤字段未登记时
+返回无命中，不从问题文本猜测适用条件。查到的正文须与清单逐字一致。
+
+首次启动把 `data/chroma_db/` 复制到 gitignore 的 `var/rag/chroma_db/`，所有
+PersistentClient 只打开运行副本。模型必须完整存在于本机，离线 Provider 不回退联网下载。
+加载模型在服务启动期完成，避免首个 Next.js 请求在模型冷启动时超时；失败返回明确不可用。
+接口响应、错误和轨迹都不能泄漏密钥或底层异常正文。
 
 ## 三、Skill 职责
 
 ### 3.1 `parse-monitoring-data`
 
-负责读取原始 CSV 数据、识别表头、核验必填字段并输出结构化原始记录。
+负责读取 CSV / TSV / Excel 数据、识别表头、核验必填字段并输出结构化原始记录。
+除五列长表外，允许识别 `监测项目-测点号-量值语义(单位)` 形式的混合宽表；
+宽表只能按明确表头展开，任何未识别通道都必须在读取报告中列出并拒绝静默丢弃。
 
 它只保证数据能够被正确解析，不负责单位换算、异常判断或工程归因。文件不可读、表头缺失或没有有效数据行时，应停止流程并返回明确错误。
 
@@ -148,6 +169,21 @@ Pinecone 导入采用独立、可审计的离线步骤：
 
 该 Skill 将不同来源的数据转换为统一的数据契约，为后续计算提供稳定输入。未知单位、
 无效时间或重复测点不得静默修复，应由 Supervisor 暂停流程并提交工程师处理。
+
+混合宽表展开后必须额外保留：
+
+- `measurement_semantics`：区分 `raw_observation` 与
+  `precomputed_cumulative`；已有累计量使用语义零基准，不得以本次上传窗口首值重新归零；
+- `source_flags` / `source_metadata`：记录工作簿级时间对齐、重采样、插值、
+  末值保持限制以及源 sheet、列名和列号；
+- `(point_id, metric_key)` 时序键：同一点号下的裂缝长度与宽度等不同测项不得串线；
+- 宽表日报聚合：按通道保留截至报告日的每日末值历史，同时记录日内首末值、
+  最小/最大值、最大相邻变化、样本数和源时间范围。日报层只能引用这些确定性统计，
+  不能把日末平稳解释为日内无异常。
+
+只有监测对象明确时才映射规范 `metric_key`。仅写“水平位移”或“裂缝宽度”但没有
+测点对象台账时保留原名称，交由阈值阶段以 `UNKNOWN_METRIC` 弃权，不猜成围护墙位移、
+建筑裂缝或地表裂缝。
 
 ### 3.3 `evaluate-thresholds`
 
@@ -185,6 +221,34 @@ Pinecone 导入采用独立、可审计的离线步骤：
 
 发现不一致时只返回错误清单，不输出可以被误认为正式报告的成品。该 Skill 不修改事实来适应报告，也不代替工程师审核和签发。
 
+### 3.9 日报实现资产映射
+
+仓库中的 `skills/deep-pit-monitoring-report/` 是团队交付的完整日报生成与表式参考资产，
+不是新增的第九个业务 Skill，也不新增 Agent。服务端只通过以下两个稳定契约使用它：
+
+- `render-daily-report`：消费冻结的 `excavaguard.daily_report_input/v1` 引擎快照，
+  复用其附录 A~G 表式映射与草稿组织经验；
+- `validate-report`：独立核对草稿中的事实绑定、风险状态、引用、必填章节和责任措辞。
+
+`deep-pit-monitoring-report` 自带的数值计算、阈值重判和本地 Chroma 检索是独立原型路径，
+**不得进入服务端主链**。主链中的数字和风险等级只认 `evaluate-thresholds` 输出，
+规范证据只认 `retrieve-standard-evidence` 返回的稳定证据 ID。适配层不得重算数值、
+重新分级、用本地规则覆盖引擎事实，或把缺失单位和工程信息补造成确定值。
+
+日报草稿的文件产物采用固定三件套，并作为 `ReportDraft` 的一部分参与内容哈希和审计：
+
+- `监测日报_<报告日期>_草稿.xlsx`：封面、实际出现的附表 A～F、超限清单、
+  待复核事项和来源说明；
+- `监测日报_<报告日期>_草稿_封面.md`；
+- `监测日报_<报告日期>_草稿_附表及清单.md`。
+
+文件只能写入 `var/report-artifacts/<draft_id>/`。`ReportDraft.artifacts` 保存受控相对路径、
+文件哈希、字节数和工作表清单，`artifact_bindings` 保存 Excel 单元格到冻结载荷字段的
+绑定。审计必须重新读取文件并逐单元格核对。附表只按载荷中实际出现的测项生成；
+未提供巡视记录时不生成表 G，同时在封面、待复核与来源说明中记录“巡视记录未提供”，
+不得渲染成“巡视正常”。`measurement_semantics`、`source_flags` 和日内聚合统计只作
+来源追溯，报告层不得据此重算或改变风险结论。
+
 ## 四、Skill 编排
 
 ### 4.1 正常流程
@@ -209,6 +273,34 @@ sequenceDiagram
     S-->>R: 仅报告责任问题，最多退回两轮
     S-->>H: 通过的草稿或达到上限后的人工接管
 ```
+
+### 4.1.1 首版同步执行器与 API
+
+`POST /api/runs` 默认行为保持为只执行三阶段确定性引擎并返回冻结载荷。调用方仅在显式
+传入 `options.generate_report=true` 时，继续执行以下同步链路：
+
+```text
+engine payload
+  → 构造带 SHA-256 的 engineSnapshot
+  → 挂载可选 evidenceSnapshot / analysisSnapshot（当前 API 未提供时为 null）
+  → Supervisor decideNextAction
+  → render-daily-report
+  → recordReportDraft
+  → validate-report
+  → recordAuditResult
+  → 审计通过后停在 awaiting_human_review
+```
+
+执行器只消费 Supervisor 返回的结构化动作，不绕过状态转换。报告责任问题最多自动重渲染
+两轮；上游责任问题、能力异常、预算或截止时间到达时停止自动处理并转人工。当前报告和
+审计均为确定性能力，不消耗模型调用预算。API 响应可携带 `agent_run` 状态、终止动作、
+执行步数和三件套下载地址。
+
+三件套通过
+`GET /api/report-artifacts/<draft_id>/<file_name>` 只读下载。下载端点只允许访问
+`var/report-artifacts/<draft_id>/` 下由草稿清单生成的文件名，并阻止路径穿越。
+本阶段运行状态仍为请求内内存态，未实现数据库持久化、恢复、用户鉴权或项目归属校验；
+因此不能把该接口描述为可恢复的正式交付流程。
 
 ### 4.2 条件分支
 
@@ -311,8 +403,9 @@ Supervisor 不直接计算监测数值，不直接编造工程结论，也不能
 }
 ```
 
-每个快照和草稿都携带独立的 `artifact_id`、Schema、版本与内容哈希。草稿记录所依赖的
-引擎、证据和分析版本；审计记录所检查的草稿哈希。修改草稿后旧审计结果立即失效，
+每个快照和草稿都携带独立的 `artifact_id`、Schema、版本与内容哈希。报告草稿的哈希
+同时覆盖结构化报告、三件套清单与单元格绑定；草稿记录所依赖的引擎、证据和分析版本，
+审计记录所检查的草稿哈希。修改报告内容或任一导出文件后旧审计结果立即失效，
 替换引擎快照后证据、分析、草稿与审计全部失效；替换证据或分析时只清理受影响的下游产物。
 
 每次 Agent 或 Skill 调用均向 `trace` 追加：
@@ -400,3 +493,74 @@ Web 界面需要同步展示 Agent 当前阶段、Skill 调用、证据 ID、退
 第五阶段完善 Web 工作台，集中展示对话、Agent 状态、Skill 调用、证据链、异常原因、日报预览和导出。
 
 第六阶段在 Web 主链路稳定后增加 WorkBuddy 专家、企业智能体或 MCP 适配，不将平台配置替代核心代码。
+
+## 十二、本地交付闭环设计（2026-10-14）
+
+本轮按 `spec.md` 实现，不改变 Python 判定或三 Agent 分工。新增
+`excavaguard.persisted_run/v1` 外层记录，包含请求、结果、执行状态、失败、修订号、
+操作者和关联运行 ID。Agent v1 中的 human_review 仍表示草稿复核，不代表签发。
+
+- 上传文件仍在 `var/uploads/`，新增项目绑定；历史无项目字段的文件仅归入固定默认
+  本地项目，切换配置不自动转移归属。上传索引的读改写使用文件锁和原子替换。
+- 运行写入 `var/runs/<run_id>/<revision>.json`，每次追加不可变修订；临时文件完成写入、
+  fsync 后以排他硬链接发布，文件号充当 compare-and-swap。并发旧修订返回 409，
+  损坏文件不按空记录处理。只保证单机文件系统，未提供数据库事务和异步 worker。
+- 输入在计算前保存；引擎结果和每次报告/审计状态转换后保存检查点，终止和异常也保存。
+  显式续跑复用冻结快照，不重算数值、不重置时间/调用/修订预算。活动任务有短期租约，
+  租约未到不能重复续跑；预算过期或计算尚未产出快照时需新建运行。
+- `GET /api/runs` 返回摘要；`GET /api/runs/:id` 返回请求与完整结果；
+  `POST /api/runs/:id/review` 接收 expected_revision、完整 draft_ref、decision、reason；
+  `POST /api/runs/:id/resume` 接收 expected_revision。
+- 接受只记录草稿复核；退回/拒绝停止自动流程并关闭下载。修正输入后可建立关联的新运行，
+  原运行与理由保留。人工决定追加 Supervisor 轨迹，不能修改源事实或审计结果。
+- 下载必须找到当前项目的持久化运行、当前通过审计的草稿和清单；读取前后检查文件大小和
+  SHA-256，任何不一致拒绝交付，不以 UUID 或路径格式代替访问授权。
+- 访问边界为单操作者单项目：开发期 loopback Host + 同源限制，启动绑定 localhost；
+  可选密码 + HMAC HttpOnly 会话，生产期必须配置。配置密码至少 12 字符、签名密钥至少
+  32 字符；项目 ID 由服务端配置返回。不存在 Supabase Auth 或多用户项目 ACL。
+- 工作台增加登录、默认报告开关、历史恢复、轨迹、下载、人工复核与关联重跑。互斥操作
+  防止上传、历史切换和复核期间对象改变；复核冲突提示刷新当前运行。
+
+Supabase 接入另行实现与验证：需要真实项目 URL、服务端凭证、私有 bucket、元数据表、
+用户身份与项目权限方案。当前文件存储不能称为 Supabase 数据库或正式工程归档。
+
+## 十三、Supabase 接入门禁（2026-10-14）
+
+Supabase 新式 API key 按运行位置分工：浏览器只使用
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`，服务端只使用 `SUPABASE_SECRET_KEY`。
+数据库密码只用于数据库管理或迁移，不是 API key，不进入应用运行环境。
+
+接入分为三个明确状态：
+
+1. `public_connected`：项目 URL 与 publishable key 可访问 Auth 配置，只证明公共客户端可达。
+2. `schema_ready`：数据库迁移已创建项目、成员、文件、运行修订、报告产物元数据和私有 bucket。
+3. `infrastructure_verified`：服务端 secret key 已验证元数据读写、对象上传/下载/删除与私有性。
+4. `provider_verified`：应用存储适配器通过上传、分析、持久化、下载和失败回滚回归；
+   之后才允许设置 `EXCAVAGUARD_STORAGE_PROVIDER=supabase`。
+
+迁移脚本必须幂等、默认启用 RLS，bucket 必须为 private。Storage 对象键使用
+`<project_id>/<kind>/<file_id>/<server-generated-name>`，不能使用用户原始文件名。
+服务端 secret key 会绕过 RLS，因此现有 API 的访问校验和项目绑定仍不可删除。
+
+连接检查不得输出 key、数据库密码或 Authorization 头。缺 secret key 时只报告
+`public_connected` 并列出下一步；表、bucket、私有性或读写任一未通过时保持 local Provider。
+已有 `var/` 数据迁移另设显式命令，默认不自动复制或删除本地资产。
+
+应用 Provider 实现保持现有 API 契约：
+
+- `monitoring-file-store` 按显式 Provider 分发。Supabase 对象路径只含项目 ID、类型、
+  file ID 和服务端固定文件名；对象与 `excavaguard_files` 元数据写入失败时执行补偿清理。
+- Python 引擎仍只接收本地路径。Supabase 对象由服务端下载到 `mkdtemp` 随机目录，
+  校验大小和 SHA-256 后使用，调用完成后递归清理；不把云端判定逻辑改写到 TypeScript。
+- `run-store` 把完整 `excavaguard.persisted_run/v1` 写入
+  `excavaguard_run_revisions.record`。写前读取 latest revision，插入时依赖
+  `(run_id, revision)` 主键解决竞争；唯一冲突统一返回 `RUN_CONFLICT`。
+- 报告仍在本地临时渲染并完成独立审计。审计通过后上传三个对象并写入
+  `excavaguard_report_artifacts`；云端确认后才完成运行。下载和接受从云端重新读取并核哈希。
+- local 与 supabase Provider 使用同一外部契约和测试集。真实云端纵向验收通过后才修改
+  `.env.local` 的显式 Provider；已有本地资产不自动复制或删除。
+
+2026-10-14 验收结论：上述应用 Provider 已实现，`npm run supabase:test` 使用明确
+`simulated` 数据完成双类型上传、Python 临时读取、运行 revision CAS、报告私有下载、
+人工接受和清理，`.env.local` 已显式切换为 `supabase`。Supabase Auth 与多用户 ACL
+仍未实现。

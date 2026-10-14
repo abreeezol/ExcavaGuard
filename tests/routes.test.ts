@@ -132,7 +132,7 @@ describe("POST /api/monitoring-files · 上传边界", () => {
 
   it("GET 返回文件列表结构", async () => {
     vi.stubEnv("EXCAVAGUARD_UPLOAD_ROOT", "/tmp/excavaguard-test-empty-list");
-    const response = await listMonitoringGET();
+    const response = await listMonitoringGET(new Request("http://localhost/api/monitoring-files"));
     expect(response.status).toBe(200);
     const body = (await response.json()) as { files: unknown[] };
     expect(Array.isArray(body.files)).toBe(true);

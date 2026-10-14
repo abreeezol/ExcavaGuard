@@ -58,6 +58,9 @@ FIELD_DISPLAY = {
     "interval_days": "观测间隔·天（可派生）",
     "interval_hours": "观测间隔·小时（可派生，÷24）",
     "data_origin": "数据来源 real/simulated",
+    "measurement_semantics": "量值语义 raw_observation/precomputed_cumulative",
+    "source_flags": "来源与预处理限制标记",
+    "source_metadata": "来源元数据",
     "note": "备注",
 }
 
@@ -70,7 +73,8 @@ def build_contract() -> dict:
         "title": "基坑智守 · 用户监测数据文件契约",
         "description": (
             "用户上传的监测数据文件（CSV / TSV / Excel）应满足本契约。"
-            "读取器只做列映射与编码识别，不计算、不推断、不修改数值。"
+            "读取器支持五列长表及带明确量值语义的混合宽表；"
+            "只做列映射、宽表展开与来源留痕，不修改观测数值。"
         ),
         "source_module": {
             "reader": "pipeline/stage1_data_preparation/file_reader.py",
@@ -86,6 +90,13 @@ def build_contract() -> dict:
                 "分隔符由表头行中出现次数最多的候选决定，默认逗号。",
                 "读取 Excel 需要 openpyxl；未安装时请另存为 CSV。",
             ],
+            "layouts": {
+                "long": "含 point_id / timestamp / metric / value / unit 五列的标准长表。",
+                "wide": (
+                    "一个时间列 + 多个“监测项目-测点号-量值语义(单位)”通道；"
+                    "任一非空通道无法明确解析时整表拒绝。"
+                ),
+            },
         },
         "columns": {
             "required": [
@@ -101,14 +112,42 @@ def build_contract() -> dict:
                 for c in OPTIONAL_COLUMNS
             ],
         },
+        "measurement_semantics": {
+            "raw_observation": "原始观测值；缺少基准时按该测点+监测项的首个有效观测派生。",
+            "precomputed_cumulative": (
+                "输入已是相对工程基准的累计量；baseline_value 固定为 0，"
+                "不得以本次上传窗口首值重新归零。"
+            ),
+            "marks": ["PRECOMPUTED_CUMULATIVE", "SEMANTIC_BASELINE_ZERO"],
+        },
         "derivation_rules": {
-            "applies_to": "每个测点按时间升序独立派生",
-            "baseline_value": "该测点首个有效观测值；显式提供时不覆盖",
-            "previous_value": "该测点前一个有效观测值；首期为 null（本次变化量弃权）",
+            "applies_to": "每个 (point_id, metric_key) 时序按时间升序独立派生",
+            "baseline_value": "该测点+监测项时序的首个有效观测值；显式提供时不覆盖",
+            "previous_value": "同一测点+监测项的前一个有效观测值；首期为 null（本次变化量弃权）",
             "interval_days": "本期与前一个有效观测的时间差（天）；首期为 null（速率弃权）",
             "valid_observation": "数值可解析的记录；空值与非数值不参与派生",
             "marks": ["BASELINE_DERIVED", "PREVIOUS_DERIVED", "INTERVAL_DERIVED"],
-            "precedence": "显式提供的值优先，派生不覆盖用户给的值",
+            "precedence": (
+                "除 precomputed_cumulative 的语义零基准外，显式提供的值优先；"
+                "累计量同时给出非零基准时标记冲突并阻塞判定"
+            ),
+        },
+        "wide_daily_aggregation": {
+            "applies_when": "混合宽表进入日报分析",
+            "method": "保留截至报告日的逐通道每日末次记录历史",
+            "series_key": ["point_id", "metric_key"],
+            "preserved_intraday_fields": [
+                "sample_count",
+                "source_start",
+                "source_end",
+                "first_value",
+                "last_value",
+                "minimum",
+                "maximum",
+                "max_abs_step",
+                "max_abs_step_at",
+            ],
+            "warning": "日末记录不能证明日内无异常；工作簿级插值/末值保持限制必须保留。",
         },
         "unit_conversion": {
             "by_dimension": {

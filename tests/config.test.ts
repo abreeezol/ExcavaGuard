@@ -11,7 +11,7 @@ describe("服务端配置", () => {
     vi.stubEnv("LLM_API_KEY", "test-only-key");
     vi.stubEnv("LLM_BASE_URL", "https://example.invalid/v1");
     vi.stubEnv("LLM_MODEL", "test-only-model");
-    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "unrelated-test-key");
+    vi.stubEnv("SUPABASE_SECRET_KEY", "sb_secret_unrelated-test-key");
     expect(readIntegrationConfig("llm")).toEqual({
       LLM_API_KEY: "test-only-key",
       LLM_BASE_URL: "https://example.invalid/v1",
@@ -68,10 +68,40 @@ describe("服务端配置", () => {
   });
 
   it.each([
-    ["SUPABASE_SERVICE_ROLE_KEY", createSupabaseAdmin],
+    ["SUPABASE_SECRET_KEY", createSupabaseAdmin],
     ["PINECONE_API_KEY", createPineconeIndex],
   ] as const)("缺少 %s 时在创建客户端前失败", (key, factory) => {
     vi.stubEnv(key, "");
     expect(factory).toThrow(IntegrationConfigError);
+  });
+
+  it("Supabase 公共配置只接受 publishable key", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test-only");
+    expect(readIntegrationConfig("supabasePublic")).toEqual({
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test-only",
+    });
+
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_secret_must-not-be-public");
+    expect(() => readIntegrationConfig("supabasePublic")).toThrow(IntegrationConfigError);
+  });
+
+  it("Supabase 服务端配置复用公共 URL，但只接受新式 secret key", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("SUPABASE_SECRET_KEY", "sb_secret_test-only");
+    vi.stubEnv("SUPABASE_STORAGE_BUCKET", "excavaguard-private");
+    expect(readIntegrationConfig("supabase")).toEqual({
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_SECRET_KEY: "sb_secret_test-only",
+      SUPABASE_STORAGE_BUCKET: "excavaguard-private",
+    });
+
+    vi.stubEnv("SUPABASE_SECRET_KEY", "sb_publishable_wrong-role");
+    expect(() => readIntegrationConfig("supabase")).toThrow(IntegrationConfigError);
+
+    vi.stubEnv("SUPABASE_SECRET_KEY", "sb_secret_test-only");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://attacker.example.com");
+    expect(() => readIntegrationConfig("supabase")).toThrow(IntegrationConfigError);
   });
 });

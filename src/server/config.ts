@@ -7,6 +7,20 @@ const optionalValue = z.preprocess(
   (value) => (value === "" ? undefined : value),
   requiredValue.optional(),
 );
+const supabaseUrl = httpUrl.refine((value) => {
+  const url = new URL(value);
+  const hostname = url.hostname.toLowerCase();
+  return (
+    (url.protocol === "https:" && hostname.endsWith(".supabase.co")) ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]"
+  );
+});
+const optionalSupabaseUrl = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  supabaseUrl.optional(),
+);
 const loopbackUrl = httpUrl.refine((value) => {
   const hostname = new URL(value).hostname.toLowerCase();
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
@@ -18,11 +32,32 @@ const integrationSchemas = {
     LLM_BASE_URL: httpUrl,
     LLM_MODEL: requiredValue,
   }),
-  supabase: z.object({
-    SUPABASE_URL: httpUrl,
-    SUPABASE_SERVICE_ROLE_KEY: requiredValue,
-    SUPABASE_STORAGE_BUCKET: requiredValue,
-  }),
+  supabasePublic: z
+    .object({
+      NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: requiredValue.regex(/^sb_publishable_/),
+    }),
+  supabase: z
+    .object({
+      SUPABASE_URL: optionalSupabaseUrl,
+      NEXT_PUBLIC_SUPABASE_URL: optionalSupabaseUrl,
+      SUPABASE_SECRET_KEY: requiredValue.regex(/^sb_secret_/),
+      SUPABASE_STORAGE_BUCKET: requiredValue,
+    })
+    .superRefine((value, context) => {
+      if (!value.SUPABASE_URL && !value.NEXT_PUBLIC_SUPABASE_URL) {
+        context.addIssue({
+          code: "custom",
+          path: ["SUPABASE_URL"],
+          message: "缺少 Supabase URL。",
+        });
+      }
+    })
+    .transform((value) => ({
+      SUPABASE_URL: value.SUPABASE_URL ?? value.NEXT_PUBLIC_SUPABASE_URL!,
+      SUPABASE_SECRET_KEY: value.SUPABASE_SECRET_KEY,
+      SUPABASE_STORAGE_BUCKET: value.SUPABASE_STORAGE_BUCKET,
+    })),
   pinecone: z.object({
     PINECONE_API_KEY: requiredValue,
     PINECONE_INDEX: requiredValue,

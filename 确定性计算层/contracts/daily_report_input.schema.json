@@ -85,6 +85,14 @@
         "real_records": { "type": ["integer", "null"], "description": "真实数据记录数。" },
         "simulated_records": { "type": ["integer", "null"], "description": "模拟数据记录数，与真实数据分开统计。" },
         "records": { "type": ["integer", "null"], "description": "记录总数。" },
+        "history_records": {
+          "type": ["integer", "null"],
+          "description": "参与趋势和本次变化计算的历史记录数；日报明细仍只含 item_date。"
+        },
+        "item_date": {
+          "type": ["string", "null"],
+          "description": "当日报明细筛选日期；null 表示未筛选历史结果。"
+        },
         "effective_standard_origin": {
           "enum": ["default_library", "user_uploaded", null],
           "description": "本次判定实际生效的阈值来源：默认规范库 / 用户上传。"
@@ -240,6 +248,20 @@
         "data_origin": {
           "enum": ["real", "simulated"],
           "description": "数据来源标识。simulated 表示模拟数据，日报中须显著标注。"
+        },
+        "measurement_semantics": {
+          "enum": ["raw_observation", "precomputed_cumulative", "unknown"],
+          "description": "输入量值语义。precomputed_cumulative 表示输入已是相对工程基准的累计量，不得按上传窗口重新归零。"
+        },
+        "source_flags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "来源与预处理限制标记，例如时间对齐、重采样、插值、末值保持和日末聚合。"
+        },
+        "source_metadata": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "源 sheet/列名及日内聚合统计，仅供追溯，不参与阈值重判。"
         },
         "baseline": { "type": ["number", "null"], "description": "初始值/基准值。" },
         "previous": { "type": ["number", "null"], "description": "上次观测值。" },

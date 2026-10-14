@@ -10,7 +10,7 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 
 ## 当前状态
 
-更新时间：2026-10-13
+更新时间：2026-10-14
 
 ### 框架层（2026-09-22 建立）
 
@@ -18,10 +18,13 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 - `方案与迭代note/初步方案.md` 已记录项目定位、总体架构、MVP 和评测方向。
 - `方案与迭代note/框架demo.md` 已记录 Skill 编排、多 Agent 设计、共享状态和审计回路。
 - `skills/` 已建立八个业务 Skill 的目录和 `SKILL.md`。
-- `skills/.agents/` 已建立编排层说明。
+- Skill 目录已清理：根 `skills/` 第一层只保留 8 个 canonical 业务 Skill、
+  `deep-pit-monitoring-report` 参考资产与 `_archive/`；原编排说明合并进
+  `skills/README.md`。
 - 本地项目已初始化 Git 仓库，当前分支为 `main`，远程 `origin` 指向 `https://github.com/abreeezol/ExcavaGuard.git`。
-- 八个 Skill 中已有三个具备可调用实现：`parse-monitoring-data`、
-  `evaluate-thresholds`、`retrieve-standard-evidence`；其余五个仍只有 `SKILL.md` 契约。
+- 八个 Skill 中已有六个具备可调用实现：`parse-monitoring-data`、
+  `normalize-monitoring-data`、`evaluate-thresholds`、`retrieve-standard-evidence`、
+  `render-daily-report`、`validate-report`；其余两个仍只有 `SKILL.md` 契约。
 
 ### 确定性计算层（2026-10-09 落地）
 
@@ -31,7 +34,7 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
   - 阶段三 **规范比对** —— 与规范判据比对，识别风险并分级。
   三个阶段是**流程先后关系**，不是「通用方案进阶到专项方案」的递进关系。
 - 代码：`确定性计算层/pipeline/`（`stage1_data_preparation` / `stage2_deterministic_calc` /
-  `stage3_standard_comparison` / `orchestrator.py`），回归测试 **223 项全部通过**。
+  `stage3_standard_comparison` / `orchestrator.py`），回归测试 **242 项全部通过**。
 - 规范库：`确定性计算层/standards/default/`（`规范库索引.json` 30 本规范 +
   `thresholds_gb50497_2019.json` 条文级阈值，**22 项监测项**）；`standards/user_uploaded/` 用户上传目录
   （默认空，**未上传时不作任何特殊处理**）。
@@ -57,27 +60,45 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
   目标索引 `excava-guard` 已完成连接和只读兼容性校验（AWS `us-east-1`、
   NVIDIA `llama-text-embed-v2`、语义字段 `text`）。29 个规范编号经团队人工复核后，
   `standards-v1` 已导入 7,180 records；真实语义查询返回 5 hits，正文与来源元数据
-  和本地清单逐字段一致。旧本地 FastAPI 仍未满足统一 HTTP 合同。
+  和本地清单逐字段一致。本地 FastAPI 已实现统一 `POST /api/evidence/search`，
+  使用可审计规范元数据、BGE 与 Chroma 运行副本，真实 Next.js Retriever/Skill 3 项验收通过。
 
 ### Web 入口层（2026-10-10 接通）
 
-- **存储**：`src/server/storage/monitoring-file-store.ts`，本地文件系统实现，
-  根目录 `<仓库>/var/uploads`（已 gitignore）。落盘名**一律由 `file_id` 生成**，不用用户文件名；
-  用户规范放**独立目录**（`standard/<file_id>/standard.json`），保证判定只加载"本次那一份"。
-  扩展名白名单 + 20 MB 上限 + SHA-256 指纹。
-  **Supabase provider 明确不实现**（缺 bucket 与元数据表，无法验证，不提供空壳）。
+- **存储**：`src/server/storage/` 已实现 local / Supabase 双 Provider；
+  `.env.local` 当前显式使用 Supabase。对象路径**一律由 project_id / kind / file_id /
+  服务端固定名生成**，不用用户文件名；扩展名白名单 + 20 MB 上限 + SHA-256 指纹。
+  Python 使用随机临时目录读取云端文件并在调用后清理。
 - **引擎桥接**：`src/server/skills/python-bridge.ts` —— Node 子进程调用
   `skills/*/scripts/*.py`（stdin/stdout JSON）。**判定逻辑不重写为 TypeScript**。
   桥接脚本：`parse-monitoring-data/scripts/inspect_file.py`、
+  `normalize-monitoring-data/scripts/normalize_records.py`、
   `evaluate-thresholds/scripts/{run_judgement,check_strictness}.py`。
 - **API**：`GET/POST /api/monitoring-files`（上传即返回解析报告）、
   `GET /api/monitoring-files/sample`（示例数据 CSV）、
-  `GET/POST /api/standards`（**上传即校验严格程度**）、`POST /api/runs`（真实三阶段）。
+  `GET/POST /api/standards`（**上传即校验严格程度**）、`POST /api/runs`（真实三阶段；
+  `options.generate_report=true` 时继续同步报告/审计）、
+  `GET /api/report-artifacts/<draft_id>/<file_name>`（三件套只读下载）。
 - **可视化测试工作台** `/workbench`：四步操作（工程条件 → 上传数据 → 用户规范 → 运行分析），
   右栏展示总览 / 风险分布 / 宽松告警 / 报警清单 / 待复核 / 逐测点明细 / 原始载荷。
   **页面不做任何判定**，只展示引擎结果。操作手册见
   `方案与迭代note/11_可视化测试指引.md`。
-- **未做**：鉴权、项目归属校验、运行记录持久化（`run_id` 仅本次请求追溯）、部署与 CI。
+- **本地交付闭环（2026-10-14）**：输入、冻结结果、逐步检查点、失败和人工决定
+  落在 `var/runs/<run_id>/<revision>.json`；原子追加修订和并发版本校验
+  防止覆盖。历史/详情/复核/显式续跑 API 与工作台已接通。
+- **访问边界**：单操作者单项目；开发期绑定 localhost 并拒绝跨站请求，
+  可选密码 HttpOnly 会话，生产缺访问配置则拒绝业务接口。文件和运行绑定项目，
+  下载核对当前通过审计的草稿及文件指纹。没有 Supabase Auth 或多用户项目 ACL。
+- **Supabase 接入准备（2026-10-14）**：项目 URL + publishable key 公共连接验证成功；
+  改用 `sb_secret_...` 服务端配置契约，已提供五张元数据表、RLS、私有 bucket 幂等迁移
+  和脱敏连接/写探针工具。服务端 secret、五张表、RLS、private bucket 与真实数据库/
+  对象写入下载清理探针均已验证；应用 Provider 纵向回归已通过并切至 Supabase。
+- **未做**：云端存储、多用户身份与权限、自动异步恢复、正式工程归档、部署与 CI。
+- **报告/审计与同步 Agent 主链**：canonical 报告适配器只消费冻结日报载荷与稳定
+  证据 ID，生成结构化草稿、Excel + 两份 Markdown、事实/单元格绑定和文件哈希；
+  独立审计重新读取三件套并核对事实、引用、章节与责任措辞。同步执行器根据 Supervisor
+  动作完成报告、审计、最多两轮退回和人工复核交接。
+  原型自带的计算、阈值重判和本地 RAG 不进入服务端主链。
 
 ## 已确认架构
 
@@ -110,8 +131,8 @@ Supervisor 是唯一总控角色。报告交付与审计 Agent 不能绕过 Supe
 
 | Skill | 当前职责 |
 | --- | --- |
-| `parse-monitoring-data` | 解析 CSV 和核验必填字段 |
-| `normalize-monitoring-data` | 统一点号、时间、单位、方向和数值格式 |
+| `parse-monitoring-data` | 解析长表或明确表头的混合宽表并核验字段 |
+| `normalize-monitoring-data` | 统一点号、时间、单位和量值语义，保留来源限制与日报聚合统计 |
 | `evaluate-thresholds` | 执行确定性的三重判据计算 |
 | `retrieve-standard-evidence` | 检索规范条文、版本和适用条件 |
 | `retrieve-similar-cases` | 检索相似工程与工况案例 |
@@ -147,10 +168,13 @@ Supervisor 是唯一总控角色。报告交付与审计 Agent 不能绕过 Supe
 ExcavaGuard/
 ├── AGENTS.md
 ├── memory.md
-├── src/                              Next.js 16 全栈工程（含 /workbench 与 5 个 API 路由）
-├── tests/                            Vitest 75 项（含 10 项 Agent Runtime、6 项端到端）
-├── var/uploads/                      上传文件存储（gitignore，删除即重置）
-├── 确定性计算层/                      三阶段引擎（223 项回归测试）
+├── src/                              Next.js 16 全栈工程（含 /workbench 与运行/复核 API）
+├── tests/                            Vitest 105 项通过（另 4 项 live 默认跳过）
+├── var/
+│   ├── uploads/                      上传文件存储（gitignore）
+│   ├── runs/                         运行、检查点和人工复核修订（gitignore）
+│   └── report-artifacts/             日报三件套运行产物（gitignore）
+├── 确定性计算层/                      三阶段引擎（242 项回归测试）
 ├── 数据资产/                          仅本地：模拟数据快照 + 原始数据备份（已 gitignore）
 ├── tools/bridge-smoke/               引擎桥接冒烟测试
 ├── source/                            离线 RAG 构建、查询与 FastAPI 原型
@@ -164,15 +188,16 @@ ExcavaGuard/
 │   └── 07/08/10/11 系列文档           可行性分析 / 阈值口径 / 开发推进 / 可视化指引
 ├── skills/
 │   ├── README.md
-│   ├── .agents/
 │   ├── parse-monitoring-data/scripts/inspect_file.py
-│   ├── normalize-monitoring-data/
+│   ├── normalize-monitoring-data/scripts/normalize_records.py
 │   ├── evaluate-thresholds/scripts/{run_judgement,check_strictness}.py
 │   ├── retrieve-standard-evidence/
 │   ├── retrieve-similar-cases/
 │   ├── analyze-work-condition/
-│   ├── render-daily-report/
-│   └── validate-report/
+│   ├── render-daily-report/scripts/
+│   ├── validate-report/scripts/
+│   ├── deep-pit-monitoring-report/   日报表式与实现参考资产
+│   └── _archive/prototypes/          非主链团队原型留档
 └── rag/
     └── README.md                      双 Provider 证据接口契约
 ```
@@ -181,13 +206,11 @@ ExcavaGuard/
 
 以下内容仍需讨论，不应被 Agent 默认：
 
-- 最终开发语言和前后端框架；
-- 多 Agent 编排框架；
 - 使用本地模型还是远程模型；
 - Pinecone rerank 模型仍未确定；
 - 规范和案例资料的具体来源与授权方式；
 - 项目专项方案与通用规范的优先级配置方式；
-- 真实输入文件格式和字段名称；
+- 正式原始数据的逐单元来源、插值与末值保持标记格式；
 - 日报模板的最终版本；
 - 是否必须完全离线运行；
 - Demo 的部署与打包形式。
@@ -199,7 +222,7 @@ ExcavaGuard/
 - ✅ 确认最小输入数据契约（见 `确定性计算层/pipeline/stage1_data_preparation/ingest.py`）。
 - ✅ 确认阈值与规范适用规则（默认规范库 + 用户上传字段级覆盖）。
 - ✅ 建设最小规范库（30 本规范索引 + GB 50497-2019 条文级阈值）。
-- ✅ 跑通正常、超限、数据错误、弃权四类流程（**223 项回归测试** + 27 个模拟场景）。
+- ✅ 跑通正常、超限、数据错误、弃权四类流程（**242 项回归测试** + 27 个模拟场景）。
 - ✅ 补齐《监测参数清单与规范依据》的全部参数缺口（20/20 可测参数覆盖，模拟数据与规范库各 22 项对齐）。
 - ✅ 建立 `ExcavaGuard/数据资产/`（模拟数据快照 + 原始数据备份，逐字节校验一致）。
 - ✅ 冻结日报模块接口契约（`excavaguard.daily_report_input/v1` + JSON Schema + 校验工具），
@@ -213,29 +236,25 @@ ExcavaGuard/
 - ✅ **P1-2 缺 H 行为**：绝对量只作上界，未超上界弃权 `MISSING_H` 并降级为「未知」。
 - ✅ **P0-2 用户数据接入通道**：`file_reader.py`（编码探测 + 列名别名）+ 上传端点 +
   存储层 + 前端接线 + 可视化测试工作台 `/workbench`。
+- ✅ **最终混合宽表接入**：85 通道宽表可展开为 85,680 条源记录，保留原始值/
+  已有累计量语义、来源限制和日内统计；按报告日生成逐通道每日末值历史。
+  真实上传与 `/api/runs` 验收通过。
 
 待推进（**按优先级**）：
 
-1. **⑥ 编排层继续接线**：共享状态 Schema、Supervisor 路由、两轮退回和失效规则基础已完成；
-   待接入报告/审计 Skill、执行器、API 与持久化。
-2. **鉴权与持久化**：上传与分析接口的用户鉴权、项目归属校验、运行记录落库；
-   上传文件的 Supabase/对象存储适配器（当前仅本地文件系统）。
-3. **其余五个 Skill 实体化**：`normalize-monitoring-data` / `retrieve-similar-cases` /
-   `analyze-work-condition` / `render-daily-report` / `validate-report`。
-4. **日报生成 Agent（独立实现，非本层）**：消费 `excavaguard.daily_report_input/v1` 载荷，
-   按 GB 50497-2019 第 9.0.7 条组织日报章节。本层已完成接口预留，不再改动载荷契约。
-5. **P2-1 温度补偿**：轴力类判据可能混入温度效应（已接入 `soil_temperature` 数据）。
-6. **P1-3 工程条件交互补全**：缺什么提示补什么（目前页面已给出提示，但未做逐项引导）。
-7. 部署与 CI。
-6. P2-1 温度补偿（轴力类判据）。
-7. 为其余五个 Skill 补充 `references/`、`scripts/` 和 `tests/`。
-8. 定义共享工程状态 Schema，并把 `pipeline` 封装为可被 Skill 调用的能力。
-9. 定义 Supervisor 的路由、重试和终止规则。
-10. **日报生成 Agent（独立实现，非本层）**：消费 `excavaguard.daily_report_input/v1` 载荷，
-    按 GB 50497-2019 第 9.0.7 条组织日报章节。本层已完成接口预留，不再改动载荷契约。
-11. 增加审计 Agent 的退回机制。
-12. 开发可视化 Demo 与前端。
-13. 案例知识库（脱敏后）—— 可选，须先确认授权。
+1. **云端身份**：Supabase 上传、运行和报告 Provider 已实现；后续补 Supabase Auth
+   和多用户项目成员权限。当前仍使用单操作者单项目访问边界。
+2. **既有本地资产迁移**：`var/` 中已有本地测试历史保留，尚未显式复制到云端；
+   不自动删除。
+3. **正式归档与异步编排**：工程师接受/退回/拒绝已实现；后续建设正式归档、
+   异步 worker 和自动恢复，不得自动签发。
+4. **规范证据主链接线**：在 Supervisor/API 中按风险项可选调用
+   `retrieve-standard-evidence` 并评测正式报告引用准确率。
+5. **其余两个 Skill 实体化**：`retrieve-similar-cases` / `analyze-work-condition`。
+6. **P2-1 温度补偿**：轴力类判据可能混入温度效应（已接入 `soil_temperature` 数据）。
+7. **P1-3 工程条件交互补全**：缺什么提示补什么（目前页面已给出提示，但未做逐项引导）。
+8. 部署与 CI。
+9. 案例知识库（脱敏后）—— 可选，须先确认授权。
 
 ## 记忆维护规则
 
@@ -247,6 +266,128 @@ ExcavaGuard/
 - 不写入密码、Token、个人身份信息、未经脱敏的工程数据或大段运行日志。
 
 ## 决策记录
+
+### 2026-10-14 · Supabase 公共连接与基础设施准备
+
+- 用户已在 `.env.local` 配置项目 URL 和 publishable key；`npm run supabase:check`
+  实测为 `public_connected`，只证明公共客户端可达。
+- 按 Supabase 新式 key 口径，浏览器使用 `sb_publishable_...`，服务端改用
+  `SUPABASE_SECRET_KEY=sb_secret_...`；数据库密码不进入应用配置。对话中出现过的旧
+  数据库密码应在 Dashboard 轮换，轮换值不得写入记忆或仓库。
+- `supabase/migrations/202610140001_excavaguard_storage.sql` 已准备项目、成员、
+  文件、运行修订、报告产物五张表，RLS 默认只读及私有 `excavaguard-private` bucket。
+- `npm run supabase:check` 只读检查，`npm run supabase:verify` 使用随机项目和对象
+  完成真实上传/下载/删除并清理；两者都不回显 key。
+- 后续用户已正确配置 `SUPABASE_SECRET_KEY`；私有 `excavaguard-private` bucket 已通过
+  Storage 管理 API 创建并验证。真实写探针定位到五张元数据表尚未进入 Data API schema；
+  修复检查器以真实 GET 代替会对缺表产生假阳性的 HEAD 检查。
+- 用户随后在 SQL Editor 执行完整迁移，界面返回 `Success. No rows returned`；
+  `npm run supabase:verify` 实测 `infrastructure_verified`，五张表与私有 bucket 全部通过，
+  随机数据库记录和私有对象完成写入、下载、publishable key 拒绝及清理，错误和残留均为 0。
+- Supabase 应用 Provider 随后完成：监测数据与用户规范进入私有 Storage 和文件元数据表；
+  Python 子进程使用验哈希临时文件；运行状态进入不可变 revision 表并以主键实现 CAS；
+  审计通过后三件套进入私有 bucket，下载与接受从云端重新验哈希。
+- `.env.local` 已显式设置 `EXCAVAGUARD_STORAGE_PROVIDER=supabase`。真实 simulated
+  纵向验收覆盖双类型上传、分析、并发 revision、报告下载、人工接受、对象篡改阻断
+  及清理，1/1 通过；
+  初次验收定位并修复 Supabase `+00:00` 时间格式边界和缺表 HEAD 假阳性。
+- 基础设施验证不等于应用 Provider 已实现。Provider 完成上传、Python 临时读取、
+  运行并发修订、三件套下载、失败清理回归前，storage provider 必须保持 local。
+
+### 2026-10-14 · 本地日报交付闭环
+
+- 保留 Next.js + Python 技术栈，不引入新生产依赖；确定性引擎与规范资产不变。
+- 运行输入在计算前保存，冻结结果和 Agent 报告/审计转换后保存完整检查点；
+  失败保存真实错误码。每次写入不可变修订，旧修订提交返回 409。
+- 工作台默认显式开启报告链，API 默认仍只分析。历史可恢复结果与原输入；
+  人工决定绑定记录修订号和完整草稿引用，接受只表示草稿复核。退回/拒绝关闭下载，
+  修正输入后建立关联新运行，旧报告和理由保留。
+- Supervisor 路由进入轨迹；能力调用保存实际起止时间。原预算内支持显式续跑，
+  无检查点、活动任务或预算到期时需新建关联运行；没有异步 worker 或自动恢复。
+- 单操作者密码会话和单项目隔离已实现，生产未配置时拒绝业务 API；
+  历史无归属上传只绑定固定默认项目，切换配置不转移文件。
+- 上传索引原子替换并使用文件锁；运行用完整临时文件与排他发布防并发覆盖。
+  索引或运行损坏必须明确报错，不退回旧成功状态或静默按空处理。
+- 下载绑定当前项目持久化审计结果，并重新验证大小和 SHA-256；
+  当时 Supabase Provider、多用户 ACL、正式工程签发归档仍待实现；同日后续 Provider
+  已接通，见上方 Supabase 决策记录。
+- 验收：`npm run check` 105 项通过，3 项 local-RAG live 默认跳过；
+  `npm run build` 13 条路由生成，部署依赖清单含运行/环境/临时文件数为 0；
+  真实 85 通道宽表完成落盘恢复和接受；浏览器验证刷新恢复、退回关闭下载、
+  修正输入后的关联重跑、三 Agent 轨迹、Excel 下载和接受草稿。
+
+### 2026-10-14 · 日报三件套与三 Agent 同步主链接通
+
+- `render-daily-report` 模板升级为 `deep-pit-monitoring-report/service-v2`，只消费
+  `excavaguard.daily_report_input/v1`，输出 Excel、封面 Markdown、附表及清单
+  Markdown；文件落在 `var/report-artifacts/<draft_id>/`。
+- Excel 包含封面、实际出现的附表 A～F、超限清单、待复核事项和来源说明。未知测项
+  不默认塞入表 A；未提供巡视记录时不生成表 G，且明确不得判为巡视正常。
+- `ReportDraft` 新增三件套清单与逐单元格事实绑定；内容哈希覆盖结构化草稿、文件清单
+  和单元格绑定。审计核对文件 SHA-256、字节数、工作表、单元格、Markdown 和责任边界。
+- `src/server/agents/executor.ts` 已按 Supervisor 动作串联报告与审计，报告责任问题最多
+  自动重渲染两轮，审计通过后停在 `awaiting_human_review`。
+- `POST /api/runs` 默认仍只返回冻结载荷；显式 `options.generate_report=true` 时执行
+  同步三 Agent 链并在审计通过后返回三件套下载地址。当时运行状态尚不落盘，
+  同日后续已完成本地持久化与复核闭环，见上方决策。
+- 最终 85 通道宽表已完成真实纵向验收：A～F 六类附表全部生成，G 省略，文件审计通过，
+  下载端点可读取 Excel，路径穿越被拒绝。
+- 当前“独立审计”是确定性一致性与责任边界审计，不等于独立 LLM 语义审计，也不能证明
+  规范适用性或工程判断正确。
+- 验收：引擎回归 242 项；`npm run check` 88 项通过、3 项 local-RAG live 默认跳过；
+  `npm run build` 生成 9 条路由。
+
+### 2026-10-14 · 最终混合宽表接入与标准化 Skill 实体化
+
+- `file_reader.py` 支持 `监测项目-测点号-量值语义(单位)` 混合宽表；
+  未识别通道会整表拒绝，不静默丢列。最终工作簿 85 通道 × 1,008 时刻展开为
+  85,680 条源记录。
+- `precomputed_cumulative` 使用语义零基准并留
+  `PRECOMPUTED_CUMULATIVE` / `SEMANTIC_BASELINE_ZERO` 标记；若同时显式提供非零基准，
+  记高严重度 `SEMANTIC_BASELINE_CONFLICT` 并阻塞该条判定。
+- 时序派生、质量扫描、趋势、速率历史和质量阻塞键统一改为
+  `(point_id, metric_key)`，裂缝长度/宽度共享点号时不再串线。
+- 宽表进入 `/api/runs` 前按报告日生成逐通道每日末值历史，并保留日内样本数、
+  起止时间、首末值、极值、最大相邻变化及工作簿级时间对齐/重采样/插值/
+  末值保持限制；未提供逐单元格来源标记时显式留痕。
+- `normalize-monitoring-data` 已有 Python 适配脚本、Next.js runner 和注册表实现；
+  Python 桥接优先使用仓库 `.venv`，根依赖新增 `openpyxl`。
+- 最终工作簿真实上传与分析通过：报告日 `2026-10-08` 使用 340 条每日历史计算，
+  日报载荷只交付当日 85 条；累计通道不二次归零，未知的水平位移对象及裂缝对象
+  保持 `UNKNOWN_METRIC` 人工复核。
+- 引擎回归 242 项、当时 `npm run check` 83 项通过。后续日报三件套与三 Agent
+  同步执行器已在同日接通。
+
+### 2026-10-13 · 本地 RAG HTTP 兼容与最终输入核查
+
+- `source/evidence_api.py` 实现统一证据请求/响应与候选 ID 过滤，`source/server.py`
+  提供 `POST /api/evidence/search`；旧 `/api/search` 保留给历史原型。
+- `source/query_kb.py::runtime_database_dir()` 自动复制到 `var/rag/chroma_db/`，
+  查询 CLI 与旧 demo 同样改用运行副本，模型仅从本机完整 BGE 权重加载。
+- Python 接口回归 8 项、真实 BGE/Chroma → Next.js Retriever/Skill 3 项均通过；
+  真实查询命中 GB 50497-2019 8.0.1/8.0.5/8.0.4，未改变发布基线或在线 Provider 配置。
+- `final_test/监测数据整合_7天_10分钟.xlsx` 有 1,008 个时刻、85 通道，
+  包含累计位移和原始观测值混合列；当日核查时长表读取器尚不能直接接受。
+  来源说明记录时间平移、线性插值和末值保持，不得称为原始同步实测。
+- 最终交付建议采用团队的日报三件套（xlsx + 封面 md + 附表/清单 md）
+  并附工程事实、证据、审计与轨迹 JSON。宽表接入、日频/日内口径、xlsx 导出和同步
+  三 Agent API 已于 2026-10-14 完成；持久化与独立 LLM 语义审计仍待实现。
+
+### 2026-10-13 · 报告与审计 Skill 服务端契约接入
+
+- `deep-pit-monitoring-report` 作为团队交付的日报表式与实现参考资产归入 `skills/`，
+  不新增第九个业务 Skill 或第四个 Agent。
+- canonical `render-daily-report` 只消费 `excavaguard.daily_report_input/v1`、
+  结构化证据与分析快照，生成草稿、Markdown、事实绑定和证据引用；不重算数值或风险等级。
+- canonical `validate-report` 使用相同上游快照独立重渲染，核对事实值与 SHA-256 绑定、
+  稳定 evidence ID、批准模板版本、必填章节和责任措辞；失败只返回问题清单。
+- `deep-pit-monitoring-report` 自带的计算、阈值重判和本地 Chroma 检索不进入服务端主链，
+  判定唯一来源仍是 `evaluate-thresholds`，规范证据唯一入口仍是
+  `retrieve-standard-evidence`。
+- 当时八个业务 Skill 中有五个可调用实现，报告交付与审计 Agent 标记为 `foundation`；
+  后续 normalize、三件套和同步执行器已于 2026-10-14 接通。
+- 当时 `npm run check` 实跑 79 项通过、`npm run build` 生成 8 条路由；当前验收见
+  2026-10-14 决策记录。
 
 ### 2026-10-13 · Pinecone 在线规范 RAG 导入与检索基础
 

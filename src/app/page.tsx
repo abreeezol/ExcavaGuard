@@ -28,7 +28,7 @@ export default function HomePage() {
             <ShieldCheck size={19} aria-hidden="true" />
             <p>
               确定性计算层已接通：可上传监测数据与用户规范，运行风险识别。
-              日报生成与鉴权仍待实现。
+              日报三件套、独立审计、运行持久化、下载和工程师复核入口已接通。
             </p>
           </div>
 
@@ -58,12 +58,15 @@ export default function HomePage() {
             <section className="panel report-panel" id="report" aria-labelledby="report-title">
               <div className="section-heading">
                 <div><span className="eyebrow">交付与复核</span><h2 id="report-title">日报草稿</h2></div>
-                <span className="draft-tag">待生成</span>
+                <span className="draft-tag">工作台下载</span>
               </div>
               <div className="report-empty">
                 <FileCheck2 size={43} strokeWidth={1.2} aria-hidden="true" />
-                <h3>还没有日报草稿</h3>
-                <p>完成数据校验与分析后，<br />在这里查看草稿、证据与待确认项。</p>
+                <h3>报告文件在工作台下载</h3>
+                <p>完成运行后，进入可视化测试工作台，<br />在“日报交付与运行轨迹”区域下载三件套。</p>
+                <Link className="wb-link" href="/workbench">
+                  <FolderOpen size={16} aria-hidden="true" />进入工作台
+                </Link>
               </div>
               <div className="review-note">
                 <h3><ShieldCheck size={16} aria-hidden="true" />工程师保留最终判断</h3>

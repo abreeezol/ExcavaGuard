@@ -5,6 +5,26 @@
 
 全程**离线运行**：嵌入模型、向量库、demo 服务均在本地，数据不出本机。
 
+## ExcavaGuard 服务端接入（2026-10-13）
+
+统一证据接口已实现 `POST /api/evidence/search`，供 Next.js
+`LocalStandardEvidenceRetriever` 使用。启动：
+
+```bash
+.venv/bin/python -B source/server.py --port 8600
+```
+
+模型在启动期加载；`GET /api/evidence/health` 就绪后即可查询。服务只监听
+`127.0.0.1`。启动需要 Node 依赖，用现有 `tools/rag/standard-records.ts` 构建
+来源清单，不访问 Pinecone；查询用本地 BGE 和现有 Chroma 向量。
+所有查询（含旧 CLI/demo 查询）使用自动复制的 `var/rag/chroma_db/`，
+不得直接打开或修改版本化 `data/chroma_db/`。规范元数据、生效状态和接口示例见
+`rag/README.md`。
+
+下面的自由文本 `/api/check` 和 `report_core.py` 属历史原型；其旧报警规则、
+默认工程信息和建议措辞不作为当前主链事实来源。当前主链唯一判定程序是
+`确定性计算层/pipeline/`，RAG 只举证。
+
 ---
 
 ## 目录结构

@@ -7,7 +7,7 @@
     "node": "^22.13.0 || ^24.0.0 || >=26.0.0"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname localhost",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -16,7 +16,10 @@
     "test:watch": "vitest",
     "check": "npm run lint && npm run typecheck && npm test",
     "rag:prepare": "node --env-file-if-exists=.env.local tools/rag/pinecone-import.ts",
-    "rag:import": "node --env-file-if-exists=.env.local tools/rag/pinecone-import.ts --execute"
+    "rag:import": "node --env-file-if-exists=.env.local tools/rag/pinecone-import.ts --execute",
+    "supabase:check": "node --env-file-if-exists=.env.local tools/supabase/check.ts",
+    "supabase:verify": "node --env-file-if-exists=.env.local tools/supabase/check.ts --write-probe --require-ready",
+    "supabase:test": "EXCAVAGUARD_TEST_SUPABASE=1 node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run tests/supabase-provider-live.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.91",

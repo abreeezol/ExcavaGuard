@@ -12,6 +12,10 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    // Python bridge suites spawn subprocesses; serial files avoid sandbox
+    // process contention and keep the test timeout above the 30s bridge budget.
+    fileParallelism: false,
+    testTimeout: 35_000,
     clearMocks: true,
     restoreMocks: true,
   },

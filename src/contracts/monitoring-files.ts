@@ -12,6 +12,7 @@ export type FileKind = z.infer<typeof fileKindSchema>;
 
 export const storedFileSchema = z.strictObject({
   file_id: z.uuid(),
+  project_id: z.uuid().optional(),
   kind: fileKindSchema,
   original_name: z.string().trim().min(1),
   size_bytes: z.number().int().nonnegative(),
@@ -19,7 +20,7 @@ export const storedFileSchema = z.strictObject({
   /** 内容指纹，用于确认「分析用的就是上传的那份」。 */
   sha256: z.string().regex(/^[0-9a-f]{64}$/),
   created_at: z.iso.datetime(),
-  /** 当前仅实现 local；supabase 为生产路径，见存储层说明。 */
+  /** 实际存储 Provider；切换由服务端显式配置。 */
   storage: z.enum(["local", "supabase"]),
 });
 
@@ -32,14 +33,23 @@ export const readReportSchema = z.looseObject({
   encoding: z.string().nullable().optional(),
   delimiter: z.string().nullable().optional(),
   sheet: z.string().optional(),
+  sheets: z.array(z.string()).optional(),
+  layout: z.enum(["long", "wide"]).optional(),
   raw_rows: z.number().optional(),
+  source_notes: z.array(z.string()).optional(),
+  source_flags: z.array(z.string()).optional(),
   header: z.array(z.string()).optional(),
   /** 列下标（字符串化）→ 规范字段名 */
   mapped_columns: z.record(z.string(), z.string()).optional(),
   unmapped_columns: z.array(z.string()).optional(),
+  duplicate_channels: z.array(z.string()).optional(),
   missing_required: z.array(z.string()).optional(),
   derivable_columns_present: z.array(z.string()).optional(),
   data_rows: z.number().optional(),
+  channel_count: z.number().int().nonnegative().optional(),
+  expanded_records: z.number().int().nonnegative().optional(),
+  wide_channels: z.array(z.looseObject({})).optional(),
+  daily_aggregation: z.looseObject({}).optional(),
   ok: z.boolean().optional(),
   errors: z.array(z.string()).optional(),
 });

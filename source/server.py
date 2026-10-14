@@ -10,27 +10,91 @@ Endpoints:
   /            Interactive page (description input -> compliance check -> report)
   /api/check   POST {description, meta} -> parse + check + daily report
   /api/search  GET  ?q=... -> knowledge-base clause retrieval
+  /api/evidence/search POST {query, filters, top_k} -> unified evidence
   /api/stats   GET  -> knowledge-base statistics
 """
 import argparse
+import asyncio
+import subprocess
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "source"))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 import report_core
+from evidence_api import EvidenceQuery, EvidenceResponse, LocalEvidenceService
+from query_kb import get_collection
 
-app = FastAPI(title="Excavation Guard RAG Demo")
+
+def load_evidence_service():
+    # Reuse the existing audited manifest builder; it makes no network calls.
+    subprocess.run(
+        [
+            "node", "--input-type=module", "-e",
+            "import {preparePineconeImport} from './tools/rag/standard-records.ts';"
+            "preparePineconeImport();",
+        ],
+        cwd=ROOT, check=True, capture_output=True, timeout=30,
+    )
+    return LocalEvidenceService(get_collection())
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    application.state.evidence_service = None
+    try:
+        application.state.evidence_service = await asyncio.to_thread(load_evidence_service)
+    except Exception:
+        # Keep a safe, explicit unavailable status without exposing paths or input.
+        print("本地证据服务初始化失败，请检查模型、知识资产与 Node/Python 依赖。", file=sys.stderr)
+    yield
+
+
+app = FastAPI(title="ExcavaGuard Local RAG", lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_request: Request, _error: RequestValidationError):
+    # FastAPI's default validation body includes raw input; never echo it.
+    return JSONResponse(
+        {"error": {"code": "INVALID_QUERY", "message": "检索或原型请求参数不合法。"}},
+        status_code=422,
+    )
 
 
 class CheckReq(BaseModel):
     description: str
     meta: dict = {}
+
+
+@app.post("/api/evidence/search", response_model=EvidenceResponse, response_model_exclude_none=True)
+def evidence_search(req: EvidenceQuery):
+    service = getattr(app.state, "evidence_service", None)
+    if service is None:
+        return JSONResponse(
+            {"error": {"code": "RETRIEVER_UNAVAILABLE", "message": "本地规范证据服务未就绪。"}},
+            status_code=503,
+        )
+    try:
+        return service.search(req)
+    except Exception:
+        return JSONResponse(
+            {"error": {"code": "QUERY_FAILED", "message": "本地规范证据检索失败。"}},
+            status_code=503,
+        )
+
+
+@app.get("/api/evidence/health")
+def evidence_health():
+    ready = getattr(app.state, "evidence_service", None) is not None
+    return JSONResponse({"ready": ready}, status_code=200 if ready else 503)
 
 
 @app.get("/")
@@ -68,4 +132,4 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8600)
     args = ap.parse_args()
-    uvicorn.run(app, host="0.0.0.0", port=args.port)
+    uvicorn.run(app, host="127.0.0.1", port=args.port)

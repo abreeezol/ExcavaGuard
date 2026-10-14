@@ -79,6 +79,8 @@ BLOCKING_ISSUE_CODES = {
     "NON_NUMERIC_VALUE",
     "UNPARSED_TIMESTAMP",
     "UNSUPPORTED_UNIT",
+    "UNKNOWN_MEASUREMENT_SEMANTICS",
+    "SEMANTIC_BASELINE_CONFLICT",
     "FLATLINE",
 }
 
@@ -140,8 +142,9 @@ class ProjectContext:
     post_slab: bool = False                   # 底板是否已浇筑
     design_values: dict[str, float] = field(default_factory=dict)
     danger_signals: dict[str, bool] = field(default_factory=dict)  # {"DANGER-1": True, ...}
-    # point_id -> [(timestamp, rate), ...]（旧→新）；也兼容直接给 [rate, ...]
-    rate_history: dict[str, list] = field(default_factory=dict)
+    # (point_id, metric_key) -> [(timestamp, rate), ...]（旧→新）；
+    # 兼容旧调用方按 point_id 提供历史。
+    rate_history: dict[Any, list] = field(default_factory=dict)
     # 逐测点条件覆盖：{point_id: {"crack_state": ..., "pipeline_type": ..., "road_type": ...}}
     point_overrides: dict[str, dict] = field(default_factory=dict)
     # 底板浇筑日期；记录时间 >= 该日期时，速率限值按 ×0.7 折减
@@ -686,7 +689,12 @@ def judge(
         j.flags.append("NO_CUMULATIVE_LIMIT")
 
     # --- 2) 变化速率校核 ---
-    history = ctx.rate_history.get(calc.point_id or "", []) if ctx.rate_history else []
+    history = []
+    if ctx.rate_history:
+        history = (
+            ctx.rate_history.get((calc.point_id or "", calc.metric_key))
+            or ctx.rate_history.get(calc.point_id or "", [])
+        )
     if _num(calc.rate) and _num(lim.rate_mm_per_day) and lim.rate_mm_per_day:
         u = abs(calc.rate) / abs(lim.rate_mm_per_day)
         utils.append(u)
@@ -827,14 +835,20 @@ def judge_batch(
     ctx: ProjectContext,
     blocked_map: dict[tuple, list[str]] | None = None,
 ) -> list[RiskJudgment]:
-    """blocked_map: {(point_id, timestamp): [问题码, ...]}，来自阶段一的质量扫描。"""
+    """``blocked_map`` 以 ``(point_id, metric_key, timestamp)`` 为键。
+
+    兼容旧调用方提供的 ``(point_id, timestamp)`` 键。
+    """
     blocked_map = blocked_map or {}
     return [
         judge(
             c,
             registry,
             ctx,
-            blocked_issues=blocked_map.get((c.point_id, c.timestamp)),
+            blocked_issues=(
+                blocked_map.get((c.point_id, c.metric_key, c.timestamp))
+                or blocked_map.get((c.point_id, c.timestamp))
+            ),
         )
         for c in calcs
     ]
@@ -846,7 +860,7 @@ def summarize(judgments: Sequence[RiskJudgment]) -> dict:
     by_category: dict[str, int] = {}
     by_origin: dict[str, int] = {}
     abstain: dict[str, int] = {}
-    worst = LEVEL_NORMAL
+    worst = LEVEL_UNKNOWN
     for j in judgments:
         by_level[j.risk_level] = by_level.get(j.risk_level, 0) + 1
         by_category[j.problem_category] = by_category.get(j.problem_category, 0) + 1

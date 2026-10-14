@@ -7,6 +7,7 @@ pymupdf>=1.24         # PDF 文本层提取 + 页面渲染
 rapidocr-onnxruntime  # 扫描版 PDF 中文 OCR
 pypdf                 # 备用 PDF 解析
 python-docx           # Word 语料解析
+openpyxl>=3.1,<4      # 用户 Excel 输入与日报工作簿导出
 fastapi               # demo 服务
 uvicorn               # demo 服务
 pydantic

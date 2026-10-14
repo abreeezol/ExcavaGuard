@@ -2,6 +2,7 @@ import { apiError, apiErrorFromException, apiOk } from "@/server/api/respond";
 import { userStandardPayloadSchema } from "@/contracts/monitoring-files";
 import { checkStandardStrictness } from "@/server/skills/evaluate-thresholds/runner";
 import { listFiles, saveFile } from "@/server/storage/monitoring-file-store";
+import { requireAccess } from "@/server/access";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -18,8 +19,13 @@ const DEFAULT_CONTEXT: StrictnessContext = {
 };
 
 /** 列出已上传的用户规范文件（新→旧）。 */
-export async function GET() {
-  return apiOk({ files: await listFiles("standard") });
+export async function GET(request: Request) {
+  try {
+    const access = requireAccess(request);
+    return apiOk({ files: await listFiles("standard", access.project_id) });
+  } catch (error) {
+    return apiErrorFromException(error);
+  }
 }
 
 function parseContext(raw: unknown): StrictnessContext {
@@ -59,6 +65,12 @@ function safeJson(text: string): unknown {
  * 更宽松可能是合法的地方规程，系统**只反馈不阻断**，但必须让用户看见。
  */
 export async function POST(request: Request) {
+  let access;
+  try {
+    access = requireAccess(request);
+  } catch (error) {
+    return apiErrorFromException(error);
+  }
   const mediaType = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
 
   let rawPayload: unknown;
@@ -123,6 +135,7 @@ export async function POST(request: Request) {
       originalName: `${sourceId}.json`,
       bytes,
       mediaType: "application/json",
+      projectId: access.project_id,
     });
 
     return apiOk({ file: stored, strictness, report }, 201);

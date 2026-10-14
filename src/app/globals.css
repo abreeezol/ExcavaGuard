@@ -130,6 +130,12 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
    可视化测试工作台（/workbench）
    ========================================================================== */
 
+@keyframes wb-spin {
+  to { transform: rotate(360deg); }
+}
+
+.wb-spin { animation: wb-spin .8s linear infinite; transform-origin: center; }
+
 .wb-link { display: inline-flex; align-items: center; gap: 9px; padding: 9px 17px; border-radius: 5px; background: var(--accent); color: #fcfffa; font-size: 12px; }
 .wb-link:hover { background: #1f5540; }
 
@@ -158,7 +164,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 .wb-btn-sm { padding: 6px 11px; font-size: 11px; }
 
 .wb-drop { margin-top: 6px; padding: 20px 16px; border: 1px dashed #c9d4c8; border-radius: 6px; background: #fafcf9; text-align: center; }
-.wb-drop input[type="file"] { display: none; }
+.wb-drop input[type="file"] { display: block; max-width: 100%; margin: 0 auto 12px; font: inherit; font-size: 11px; }
 .wb-drop label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: #3f5a43; font-size: 12px; }
 .wb-drop p { margin-top: 7px; color: var(--muted); font-size: 10px; }
 
@@ -220,6 +226,15 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 .wb-steps span { padding: 4px 11px; border-radius: 20px; border: 1px solid var(--border); background: #fbfcfa; font-size: 10.5px; color: var(--muted); }
 .wb-steps span.done { border-color: #cfe4d5; background: #eaf4ec; color: #2f6b45; }
 
+.wb-inputs { display: flex; flex-direction: column; gap: 18px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.wb-history { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow: auto; margin-top: 12px; }
+.wb-history-item { display: flex; flex-direction: column; gap: 5px; text-align: left; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: #fafcf9; font: inherit; font-size: 11px; cursor: pointer; overflow-wrap: anywhere; }
+.wb-history-item span { color: var(--muted); }
+.wb-history-item:disabled { opacity: .6; cursor: not-allowed; }
+.wb-review { margin-top: 20px; padding: 14px; border: 1px solid var(--border); border-radius: 6px; min-width: 0; }
+.wb-review legend { font-size: 12px; color: #3f5a43; }
+.wb-report-toggle { display: flex; gap: 8px; align-items: center; font-size: 12px; margin-bottom: 14px; }
+
 @media (max-width: 1150px) {
   .wb-grid { grid-template-columns: 1fr; }
 }
@@ -228,4 +243,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
   .wb-row { grid-template-columns: 1fr; }
   .wb-card { padding: 17px 16px; }
   .wb-kpis { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-spin { animation: none !important; }
 }
