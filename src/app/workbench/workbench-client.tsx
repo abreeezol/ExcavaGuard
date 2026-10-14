@@ -698,7 +698,7 @@ export function WorkbenchClient() {
                 disabled={busy === "standard" || !standardText.trim()}
               >
                 {busy === "standard" ? (
-                  <Loader2 size={14} aria-hidden="true" />
+                  <Loader2 size={14} className="wb-spin" aria-hidden="true" />
                 ) : (
                   <Upload size={14} aria-hidden="true" />
                 )}
@@ -768,7 +768,7 @@ export function WorkbenchClient() {
                 disabled={busy !== null || !monitoring}
               >
                 {busy === "run" ? (
-                  <Loader2 size={15} aria-hidden="true" />
+                  <Loader2 size={15} className="wb-spin" aria-hidden="true" />
                 ) : (
                   <Play size={15} aria-hidden="true" />
                 )}

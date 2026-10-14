@@ -130,6 +130,12 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
    可视化测试工作台（/workbench）
    ========================================================================== */
 
+@keyframes wb-spin {
+  to { transform: rotate(360deg); }
+}
+
+.wb-spin { animation: wb-spin .8s linear infinite; transform-origin: center; }
+
 .wb-link { display: inline-flex; align-items: center; gap: 9px; padding: 9px 17px; border-radius: 5px; background: var(--accent); color: #fcfffa; font-size: 12px; }
 .wb-link:hover { background: #1f5540; }
 
@@ -237,4 +243,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
   .wb-row { grid-template-columns: 1fr; }
   .wb-card { padding: 17px 16px; }
   .wb-kpis { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-spin { animation: none !important; }
 }

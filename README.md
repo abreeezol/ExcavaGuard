@@ -1,14 +1,21 @@
 # ExcavaGuard
 
-面向基坑监测工程师的 AI 监测日报助手。采用 Next.js 单体全栈：规则主判、RAG 举证、模型表达，工程师负责复核与签发。
+ExcavaGuard 是面向基坑监测工程师的 AI 监测日报助手。系统读取监测数据和工程条件，通过确定性规则完成数据准备、数值计算和规范比对，再生成供工程师复核的日报草稿。
 
-**确定性计算层已接通。** 可以上传监测数据与用户规范，运行「阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对」并查看逐测点判定、生效规范来源与待复核项。可视化操作见 `方案与迭代note/11_可视化测试指引.md`。
+项目原则是：**规则主判、RAG 举证、模型表达、工程师签发**。系统不会自动发布预警，也不会替代工程师审核或正式签发报告。
 
-三 Agent 首版已收敛为 Supervisor、报告交付与独立审计。Supervisor 的共享状态、
-确定性路由、两轮退回、预算和失效规则已由同步执行器串联；报告/审计 Skill 可生成并
-审计 Excel + 两份 Markdown 三件套。八个业务 Skill 中已有六个具备可调用实现。
-工作台现已接通本地运行持久化、历史恢复、三 Agent 轨迹、三件套下载及人工接受/
-退回/拒绝。接受仅记录草稿复核，不等于工程签发。
+## 初版提交状态
+
+当前版本可以作为**单操作者、单项目、云端存储的初版工作台**提交：
+
+- 可在本地启动 Next.js 工作台，进入 `/workbench` 完成上传、分析、报告生成、审计、下载和人工复核。
+- 确定性主链已接通：「阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对」。
+- 日报三件套已接通：`xlsx + 封面 Markdown + 附表及清单 Markdown`。
+- 三 Agent 首版已接通：Supervisor、报告交付、独立审计，支持轨迹展示、最多两轮自动退回、人工接受/退回/拒绝。
+- Supabase 应用 Provider 已接通：新上传文件、运行 revision 和三件套报告进入 Supabase 私有存储与元数据表。
+- 全栈检查和真实 Supabase 纵向验收已通过，见下方“开发检查”。
+
+当前仍不是正式生产多用户系统：没有 Supabase Auth、多用户项目权限、正式签发归档、部署和 CI。
 
 ## 本地启动
 
@@ -25,6 +32,33 @@ npm run dev
 默认优先使用仓库 `.venv/bin/python`，再尝试 PATH 上的 `python3`、`python`；
 三件套导出需要 `openpyxl`。想指定解释器就在 `.env.local` 写
 `EXCAVAGUARD_PYTHON=<绝对路径>`。找不到时会明确返回 `[ENGINE_UNAVAILABLE]`。
+
+## 初版使用路径
+
+启动后进入 <http://localhost:3000/workbench>，按页面从上到下操作：
+
+1. 填写工程条件：安全等级、支护形式、基坑设计深度 H、报告日期等。
+2. 上传监测数据：点击截图中原生按钮 **「选择文件」**，或虚线框里的 **「选择监测数据文件」**，选择 `.csv/.tsv/.txt/.xlsx/.xlsm` 文件。
+3. 可选上传用户规范：不上传时直接使用默认规范库，不报错、不提示缺失。
+4. 点击 **「运行分析」**。工作台默认勾选“生成并审计日报三件套”，成功后会显示运行轨迹、下载入口和人工复核按钮。
+
+上传文件必须包含 5 个必填列：测点编号、观测日期、监测项目、本次观测值、单位。基准值、上次值和间隔天数可以缺失，由阶段一按测点时序派生。`.xlsx` 读取需要 Python 环境里安装 `openpyxl`；CSV 路径是纯标准库。
+
+## 当前数据存储与 RAG
+
+当前本机 `.env.local` 已设置 `EXCAVAGUARD_STORAGE_PROVIDER=supabase`。因此本地启动时，通过工作台上传的新文件会进入 Supabase：
+
+- 原始监测文件和用户规范：写入 Supabase private bucket `excavaguard-private`，元数据写入 `excavaguard_files`。
+- 运行记录和人工复核：写入 `excavaguard_run_revisions`，按不可变 revision 保存。
+- 日报三件套：文件写入 private bucket，元数据写入 `excavaguard_report_artifacts`，下载时重新校验大小和 SHA-256。
+
+如果把 `EXCAVAGUARD_STORAGE_PROVIDER` 改回 `local`，上传和运行记录会落到仓库 `var/` 目录；这只是开发回退路径，不是当前初版推荐交付路径。
+
+RAG 目前分两层看：
+
+- 当前 `.env.local` 的 `RAG_PROVIDER=pinecone`，独立调用 `retrieve-standard-evidence` 时会走在线 Pinecone 索引 `excava-guard` / namespace `standards-v1`。
+- 本地 RAG sidecar 已可用，启动 `source/server.py --port 8600` 并改为 `RAG_PROVIDER=local` 后，会走本地 BGE + Chroma 运行副本。
+- 但工作台主链路当前仍以确定性规范库完成阈值判定和报告生成；`retrieve-standard-evidence` 尚未在 Supervisor/API/前端报告主链中自动串联。换句话说，RAG Provider 已验收，主链自动引用增强属于初版后的打磨项。
 
 ## 目录
 
@@ -92,18 +126,18 @@ cp .env.example .env.local
 | 服务 | 环境变量 | 当前行为 |
 | --- | --- | --- |
 | **确定性引擎** | `EXCAVAGUARD_PYTHON`、`EXCAVAGUARD_BRIDGE_TIMEOUT_MS` | 指定 Python 解释器与调用超时；不配则优先仓库 `.venv`，再尝试 PATH 上的 `python3`、`python` |
-| **上传存储** | `EXCAVAGUARD_UPLOAD_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | `local` 或 `supabase`；当前本机已显式切至 Supabase |
-| **运行存储** | `EXCAVAGUARD_RUN_ROOT` | 默认 `<仓库>/var/runs/<run_id>/<revision>.json`；不可变修订，原子发布 |
+| **文件存储** | `EXCAVAGUARD_UPLOAD_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | `local` 或 `supabase`；当前本机已显式切至 Supabase |
+| **运行存储** | `EXCAVAGUARD_RUN_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | `supabase` 时写入 `excavaguard_run_revisions`；`local` 时写入 `<仓库>/var/runs/<run_id>/<revision>.json` |
 | **访问控制** | `EXCAVAGUARD_ACCESS_PASSWORD`、`EXCAVAGUARD_SESSION_SECRET`、`EXCAVAGUARD_PROJECT_ID` | 单操作者单项目；开发期无密码只允许本机；生产期必须配置密码和签名密钥 |
 | LLM | `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` | 创建 OpenAI 兼容 Chat 适配器；不默认指定供应商或模型 |
 | Supabase 公共连接 | `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 项目可达性已验证；publishable key 只具备 RLS 允许的低权限 |
 | Supabase 服务端 | `SUPABASE_SECRET_KEY`、`SUPABASE_STORAGE_BUCKET` | 新式 secret key 仅供受保护服务端；上传、运行 revision 和报告 Provider 已接通 |
-| RAG 选择 | `RAG_PROVIDER` | 必须显式选择 `pinecone` 或 `local` |
+| RAG 选择 | `RAG_PROVIDER` | 必须显式选择 `pinecone` 或 `local`；当前本机配置为 `pinecone` |
 | Pinecone | `PINECONE_API_KEY`、`PINECONE_INDEX`、`PINECONE_TEXT_FIELD`、可选 `PINECONE_NAMESPACE` | 查询 integrated embedding 索引 |
 | Pinecone 导入 | `PINECONE_CLOUD`、`PINECONE_REGION`、`PINECONE_EMBED_MODEL` | 仅供离线建索引/批量导入工具使用 |
 | 本地 RAG | `LOCAL_RAG_BASE_URL`、`LOCAL_RAG_TIMEOUT_MS` | 调用 loopback 服务的统一证据接口 |
 
-确定性引擎、上传存储和不附在线证据的基础日报链**不需要外部服务即可工作**。
+确定性引擎和不附在线证据的基础日报链可以在 `local` 存储模式下不依赖外部服务运行。当前初版演示配置已切到 Supabase，因此上传、运行 revision 和三件套下载依赖 Supabase 配置。
 
 客户端按需创建，不在页面渲染和构建时读取密钥或发送请求。配置缺失或格式不合法会抛出 `IntegrationConfigError`，错误不携带原始配置值。目标 Pinecone 索引已完成连接、配置、导入和查询验收；完整配置仍不代表 Supervisor 主链路已经接通。
 
@@ -126,6 +160,8 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
 ## 规范证据 Provider
 
 `src/server/evidence/` 提供统一的 `StandardEvidenceRetriever`，上层 Skill 不区分具体向量库：
+
+这部分是已验收的证据检索能力，不等同于工作台主链已经自动调用 RAG。当前 `/workbench` 的上传、计算、报告和审计可以不依赖 RAG 完成；把规范证据检索串进 Supervisor/API/前端报告链，是后续打磨方向。
 
 - `PineconeStandardEvidenceRetriever`：调用 integrated embedding 的 `searchRecords` 文本检索，应用规范版本、监测项、基坑等级、地区和生效状态过滤。
 - `LocalStandardEvidenceRetriever`：只接受 `localhost`、`127.0.0.1` 或 `::1`，调用 `POST /api/evidence/search`。
@@ -204,9 +240,9 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
 本地启动绑定 localhost。可选密码至少 12 字符、签名密钥至少 32 字符；生产未配置
 时业务 API 返回 `ACCESS_NOT_CONFIGURED`。会话 8 小时过期；更换密码或项目使旧会话失效。
 历史无项目字段的上传文件只归入固定默认项目，切换配置不会自动转移文件。
-运行目录和上传目录应一起备份；不要直接清理有引用的上传或报告文件。
-上传索引写入锁若因进程崩溃遗留，先停止全部服务并确认没有写入，再清理
-`var/uploads/index.json.lock` 空锁目录后重启。运行修订无需锁目录。
+`local` 存储模式下需要一起备份运行目录、上传目录和报告目录；不要直接清理有引用的文件。
+若本地上传索引写入锁因进程崩溃遗留，先停止全部服务并确认没有写入，再清理
+`var/uploads/index.json.lock` 空锁目录后重启。Supabase 模式下以云端元数据和对象指纹为准。
 
 `POST /api/runs` 的返回：
 
@@ -224,7 +260,7 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
 
 `payload` 中 `risk_level = "未知"` 表示**弃权，不是「安全」**，对应条目会进入 `review_queue`。
 
-### 尚未实现
+### 初版暂不包含
 
 - **多用户身份与权限**：当前只有单操作者密码会话和单项目隔离，未实现用户注册、
   项目成员权限或 Supabase Auth。
@@ -257,15 +293,16 @@ npm start           # 运行已经构建的应用
 
 当前依赖审计存在 5 条开发依赖高危告警，均来自 Next.js ESLint 插件的 `fast-glob → micromatch → braces` 链；npm 当前未给出兼容修复方案。不要执行会将 Next.js ESLint 配置降到 14.x 的 `npm audit fix --force`。本次 `npm audit --omit=dev` 为 0 条告警；后续依赖升级仍需重新核验。
 
-## 后续实现顺序
+## 初版后打磨方向
 
-1. ~~确认 CSV 字段、单位、方向、项目阈值和规则来源~~ ✅ 已完成（`确定性计算层/09_用户数据文件契约.md`）。
-2. ~~实现解析、标准化、阈值判断的确定性 Skill~~ ✅ 已完成（`skills/<name>/scripts/`，Python 桥接）。
-3. ~~接入真实 Supabase 项目、私有 bucket、上传/运行/报告 Provider~~ ✅；
-   下一步接入 Supabase Auth 与多用户项目成员权限。
-4. ~~建立 Supervisor 显式状态图、有限重试、失效规则与运行轨迹基础~~ ✅ 已完成。
-5. ~~实现日报三件套、独立审计、同步 Agent 执行器与 API~~ ✅ 已完成；
-   本地人工复核、访问边界、运行持久化和前端入口也已接通。
+1. **账号与权限**：接入 Supabase Auth 或等价身份系统，建立项目成员、角色、文件、运行记录和报告下载的权限隔离。
+2. **RAG 主链串联**：把 `retrieve-standard-evidence` 接进 Supervisor/API/前端报告链，形成正式报告场景下的规范证据引用、无命中弃权和引用准确率评测。
+3. **部署与 CI**：补齐生产环境变量、构建发布、数据库迁移执行方式、自动化检查和回滚说明。
+4. **异步编排与恢复**：将当前同步执行器升级为 worker/任务队列模式，支持长任务、预算到期后的自动恢复和失败重试。
+5. **正式归档与签发**：区分“草稿复核接受”和“正式工程签发”，接入工程档案或导出归档流程。
+6. **既有资产迁移**：按需把 `var/` 中旧本地测试资产迁移到 Supabase，或明确清理策略。
+7. **业务能力补齐**：实现 `retrieve-similar-cases`、`analyze-work-condition`，并继续处理温度补偿等工程判据问题。
+8. **体验打磨**：优化大文件提示、上传进度、运行中状态、错误文案、报告预览和多次重跑对比。
 
 完整要求见 [AGENTS.md](AGENTS.md)、[项目记忆](memory.md)、
 [开发推进记录](方案与迭代note/10_开发推进记录.md)、
