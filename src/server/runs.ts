@@ -71,6 +71,7 @@ async function executeSaved(record: PersistedRun, access: LocalAccess, resume = 
     const execution = await executeAgentRun({
       enginePayload: result.payload,
       runId: current.run_id,
+      reportMode: current.request.options?.report_mode ?? "ai",
       initialState: resume ? result.agent_run?.state : undefined,
     }, {
       checkpoint: async (checkpoint) => {

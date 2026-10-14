@@ -37,7 +37,7 @@ type EvidenceSuccess = {
 
 type EvidenceAbstention = {
   status: "abstained";
-  code: "INVALID_INPUT" | "EVIDENCE_NOT_FOUND" | "EVIDENCE_CONFLICT";
+  code: "INVALID_INPUT" | "EVIDENCE_NOT_FOUND" | "EVIDENCE_CONFLICT" | "EVIDENCE_UNAVAILABLE";
   message: string;
   evidence: StandardEvidence[];
   notice: string;
@@ -50,6 +50,7 @@ export type StandardEvidenceSkillResult =
 
 type RunnerDependencies = {
   retriever?: StandardEvidenceRetriever;
+  signal?: AbortSignal;
 };
 
 function emptyTrace(): EvidenceTrace {
@@ -83,11 +84,11 @@ export async function retrieveStandardEvidence(
   let retriever: StandardEvidenceRetriever;
   try {
     retriever =
-      dependencies.retriever ?? createStandardEvidenceRetriever();
+      dependencies.retriever ?? createStandardEvidenceRetriever({ signal: dependencies.signal });
   } catch {
     return {
       status: "abstained",
-      code: "EVIDENCE_NOT_FOUND",
+      code: "EVIDENCE_UNAVAILABLE",
       message: "规范证据检索器未配置或暂不可用。",
       evidence: [],
       notice: NOTICE,
@@ -110,7 +111,7 @@ export async function retrieveStandardEvidence(
   } catch {
     return {
       status: "abstained",
-      code: "EVIDENCE_NOT_FOUND",
+      code: "EVIDENCE_UNAVAILABLE",
       message: "规范证据检索失败，不能形成规范性结论。",
       evidence: [],
       notice: NOTICE,

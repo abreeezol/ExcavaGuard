@@ -28,6 +28,9 @@ description: "将结构化事实、证据和受约束分析渲染为监测日报
 - `standard_evidence`：规范证据或明确的缺失状态（载荷 `items[].evidence` 与 `standards_sources`）。
 - `work_condition_analysis`：工况分析或弃权结果。
 - `template`：经批准的日报模板及版本。
+- 服务端 `analysisSnapshot` 可携带 `excavaguard.report_narrative/v1`：
+  报告 Agent 已校验并冻结的工况、分析、建议、局限与逐附表分析；正文中的
+  `{{fact:路径}}` 只允许引用上游标量，段落 `evidence_ids` 必须属于本次证据快照。
 
 ## 输出
 
@@ -71,6 +74,13 @@ description: "将结构化事实、证据和受约束分析渲染为监测日报
 - 产出结构化草稿、三件套文件和 Markdown 预览；事实字段与 Excel 单元格均带
   SHA-256 绑定，证据引用携带稳定 ID。
 - 载荷未提供可唯一识别单位时显示 `—` 并加入复核缺口，不从监测项名称猜测单位。
+- 当前批准模板为 `deep-pit-monitoring-report/service-v3`。直接复用团队
+  `appendix_forms.py` 的表头、列和页脚；日报正文分工况、分析及建议、待复核、
+  RAG 规范原文、人工签署五节，两份 Markdown 分别对应封面和其余工作表。
+- 表 E 未提供高程基准时高程栏留空，原观测值保留在来源说明；裂缝长度与宽度分列、
+  分通道记录，不套用彼此阈值。长条文逐段排版，保留完整命中原文。
+- 本 Skill 负责渲染。实际 LLM 写作由 `src/server/agents/report-model.ts` 的
+  `report-delivery` 调用完成，不在 Python 中重复调用模型。
 
 ## 失败与弃权边界
 

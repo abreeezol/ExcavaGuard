@@ -312,8 +312,6 @@ describeWithPython("报告交付与独立审计 Skill", () => {
         "监测日报",
         "附表A_水平位移监测日报表",
         "超限测点清单",
-        "待复核事项",
-        "来源说明",
       ]),
     );
     expect(
@@ -367,6 +365,45 @@ describeWithPython("报告交付与独立审计 Skill", () => {
         "markdown-correspondence",
       ]),
     );
+  });
+
+  it("冻结 LLM 正文写入五节完整日报，与附表 Markdown 分离且独立重读审计通过", async () => {
+    const engine = engineSnapshot();
+    const evidence = evidenceSnapshot();
+    const paragraph = (text: string) => ({ text, evidence_ids: ["std-gb50497-2019-8.0.4"] });
+    const analysis: SupportingSnapshot = {
+      status: "ready", evidence_ids: evidence.evidence_ids, gaps: [],
+      artifact: {
+        ref: ref("excavaguard.report_narrative/v1", "c"),
+        payload: {
+          schema: "excavaguard.report_narrative/v1",
+          narrative: {
+            work_condition: paragraph("工程处于 {{fact:project.excavation_stage}}，施工日志未提供。"),
+            analysis: [paragraph("{{fact:items.0.point_id}} 累计变化 {{fact:items.0.cumulative}}，风险为 {{fact:items.0.risk_level}}。")],
+            recommendations: [paragraph("建议工程师核验超限测点并结合现场情况复核。")],
+            limitations: [paragraph("未知项缺本次观测值，应补齐资料后复核。")],
+            appendix_analysis: [{ form: "A", analysis: paragraph("位移成果需关注超限与缺测。"), recommendation: paragraph("建议人工复测。") }],
+          },
+        },
+      },
+    };
+    const rendered = await renderRunner.renderDailyReport({
+      engineSnapshot: engine, evidenceSnapshot: evidence, analysisSnapshot: analysis,
+    });
+    const draft = trackArtifacts(rendered.draft);
+    const payload = draft.payload as { markdown: string };
+    for (const title of ["一、工况描述", "二、简要分析及判断性结论", "三、待复核事项", "四、规范核对依据（RAG知识库检索）", "五、签署"]) {
+      expect(payload.markdown).toContain(title);
+    }
+    expect(payload.markdown).toContain("WTHD-01");
+    expect(payload.markdown).toContain("仅用于测试的规范证据文本。");
+    expect(payload.markdown).not.toContain("逐测点成果");
+    expect(draft.fact_bindings.some((binding) => binding.binding_id.startsWith("narrative-fact-"))).toBe(true);
+    const { audit } = await validateRunner.validateReport({
+      draft, engineSnapshot: engine, evidenceSnapshot: evidence, analysisSnapshot: analysis,
+    });
+    expect(audit.issues).toEqual([]);
+    expect(audit.valid).toBe(true);
   });
 
   it("报告数字被修改后审计阻断且不修改源事实", async () => {

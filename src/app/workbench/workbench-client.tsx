@@ -178,6 +178,7 @@ export function WorkbenchClient() {
   const [password, setPassword] = useState("");
   const [history, setHistory] = useState<RunSummary[]>([]);
   const [generateReport, setGenerateReport] = useState(true);
+  const [reportMode, setReportMode] = useState<"ai" | "template">("ai");
   const [selectedStandardId, setSelectedStandardId] = useState<string | null>(null);
   const [rerunInput, setRerunInput] = useState<CreateRunRequest | null>(null);
   const [parentRunId, setParentRunId] = useState<string | null>(null);
@@ -277,6 +278,7 @@ export function WorkbenchClient() {
     setProjectName(input.project?.name ?? "");
     setReportDate(input.report_date);
     setGenerateReport(input.options?.generate_report ?? true);
+    setReportMode(input.options?.report_mode ?? "ai");
     setSelectedStandardId(input.standards_file_id ?? null);
     setStandard(null);
     setStandardText("");
@@ -422,7 +424,7 @@ export function WorkbenchClient() {
             post_slab_from: postSlabFrom.trim() || null,
           },
           project: projectName.trim() ? { ...rerunInput?.project, name: projectName.trim() } : undefined,
-          options: { ...rerunInput?.options, generate_report: generateReport },
+          options: { ...rerunInput?.options, generate_report: generateReport, report_mode: reportMode },
         }),
       });
       if (!response.ok) {
@@ -754,12 +756,20 @@ export function WorkbenchClient() {
             </div>
             <p className="wb-hint">
               阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对。
-              可继续生成日报草稿并进行独立一致性审计。
+              AI 日报继续执行模型规划、规范检索、报告写作与独立语义审计。
             </p>
             <label className="wb-report-toggle">
               <input type="checkbox" checked={generateReport} onChange={(event) => setGenerateReport(event.target.checked)} />
               生成并审计日报三件套
             </label>
+            {generateReport && (
+              <Field label="日报生成方式">
+                <select value={reportMode} onChange={(event) => setReportMode(event.target.value as "ai" | "template")}>
+                  <option value="ai">AI 日报：LLM + RAG + 独立审计</option>
+                  <option value="template">仅模板：计算结果与附表</option>
+                </select>
+              </Field>
+            )}
             <div className="wb-actions">
               <button
                 className="wb-btn wb-btn-primary"

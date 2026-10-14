@@ -17,6 +17,8 @@
     "check": "npm run lint && npm run typecheck && npm test",
     "rag:prepare": "node --env-file-if-exists=.env.local tools/rag/pinecone-import.ts",
     "rag:import": "node --env-file-if-exists=.env.local tools/rag/pinecone-import.ts --execute",
+    "ai:test": "EXCAVAGUARD_TEST_LLM=1 node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run tests/llm-report-live.test.ts",
+    "rag:test": "EXCAVAGUARD_TEST_PINECONE=1 node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run tests/pinecone-rag-live.test.ts",
     "supabase:check": "node --env-file-if-exists=.env.local tools/supabase/check.ts",
     "supabase:verify": "node --env-file-if-exists=.env.local tools/supabase/check.ts --write-probe --require-ready",
     "supabase:test": "EXCAVAGUARD_TEST_SUPABASE=1 node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run tests/supabase-provider-live.test.ts"

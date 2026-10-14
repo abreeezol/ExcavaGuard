@@ -12,6 +12,7 @@ type RetrieverFactoryDependencies = {
   fetchImpl?: typeof fetch;
   pineconeIndex?: PineconeEvidenceIndex;
   pineconeTextField?: string;
+  signal?: AbortSignal;
 };
 
 export function createStandardEvidenceRetriever(
@@ -25,6 +26,7 @@ export function createStandardEvidenceRetriever(
       baseUrl: config.LOCAL_RAG_BASE_URL,
       timeoutMs: config.LOCAL_RAG_TIMEOUT_MS,
       fetchImpl: dependencies.fetchImpl,
+      signal: dependencies.signal,
     });
   }
 
@@ -37,7 +39,7 @@ export function createStandardEvidenceRetriever(
 
   const config = readIntegrationConfig("pinecone");
   return new PineconeStandardEvidenceRetriever(
-    createPineconeIndex(),
+    createPineconeIndex(dependencies.signal),
     config.PINECONE_TEXT_FIELD,
   );
 }

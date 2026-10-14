@@ -99,6 +99,11 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
   独立审计重新读取三件套并核对事实、引用、章节与责任措辞。同步执行器根据 Supervisor
   动作完成报告、审计、最多两轮退回和人工复核交接。
   原型自带的计算、阈值重判和本地 RAG 不进入服务端主链。
+- **AI 日报与 RAG 主链（2026-10-14）**：`report_mode=ai` 下 Supervisor 调用 LLM
+  规划重点和证据主题，并调用 `retrieve-standard-evidence` 做运行时 RAG；报告交付 Agent
+  调用 LLM 生成受约束正文；审计 Agent 在确定性文件审计通过后调用独立 LLM 做语义审查。
+  模型只能引用冻结事实占位符和本次证据 ID。真实 Pinecone 纵向验收已通过；当前本机缺
+  `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`，所以真实模型日报质量尚未验收。
 
 ## 已确认架构
 
@@ -169,7 +174,7 @@ ExcavaGuard/
 ├── AGENTS.md
 ├── memory.md
 ├── src/                              Next.js 16 全栈工程（含 /workbench 与运行/复核 API）
-├── tests/                            Vitest 105 项通过（另 4 项 live 默认跳过）
+├── tests/                            Vitest 118 项通过（另 6 项 live 默认跳过）
 ├── var/
 │   ├── uploads/                      上传文件存储（gitignore）
 │   ├── runs/                         运行、检查点和人工复核修订（gitignore）
@@ -248,8 +253,8 @@ ExcavaGuard/
    不自动删除。
 3. **正式归档与异步编排**：工程师接受/退回/拒绝已实现；后续建设正式归档、
    异步 worker 和自动恢复，不得自动签发。
-4. **规范证据主链接线**：在 Supervisor/API 中按风险项可选调用
-   `retrieve-standard-evidence` 并评测正式报告引用准确率。
+4. **真实模型与引用质量评测**：配置 LLM 后运行 `npm run ai:test`，并评测正式报告
+   场景的正文质量、RAG 引用准确率、无命中弃权和审计问题召回。
 5. **其余两个 Skill 实体化**：`retrieve-similar-cases` / `analyze-work-condition`。
 6. **P2-1 温度补偿**：轴力类判据可能混入温度效应（已接入 `soil_temperature` 数据）。
 7. **P1-3 工程条件交互补全**：缺什么提示补什么（目前页面已给出提示，但未做逐项引导）。
@@ -371,7 +376,8 @@ ExcavaGuard/
   来源说明记录时间平移、线性插值和末值保持，不得称为原始同步实测。
 - 最终交付建议采用团队的日报三件套（xlsx + 封面 md + 附表/清单 md）
   并附工程事实、证据、审计与轨迹 JSON。宽表接入、日频/日内口径、xlsx 导出和同步
-  三 Agent API 已于 2026-10-14 完成；持久化与独立 LLM 语义审计仍待实现。
+  三 Agent API 已于 2026-10-14 完成；持久化已完成，独立 LLM 语义审计接线已完成但
+  真实模型质量仍需配置 LLM 后验收。
 
 ### 2026-10-13 · 报告与审计 Skill 服务端契约接入
 

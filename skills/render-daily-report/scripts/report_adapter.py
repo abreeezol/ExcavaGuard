@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -19,7 +20,7 @@ sys.path.insert(0, str(DEEP_REPORT_SCRIPTS))
 
 from render_report import DEFAULT_FORM_MAP  # noqa: E402
 
-TEMPLATE_VERSION = "deep-pit-monitoring-report/service-v2"
+TEMPLATE_VERSION = "deep-pit-monitoring-report/service-v3"
 ITEM_FACT_FIELDS = (
     "point_id",
     "point_name",
@@ -75,10 +76,6 @@ def _display(value: Any) -> str:
     return str(value)
 
 
-def _cell(value: Any) -> str:
-    return _display(value).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
-
-
 def _unit_from_checks(checks: Any) -> str | None:
     units: list[str] = []
     if isinstance(checks, list):
@@ -129,6 +126,222 @@ def _extract_analysis(payload: Any) -> dict[str, Any]:
     }
 
 
+def _narrative(payload: Any, engine: dict[str, Any], forms: list[str]) -> tuple[dict, dict]:
+    """Validate and deterministically resolve model text; no model-authored numbers."""
+    if not isinstance(payload, dict) or payload.get("schema") != "excavaguard.report_narrative/v1":
+        return {}, {}
+    raw = payload.get("narrative")
+    if not isinstance(raw, dict) or set(raw) != {
+        "work_condition", "analysis", "recommendations", "limitations", "appendix_analysis"
+    }:
+        raise ValueError("INVALID_NARRATIVE：模型正文结构不合法。")
+    facts = {}
+
+    def resolve(path):
+        parts = path.split(".")
+        allowed = ("project", "summary", "context", "data_quality", "standard_override_warnings")
+        if parts[0] not in allowed and not (
+            len(parts) >= 3 and parts[0] == "items" and parts[1].isdigit()
+            and parts[2] in {
+                "point_id", "metric_name", "timestamp", "measurement_semantics",
+                "current", "cumulative", "single_change",
+                "rate", "slope", "risk_level", "abstain", "abstain_reasons",
+                "source_flags", "rule_id", "checks", "evidence",
+                "utilization", "problem_category", "needs_review"
+            }
+        ):
+            raise ValueError("UNGROUNDED_FACT：不允许的事实路径。")
+        value = engine
+        try:
+            for part in parts:
+                value = value[int(part)] if isinstance(value, list) else value[part]
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise ValueError("UNGROUNDED_FACT：事实路径不存在。") from exc
+        if isinstance(value, list) and all(item is None or isinstance(item, (str, int, float, bool)) for item in value):
+            value = "、".join(_display(item) for item in value if item is not None)
+        if value is not None and not isinstance(value, (str, int, float, bool)):
+            raise ValueError("UNGROUNDED_FACT：正文只能引用标量事实。")
+        facts[path] = deepcopy(value)
+        return _display(value)
+
+    def paragraph(item):
+        if not isinstance(item, dict) or set(item) != {"text", "evidence_ids"}:
+            raise ValueError("INVALID_NARRATIVE：段落结构不合法。")
+        text = item["text"]
+        ids = item["evidence_ids"]
+        if (
+            not isinstance(text, str) or not text.strip() or len(text) > 1800
+            or not isinstance(ids, list) or len(ids) > 12
+            or any(not isinstance(eid, str) or not 1 <= len(eid) <= 200 for eid in ids)
+        ):
+            raise ValueError("INVALID_NARRATIVE：段落内容不合法。")
+        stripped = re.sub(r"\{\{fact:([^{}]+)\}\}", "", text)
+        if re.search(r"[0-9{}]", stripped) or any(word in stripped for word in (
+            "已正式签发", "已自动发布预警", "原因已经确认", "无需人工复核"
+        )):
+            raise ValueError("UNGROUNDED_FACT：未绑定的数字或越界责任措辞。")
+        resolved = re.sub(r"\{\{fact:([^{}]+)\}\}", lambda match: resolve(match[1]), text)
+        return {"text": resolved, "evidence_ids": ids}
+
+    result = {"work_condition": paragraph(raw["work_condition"])}
+    for field in ("analysis", "recommendations", "limitations"):
+        if not isinstance(raw[field], list) or not 1 <= len(raw[field]) <= 8:
+            raise ValueError("INVALID_NARRATIVE：正文段落数量不合法。")
+        result[field] = [paragraph(item) for item in raw[field]]
+    appendices = raw["appendix_analysis"]
+    if (
+        not isinstance(appendices, list)
+        or any(not isinstance(item, dict) or set(item) != {"form", "analysis", "recommendation"}
+               for item in appendices)
+        or sorted(item.get("form", "") for item in appendices) != forms
+    ):
+        raise ValueError("APPENDIX_ANALYSIS_MISMATCH：表式分析不完整。")
+    result["appendix_analysis"] = [
+        {"form": item["form"], "analysis": paragraph(item["analysis"]),
+         "recommendation": paragraph(item["recommendation"])}
+        for item in appendices
+    ]
+    return result, facts
+
+
+FORM_NAMES = {"A": "水平位移", "B": "深层水平位移", "C": "围护墙内力等", "D": "支撑轴力等", "E": "地下水位等", "F": "裂缝"}
+RISK_ORDER = ["危险报警", "报警", "预警", "关注", "正常", "未知"]
+
+
+def _form_analysis(items: list[dict[str, Any]]) -> list[str]:
+    """按附表统计风险分布，对齐 gold standard 的分项分析格式。"""
+    grouped: dict[str, dict[str, int]] = {}
+    for item in items:
+        form = item.get("appendix_form")
+        if not form or form[-1] not in FORM_NAMES:
+            continue
+        key = form[-1]
+        level = str(item.get("risk_level") or "未知")
+        grouped.setdefault(key, {}).setdefault(level, 0)
+        grouped[key][level] += 1
+    result = []
+    for form_key in sorted(grouped):
+        name = FORM_NAMES.get(form_key, form_key)
+        dist = grouped[form_key]
+        parts = [f"{level} {dist.get(level, 0)} 点" for level in RISK_ORDER if dist.get(level, 0) > 0]
+        result.append(f"· {name}：{'、'.join(parts)}。")
+    return result
+
+
+def _review_items(report: dict[str, Any]) -> list[str]:
+    """提取逐测点待复核摘要，不依赖独立 sheet。"""
+    items = report["sections"]["monitoring_results"]["items"]
+    review_items = [item for item in items if item.get("risk_level") == "未知" or item.get("needs_review") or item.get("abstain")]
+    if not review_items:
+        return ["无引擎弃权条目。"]
+    result = []
+    for item in review_items[:40]:
+        reasons = item.get("abstain_reasons") or item.get("abstain") or []
+        reason_str = "；".join(str(r) for r in reasons[:3]) if reasons else "原因未记录"
+        result.append(
+            f"{_display(item.get('point_id'))}｜{_display(item.get('metric_name'))}｜"
+            f"风险={_display(item.get('risk_level'))}｜{reason_str}"
+        )
+    if len(review_items) > 40:
+        result.append(f"… 另有 {len(review_items) - 40} 条，详见冻结载荷。")
+    return result
+
+
+def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    sections = report["sections"]
+    summary = sections["summary"]
+    narrative = sections.get("narrative") or {}
+    items = sections["monitoring_results"]["items"]
+
+    def lines(field):
+        return [item["text"] + (
+            "\n引用证据：" + "、".join(item["evidence_ids"]) if item["evidence_ids"] else ""
+        ) for item in narrative.get(field, [])]
+
+    # --- 第一节：工况描述 ---
+    condition_text = narrative.get("work_condition", {}).get("text") or sections["work_condition_analysis"]["work_condition"]
+    source_flags = sorted({str(f) for item in items for f in (item.get("source_flags") or []) if str(f).strip()})
+    condition_lines = [condition_text]
+    if source_flags:
+        condition_lines.append("数据来源标记：" + "、".join(source_flags) + "。时间平移/插值/末值保持数据不代表原始同步实测。")
+    project = sections["project"]
+    condition_lines.append(
+        f"工程名称：{_display(project.get('name'))}｜监测单位：{_display(project.get('monitoring_unit'))}｜"
+        f"安全等级：{_display(project.get('safety_level'))}｜"
+        f"开挖深度：{_display(project.get('excavation_depth_m'))}m"
+    )
+
+    # --- 第二节：简要分析及判断性结论 ---
+    by_level = summary.get("by_risk_level") or {}
+    overall = _display(summary.get("overall_risk_level"))
+    analysis = [
+        f"本期综合判定：{overall}。当日判定条目共 {_display(summary.get('total'))} 条。",
+        "风险分布：" + "；".join(f"{key}={value}" for key, value in by_level.items()),
+        "分析范围：" + ("正文来自冻结模型分析，独立审计结果见运行记录。" if narrative else "确定性模板，未调用报告 LLM。"),
+        "",
+        "按附表分项统计：",
+    ] + _form_analysis(items) + [""] + lines("analysis")
+    if narrative:
+        analysis += ["复核建议："] + lines("recommendations")
+    else:
+        analysis += ["请工程师对报警及以上项核验实测值、判据和现场工况；未知项应先补齐判定资料。"]
+    abs_codes = summary.get("abstain") or {}
+    if abs_codes:
+        analysis.append("弃权统计：" + "；".join(f"{code}: {count} 条" for code, count in abs_codes.items()))
+
+    # --- 第三节：待复核事项 ---
+    abstain_items = _review_items(report)
+    reviews = []
+    if abstain_items and abstain_items != ["无引擎弃权条目。"]:
+        reviews = ["以下测点需人工复核："] + abstain_items + [""]
+    reviews += list(report["review_gaps"]) + lines("limitations")
+    reviews.append("巡视记录未提供；未生成附表G，不得据此判定巡视正常。")
+    if sections["standard_override_warnings"]:
+        reviews += ["用户阈值宽松提示：以下差异必须由工程师逐项复核。"] + [
+            canonical_json(item) for item in sections["standard_override_warnings"]
+        ]
+    reviews += [
+        f"数据质量问题：{_display(sections['data_quality'].get('issue_count'))} 项；"
+        f"阻塞期次：{_display(sections['data_quality'].get('blocked_records'))}。"
+    ]
+
+    # --- 第四节：规范核对依据（RAG知识库检索）---
+    evidence = []
+    standard_evidence = sections["standard_evidence"]
+    ev_items = standard_evidence.get("items") or []
+    # 按 metadata.clause 聚合展示
+    for item in ev_items:
+        metadata = item.get("metadata") or {}
+        source = f"{metadata.get('standard_name', '')} {metadata.get('standard_version', '')} {metadata.get('clause', '')}".strip()
+        evidence.append(
+            f"《{source}》（Provider: {item.get('provider', '未提供')}）\n"
+            f"来源：{metadata.get('source_location', '')}\n"
+            f"原文：\n{item.get('text', '')}"
+        )
+    gaps = standard_evidence.get("gaps") or []
+    if gaps:
+        evidence += ["检索缺口："] + [str(g) for g in gaps]
+    if not evidence:
+        evidence = ["未附加本次 RAG 规范条文；不得补造规范性解释。"]
+    evidence += ["判定口径：累计量占比 正常<70% 报警值；需关注(黄) 70%~100%；报警(红) ≥100%。"]
+    evidence += ["数值与风险判据来自冻结确定性规范库；上述 RAG 为本次检索的条文候选，适用性由工程师复核。"]
+
+    # --- 第五节：签署 ---
+    signing = [
+        "监测人：＿＿＿＿　计算人：＿＿＿＿　校核人：＿＿＿＿",
+        "审核人：＿＿＿＿　项目负责人：＿＿＿＿",
+        "（均为人工填写）",
+        sections["disclaimer"],
+    ]
+    return [
+        ("一、工况描述", condition_lines),
+        ("二、简要分析及判断性结论", analysis),
+        ("三、待复核事项", reviews),
+        ("四、规范核对依据（RAG知识库检索）", evidence),
+        ("五、签署", signing),
+    ]
+
+
 def _appendix_form(metric_name: str) -> str | None:
     for form in DEFAULT_FORM_MAP.get("order", []):
         if any(
@@ -160,151 +373,6 @@ def _binding(
     }
 
 
-def _markdown(report: dict[str, Any]) -> str:
-    sections = report["sections"]
-    project = sections["project"]
-    summary = sections["summary"]
-    lines = [
-        f"# {_cell(project.get('name'))}监测日报（草稿）",
-        "",
-        "> 本报告由系统辅助生成，仅供工程师复核，不构成正式预警、审核或签发。",
-        "",
-        "## 工程概况",
-        "",
-        "| 工程名称 | 报告日期 | 监测单位 | 安全等级 | 开挖阶段 |",
-        "| --- | --- | --- | --- | --- |",
-        "| %s | %s | %s | %s | %s |"
-        % (
-            _cell(project.get("name")),
-            _cell(project.get("report_date")),
-            _cell(project.get("monitoring_unit")),
-            _cell(project.get("safety_level")),
-            _cell(project.get("excavation_stage")),
-        ),
-        "",
-        "## 结论概述",
-        "",
-        f"- 整体风险等级：{_cell(summary.get('overall_risk_level'))}",
-        f"- 判定条目数：{_cell(summary.get('total'))}",
-        f"- 风险分布：{_cell(canonical_json(summary.get('by_risk_level') or {}))}",
-        "",
-        "## 逐测点成果",
-        "",
-        "| 附表 | 测点 | 监测项 | 时间 | 本次值 | 本次变化 | 累计变化 | 变化速率 | 单位 | 风险等级 |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
-    ]
-    for item in sections["monitoring_results"]["items"]:
-        lines.append(
-            "| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |"
-            % (
-                _cell(item.get("appendix_form")),
-                _cell(item.get("point_id")),
-                _cell(item.get("metric_name")),
-                _cell(item.get("timestamp")),
-                _cell(item.get("current")),
-                _cell(item.get("single_change")),
-                _cell(item.get("cumulative")),
-                _cell(item.get("rate")),
-                _cell(item.get("unit")),
-                _cell(item.get("risk_level")),
-            )
-        )
-
-    lines += ["", "## 报警清单", ""]
-    alerts = sections["alerts"]["items"]
-    if alerts:
-        lines += [
-            "| 测点 | 监测项 | 风险等级 | 规则 ID |",
-            "| --- | --- | --- | --- |",
-        ]
-        for item in alerts:
-            lines.append(
-                "| %s | %s | %s | %s |"
-                % (
-                    _cell(item.get("point_id")),
-                    _cell(item.get("metric_name")),
-                    _cell(item.get("risk_level")),
-                    _cell(item.get("rule_id")),
-                )
-            )
-    else:
-        lines.append("- 本期无“报警”或“危险报警”条目。")
-
-    lines += ["", "## 待复核事项", ""]
-    reviews = sections["review_queue"]["items"]
-    if reviews:
-        for item in reviews:
-            reasons = item.get("abstain_reasons") or item.get("abstain") or ["信息不足"]
-            lines.append(
-                "- %s / %s：%s"
-                % (
-                    _cell(item.get("point_id")),
-                    _cell(item.get("metric_name")),
-                    _cell("；".join(str(reason) for reason in reasons)),
-                )
-            )
-    else:
-        lines.append("- 无引擎弃权条目。")
-    for gap in report["review_gaps"]:
-        lines.append(f"- {_cell(gap)}")
-    lines.append("- 巡视记录未提供；未生成附表G，不得据此判定巡视正常。")
-
-    lines += [
-        "",
-        "## 数据质量说明",
-        "",
-        f"- 问题数：{_cell(sections['data_quality'].get('issue_count'))}",
-        f"- 被阻塞期次数：{_cell(sections['data_quality'].get('blocked_records'))}",
-        f"- 问题分布：{_cell(canonical_json(sections['data_quality'].get('by_code') or {}))}",
-        "",
-        "## 来源与口径说明",
-        "",
-        "- 来源标记和日内聚合统计仅用于追溯，报告层未据此重算数值或改变风险等级。",
-        "",
-        "## 工况分析",
-        "",
-        _cell(sections["work_condition_analysis"].get("work_condition")),
-        "",
-        "## 规范证据",
-        "",
-    ]
-    evidence = sections["standard_evidence"]["items"]
-    if evidence:
-        for item in evidence:
-            metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
-            lines.append(
-                "- [%s] %s %s：%s"
-                % (
-                    _cell(item.get("id")),
-                    _cell(metadata.get("standard_version") or metadata.get("standard_name")),
-                    _cell(metadata.get("clause")),
-                    _cell(item.get("text")),
-                )
-            )
-    else:
-        lines.append("- 未附加在线规范证据；不得据此补造规范性解释。")
-
-    warnings = sections["standard_override_warnings"]
-    if warnings:
-        lines += ["", "## 用户规范宽松提示", ""]
-        lines.append(
-            f"- 检出 {len(warnings)} 项用户阈值宽松差异，须由工程师逐项复核。"
-        )
-
-    lines += [
-        "",
-        "## 签署",
-        "",
-        "编制：＿＿＿＿　　审核：＿＿＿＿　　签发：＿＿＿＿（均须人工填写）",
-        "",
-        "## 使用边界",
-        "",
-        _cell(sections["disclaimer"]),
-        "",
-    ]
-    return "\n".join(lines)
-
-
 def build_report(
     daily_report_input: dict[str, Any],
     evidence_payload: Any = None,
@@ -316,6 +384,15 @@ def build_report(
     analysis = _extract_analysis(analysis_payload)
     project = deepcopy(daily_report_input.get("project") or {})
     summary = deepcopy(daily_report_input.get("summary") or {})
+    forms = sorted({item["appendix_form"][-1] for item in items if item["appendix_form"]})
+    narrative, narrative_facts = _narrative(analysis_payload, daily_report_input, forms)
+    evidence_ids = {item["id"] for item in evidence}
+    if narrative:
+        paragraphs = [narrative["work_condition"]] + sum(
+            [narrative[field] for field in ("analysis", "recommendations", "limitations")], []
+        ) + [part for item in narrative["appendix_analysis"] for part in (item["analysis"], item["recommendation"])]
+        if any(eid not in evidence_ids for part in paragraphs for eid in part["evidence_ids"]):
+            raise ValueError("UNGROUNDED_CITATION：引用不存在的证据。")
     review_gaps: list[str] = []
 
     for field, label in (
@@ -366,7 +443,12 @@ def build_report(
             },
             "data_quality": deepcopy(daily_report_input.get("data_quality") or {}),
             "work_condition_analysis": analysis,
-            "standard_evidence": {"items": evidence},
+            "standard_evidence": {
+                "items": evidence,
+                "gaps": deepcopy(evidence_payload.get("gaps") or []) if isinstance(evidence_payload, dict) else [],
+            },
+            "narrative": narrative,
+            "narrative_facts": [{"path": path, "value": value} for path, value in narrative_facts.items()],
             "standard_override_warnings": deepcopy(
                 daily_report_input.get("standard_override_warnings") or []
             ),
@@ -375,7 +457,14 @@ def build_report(
         "review_gaps": review_gaps,
         "review_required": True,
     }
-    report["markdown"] = _markdown(report)
+    lines = [f"# {report['title']}", "", "> 系统辅助生成草稿，仅供工程师复核。", "",
+             f"工程名称：{_display(project.get('name'))}　报告日期：{_display(project.get('report_date'))}",
+             f"监测单位：{_display(project.get('monitoring_unit'))}　安全等级：{_display(project.get('safety_level'))}", ""]
+    for title, paragraphs in cover_blocks(report):
+        lines += [f"## {title}", ""]
+        for text in paragraphs:
+            lines += [text, ""]
+    report["markdown"] = "\n".join(lines)
 
     bindings = [
         _binding("fact-project", "sections.project", "project", project),
@@ -421,6 +510,12 @@ def build_report(
                     source_item.get(field),
                 )
             )
+
+    for index, (path, value) in enumerate(narrative_facts.items()):
+        # Text substitution is independently rebuilt; scalar bindings remain machine-auditable.
+        bindings.append(_binding(
+            f"narrative-fact-{index}", f"sections.narrative_facts.{index}.value", path, value
+        ))
 
     citations = [
         {

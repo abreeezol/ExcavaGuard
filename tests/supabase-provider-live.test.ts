@@ -203,7 +203,7 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
           excavation_depth_m: 20,
         },
         project: { name: "SIMULATED Supabase Provider 验收" },
-        options: { generate_report: true },
+        options: { generate_report: true, report_mode: "template" },
       }),
     }));
     expect(runResponse.status).toBe(200);

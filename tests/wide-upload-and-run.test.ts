@@ -126,7 +126,7 @@ describeWithExcel("最终混合宽表上传与分析", () => {
               excavation_depth_m: 20,
             },
             project: { name: "最终宽表验收" },
-            options: { generate_report: true },
+            options: { generate_report: true, report_mode: "template" },
           }),
         }),
       );
@@ -180,14 +180,13 @@ describeWithExcel("最终混合宽表上传与分析", () => {
 
       const crackItems = items.filter((item) => item.point_id === "LF-01");
       expect(new Set(crackItems.map((item) => item.metric_key))).toEqual(
-        new Set(["裂缝长度", "裂缝宽度"]),
+        new Set(["裂缝长度", "crack_width_surface"]),
       );
-      expect(crackItems.every((item) => item.risk_level === "未知")).toBe(true);
-      expect(
-        crackItems.every((item) =>
-          ((item.abstain as string[]) ?? []).includes("UNKNOWN_METRIC"),
-        ),
-      ).toBe(true);
+      const crackLength = crackItems.find((item) => item.metric_key === "裂缝长度");
+      const crackWidth = crackItems.find((item) => item.metric_key === "crack_width_surface");
+      expect(crackLength?.risk_level).toBe("未知");
+      expect(((crackLength?.abstain as string[]) ?? [])).toContain("UNKNOWN_METRIC");
+      expect(crackWidth?.risk_level).not.toBe("未知");
 
       const agentRun = run.agent_run as Json;
       const state = agentRun.state as Json;
@@ -226,8 +225,6 @@ describeWithExcel("最终混合宽表上传与分析", () => {
           "附表E_地下水位等监测日报表",
           "附表F_裂缝监测日报表",
           "超限测点清单",
-          "待复核事项",
-          "来源说明",
         ]),
       );
       expect(

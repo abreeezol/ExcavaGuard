@@ -133,7 +133,7 @@ describe("retrieve-standard-evidence runner", () => {
       retrieveStandardEvidence({ query: "测试" }, { retriever }),
     ).resolves.toMatchObject({
       status: "abstained",
-      code: "EVIDENCE_NOT_FOUND",
+      code: "EVIDENCE_UNAVAILABLE",
       message: "规范证据检索失败，不能形成规范性结论。",
       evidence: [],
     });

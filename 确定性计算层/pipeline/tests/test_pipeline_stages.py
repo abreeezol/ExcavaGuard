@@ -723,7 +723,7 @@ _length_last = next(
 )
 _width_last = next(
     r for r in _wide_norm
-    if r.point_id == "LF-01" and r.metric_key == "裂缝宽度" and r.timestamp.startswith("2026-10-06")
+    if r.point_id == "LF-01" and r.metric_key == "crack_width_surface" and r.timestamp.startswith("2026-10-06")
 )
 check("已有累计量使用语义零基准而非窗口首值",
       _deep_last.baseline_value == 0.0

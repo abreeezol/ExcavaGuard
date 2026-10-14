@@ -61,7 +61,10 @@ describe("角色与业务 Skill 契约", () => {
   });
 
   it("Supervisor 不直接计算，审计不修改源事实", () => {
-    expect(agentRegistry.supervisor.tools).toEqual([]);
+    expect(agentRegistry.supervisor.tools).toEqual(["retrieve-standard-evidence"]);
+    expect(agentRegistry.supervisor.tools).not.toContain("normalize-monitoring-data");
+    expect(agentRegistry.supervisor.tools).not.toContain("evaluate-thresholds");
+    expect(agentRegistry.supervisor.tools).not.toContain("render-daily-report");
     expect(agentRegistry.audit.tools).not.toContain("normalize-monitoring-data");
     expect(agentRegistry.audit.tools).not.toContain("evaluate-thresholds");
     expect(agentRegistry.audit.tools).not.toContain("render-daily-report");

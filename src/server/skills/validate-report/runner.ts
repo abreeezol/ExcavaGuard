@@ -99,7 +99,7 @@ export async function validateReport(
     .string()
     .trim()
     .min(1)
-    .parse(request.templateVersion ?? "deep-pit-monitoring-report/service-v2");
+    .parse(request.templateVersion ?? "deep-pit-monitoring-report/service-v3");
 
   if (!sameRef(draft.source_refs.engine, engineSnapshot.ref)) {
     throw new Error("报告草稿引用的引擎事实快照与审计输入不一致。");
@@ -125,7 +125,7 @@ export async function validateReport(
     artifact_bindings: draft.artifact_bindings,
     citations: draft.citations,
     standard_evidence:
-      evidenceSnapshot?.status === "ready"
+      evidenceSnapshot?.status === "ready" || evidenceSnapshot?.status === "insufficient"
         ? (evidenceSnapshot.artifact?.payload ?? null)
         : null,
     work_condition_analysis:
