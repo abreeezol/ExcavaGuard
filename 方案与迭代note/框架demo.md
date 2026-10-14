@@ -493,3 +493,74 @@ Web 界面需要同步展示 Agent 当前阶段、Skill 调用、证据 ID、退
 第五阶段完善 Web 工作台，集中展示对话、Agent 状态、Skill 调用、证据链、异常原因、日报预览和导出。
 
 第六阶段在 Web 主链路稳定后增加 WorkBuddy 专家、企业智能体或 MCP 适配，不将平台配置替代核心代码。
+
+## 十二、本地交付闭环设计（2026-10-14）
+
+本轮按 `spec.md` 实现，不改变 Python 判定或三 Agent 分工。新增
+`excavaguard.persisted_run/v1` 外层记录，包含请求、结果、执行状态、失败、修订号、
+操作者和关联运行 ID。Agent v1 中的 human_review 仍表示草稿复核，不代表签发。
+
+- 上传文件仍在 `var/uploads/`，新增项目绑定；历史无项目字段的文件仅归入固定默认
+  本地项目，切换配置不自动转移归属。上传索引的读改写使用文件锁和原子替换。
+- 运行写入 `var/runs/<run_id>/<revision>.json`，每次追加不可变修订；临时文件完成写入、
+  fsync 后以排他硬链接发布，文件号充当 compare-and-swap。并发旧修订返回 409，
+  损坏文件不按空记录处理。只保证单机文件系统，未提供数据库事务和异步 worker。
+- 输入在计算前保存；引擎结果和每次报告/审计状态转换后保存检查点，终止和异常也保存。
+  显式续跑复用冻结快照，不重算数值、不重置时间/调用/修订预算。活动任务有短期租约，
+  租约未到不能重复续跑；预算过期或计算尚未产出快照时需新建运行。
+- `GET /api/runs` 返回摘要；`GET /api/runs/:id` 返回请求与完整结果；
+  `POST /api/runs/:id/review` 接收 expected_revision、完整 draft_ref、decision、reason；
+  `POST /api/runs/:id/resume` 接收 expected_revision。
+- 接受只记录草稿复核；退回/拒绝停止自动流程并关闭下载。修正输入后可建立关联的新运行，
+  原运行与理由保留。人工决定追加 Supervisor 轨迹，不能修改源事实或审计结果。
+- 下载必须找到当前项目的持久化运行、当前通过审计的草稿和清单；读取前后检查文件大小和
+  SHA-256，任何不一致拒绝交付，不以 UUID 或路径格式代替访问授权。
+- 访问边界为单操作者单项目：开发期 loopback Host + 同源限制，启动绑定 localhost；
+  可选密码 + HMAC HttpOnly 会话，生产期必须配置。配置密码至少 12 字符、签名密钥至少
+  32 字符；项目 ID 由服务端配置返回。不存在 Supabase Auth 或多用户项目 ACL。
+- 工作台增加登录、默认报告开关、历史恢复、轨迹、下载、人工复核与关联重跑。互斥操作
+  防止上传、历史切换和复核期间对象改变；复核冲突提示刷新当前运行。
+
+Supabase 接入另行实现与验证：需要真实项目 URL、服务端凭证、私有 bucket、元数据表、
+用户身份与项目权限方案。当前文件存储不能称为 Supabase 数据库或正式工程归档。
+
+## 十三、Supabase 接入门禁（2026-10-14）
+
+Supabase 新式 API key 按运行位置分工：浏览器只使用
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`，服务端只使用 `SUPABASE_SECRET_KEY`。
+数据库密码只用于数据库管理或迁移，不是 API key，不进入应用运行环境。
+
+接入分为三个明确状态：
+
+1. `public_connected`：项目 URL 与 publishable key 可访问 Auth 配置，只证明公共客户端可达。
+2. `schema_ready`：数据库迁移已创建项目、成员、文件、运行修订、报告产物元数据和私有 bucket。
+3. `infrastructure_verified`：服务端 secret key 已验证元数据读写、对象上传/下载/删除与私有性。
+4. `provider_verified`：应用存储适配器通过上传、分析、持久化、下载和失败回滚回归；
+   之后才允许设置 `EXCAVAGUARD_STORAGE_PROVIDER=supabase`。
+
+迁移脚本必须幂等、默认启用 RLS，bucket 必须为 private。Storage 对象键使用
+`<project_id>/<kind>/<file_id>/<server-generated-name>`，不能使用用户原始文件名。
+服务端 secret key 会绕过 RLS，因此现有 API 的访问校验和项目绑定仍不可删除。
+
+连接检查不得输出 key、数据库密码或 Authorization 头。缺 secret key 时只报告
+`public_connected` 并列出下一步；表、bucket、私有性或读写任一未通过时保持 local Provider。
+已有 `var/` 数据迁移另设显式命令，默认不自动复制或删除本地资产。
+
+应用 Provider 实现保持现有 API 契约：
+
+- `monitoring-file-store` 按显式 Provider 分发。Supabase 对象路径只含项目 ID、类型、
+  file ID 和服务端固定文件名；对象与 `excavaguard_files` 元数据写入失败时执行补偿清理。
+- Python 引擎仍只接收本地路径。Supabase 对象由服务端下载到 `mkdtemp` 随机目录，
+  校验大小和 SHA-256 后使用，调用完成后递归清理；不把云端判定逻辑改写到 TypeScript。
+- `run-store` 把完整 `excavaguard.persisted_run/v1` 写入
+  `excavaguard_run_revisions.record`。写前读取 latest revision，插入时依赖
+  `(run_id, revision)` 主键解决竞争；唯一冲突统一返回 `RUN_CONFLICT`。
+- 报告仍在本地临时渲染并完成独立审计。审计通过后上传三个对象并写入
+  `excavaguard_report_artifacts`；云端确认后才完成运行。下载和接受从云端重新读取并核哈希。
+- local 与 supabase Provider 使用同一外部契约和测试集。真实云端纵向验收通过后才修改
+  `.env.local` 的显式 Provider；已有本地资产不自动复制或删除。
+
+2026-10-14 验收结论：上述应用 Provider 已实现，`npm run supabase:test` 使用明确
+`simulated` 数据完成双类型上传、Python 临时读取、运行 revision CAS、报告私有下载、
+人工接受和清理，`.env.local` 已显式切换为 `supabase`。Supabase Auth 与多用户 ACL
+仍未实现。

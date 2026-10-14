@@ -57,6 +57,7 @@ const PROJECT_ID = "11111111-1111-4111-8111-111111111111";
 
 // 存储根目录在调用时读取，模块作用域设置即可
 process.env.EXCAVAGUARD_UPLOAD_ROOT = UPLOAD_ROOT;
+process.env.EXCAVAGUARD_RUN_ROOT = join(UPLOAD_ROOT, "runs");
 
 const LEVEL_RANK: Record<string, number> = {
   正常: 0,
@@ -285,6 +286,36 @@ describeE2E("上传 → 分析 端到端", () => {
       ),
     );
     expect(response.status).toBe(404);
+  });
+
+  it("引擎拒绝非法数据时保留失败运行与请求，可从历史恢复", async () => {
+    const form = new FormData();
+    form.set("file", new File(["wrong_column\nbad\n"], "invalid.csv", { type: "text/csv" }));
+    const upload = await uploadMonitoringPOST(
+      new Request("http://localhost/api/monitoring-files", { method: "POST", body: form }),
+    );
+    const uploadBody = await upload.json() as Json;
+    // 上传成功但解析报告明确失败，分析必须拒绝。
+    expect(upload.status).toBe(201);
+    expect(uploadBody.read_report).toMatchObject({ ok: false });
+    const invalidId = String((uploadBody.file as Json).file_id);
+    const response = await runsPOST(jsonRequest("http://localhost/api/runs", runBody({ monitoring_file_id: invalidId })));
+    expect(response.status).toBe(422);
+    const { GET: historyGET } = await import("@/app/api/runs/route");
+    const history = await (await historyGET(new Request("http://localhost/api/runs"))).json() as { runs: Json[] };
+    const failed = history.runs.find((run) => run.execution_status === "failed");
+    expect(failed).toBeTruthy();
+    const { GET: detailGET } = await import("@/app/api/runs/[runId]/route");
+    const detail = await (await detailGET(
+      new Request(`http://localhost/api/runs/${failed!.run_id}`),
+      { params: Promise.resolve({ runId: String(failed!.run_id) }) },
+    )).json() as { record: Json };
+    expect(detail.record).toMatchObject({
+      execution_status: "failed",
+      request: { monitoring_file_id: invalidId },
+      error: { code: "MISSING_FIELD" },
+      result: null,
+    });
   });
 });
 

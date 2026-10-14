@@ -2,6 +2,7 @@ import "server-only";
 import type { ApiError, ApiErrorCode } from "@/contracts/api";
 import { EngineError, EngineUnavailableError } from "@/server/skills/python-bridge";
 import { StorageError } from "@/server/storage/monitoring-file-store";
+import { AppError } from "@/server/api/errors";
 
 /** 统一的 API 错误响应。所有响应都不缓存。 */
 export function apiError(
@@ -44,6 +45,9 @@ const STORAGE_STATUS: Record<StorageError["code"], number> = {
  * 引擎错误码原样放进 `engine_code`，便于排查，且**不含任何密钥或文件内容**。
  */
 export function apiErrorFromException(error: unknown): Response {
+  if (error instanceof AppError) {
+    return apiError(error.status, error.code, error.message);
+  }
   if (error instanceof StorageError) {
     return apiError(STORAGE_STATUS[error.code], error.code, error.message);
   }

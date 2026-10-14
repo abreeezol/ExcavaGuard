@@ -43,6 +43,7 @@ const EXCEL_PYTHON = await (async () => {
 const describeWithExcel = EXCEL_PYTHON ? describe : describe.skip;
 const uploadRoot = mkdtempSync(join(tmpdir(), "excavaguard-wide-e2e-"));
 process.env.EXCAVAGUARD_UPLOAD_ROOT = uploadRoot;
+process.env.EXCAVAGUARD_RUN_ROOT = join(uploadRoot, "runs");
 
 type Json = Record<string, unknown>;
 
@@ -116,7 +117,7 @@ describeWithExcel("最终混合宽表上传与分析", () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            project_id: "22222222-2222-4222-8222-222222222222",
+            project_id: "11111111-1111-4111-8111-111111111111",
             monitoring_file_id: fileId,
             report_date: "2026-10-08",
             context: {
@@ -132,6 +133,16 @@ describeWithExcel("最终混合宽表上传与分析", () => {
       expect(runResponse.status).toBe(200);
 
       const run = (await runResponse.json()) as Json;
+      const { GET: detailGET } = await import("@/app/api/runs/[runId]/route");
+      const restoredResponse = await detailGET(
+        new Request(`http://localhost/api/runs/${run.run_id}`),
+        { params: Promise.resolve({ runId: String(run.run_id) }) },
+      );
+      expect(restoredResponse.status).toBe(200);
+      const restored = await restoredResponse.json() as Json;
+      expect(restored.payload).toEqual(run.payload);
+      expect(restored.agent_run).toEqual(run.agent_run);
+      expect(restored.record).toMatchObject({ execution_status: "completed", revision: 6 });
       expect(run.engine).toMatchObject({
         records: 340,
         source_records: 85_680,
@@ -256,6 +267,24 @@ describeWithExcel("最终混合宽表上传与分析", () => {
         },
       );
       expect(traversalResponse.status).toBe(400);
+
+      const { POST: reviewPOST } = await import("@/app/api/runs/[runId]/review/route");
+      const reviewResponse = await reviewPOST(new Request(
+        `http://localhost/api/runs/${run.run_id}/review`,
+        {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            expected_revision: (restored.record as Json).revision,
+            draft_ref: reportDraft.ref,
+            decision: "accepted",
+            reason: "自动化验收样例：仅验证复核记录，不代表真实工程签发。",
+          }),
+        },
+      ), { params: Promise.resolve({ runId: String(run.run_id) }) });
+      expect(reviewResponse.status).toBe(200);
+      const reviewed = await reviewResponse.json() as Json;
+      expect((reviewed.record as Json).review).toMatchObject({ decision: "accepted" });
+      expect(reviewed.payload).toEqual(run.payload);
     },
     45_000,
   );

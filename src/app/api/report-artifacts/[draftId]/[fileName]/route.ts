@@ -1,7 +1,8 @@
-import { readFile } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
 import { z } from "zod";
-import { apiError } from "@/server/api/respond";
+import { apiError, apiErrorFromException } from "@/server/api/respond";
+import { requireAccess } from "@/server/access";
+import { readRunByDraftId } from "@/server/storage/run-store";
+import { readReportFile } from "@/server/storage/report-files";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ const paramsSchema = z.strictObject({
 });
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ draftId: string; fileName: string }> },
 ) {
   const parsed = paramsSchema.safeParse(await context.params);
@@ -25,42 +26,32 @@ export async function GET(
     return apiError(400, "INVALID_REQUEST", "报告产物路径不合法。");
   }
 
-  const root = resolve(process.cwd(), "var", "report-artifacts");
-  const draftRoot = resolve(root, parsed.data.draftId);
-  const filePath = resolve(draftRoot, parsed.data.fileName);
-  const draftRelative = relative(root, draftRoot);
-  const fileRelative = relative(draftRoot, filePath);
-  if (
-    draftRelative.startsWith("..") ||
-    isAbsolute(draftRelative) ||
-    fileRelative.startsWith("..") ||
-    isAbsolute(fileRelative)
-  ) {
-    return apiError(400, "INVALID_REQUEST", "报告产物路径越界。");
-  }
-
-  let content: Buffer;
   try {
-    content = await readFile(filePath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
-      return apiError(404, "FILE_NOT_FOUND", "报告产物不存在或已清理。");
-    }
-    return apiError(500, "STORAGE_ERROR", "读取报告产物失败。");
-  }
+    const access = requireAccess(request);
+    const record = await readRunByDraftId(parsed.data.draftId, access);
+    const allowed = record &&
+      record.execution_status === "completed" &&
+      record.result?.agent_run?.state.report_draft?.ref.artifact_id === parsed.data.draftId &&
+      record.result.agent_run.state.audit_result?.valid === true &&
+      record.result.agent_run.state.run.status === "awaiting_human_review" &&
+      record.review?.decision !== "needs_changes" && record.review?.decision !== "rejected";
+    const artifact = allowed ? record.result?.agent_run?.state.report_draft?.artifacts
+      .find((item) => item.file_name === parsed.data.fileName) : undefined;
+    if (!artifact) return apiError(404, "FILE_NOT_FOUND", "未找到可下载的当前已审计草稿。");
+    const content = await readReportFile(artifact);
 
-  const mediaType = parsed.data.fileName.endsWith(".xlsx")
-    ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    : "text/markdown; charset=utf-8";
-  return new Response(new Uint8Array(content), {
-    status: 200,
-    headers: {
-      "Cache-Control": "no-store",
-      "Content-Type": mediaType,
-      "Content-Length": String(content.byteLength),
-      "Content-Disposition":
-        `attachment; filename*=UTF-8''${encodeURIComponent(parsed.data.fileName)}`,
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+    return new Response(new Uint8Array(content), {
+      status: 200,
+      headers: {
+        "Cache-Control": "no-store",
+        "Content-Type": artifact.media_type,
+        "Content-Length": String(content.byteLength),
+        "Content-Disposition":
+          `attachment; filename*=UTF-8''${encodeURIComponent(parsed.data.fileName)}`,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    return apiErrorFromException(error);
+  }
 }

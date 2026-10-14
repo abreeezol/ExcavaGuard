@@ -65,11 +65,10 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
 
 ### Web 入口层（2026-10-10 接通）
 
-- **存储**：`src/server/storage/monitoring-file-store.ts`，本地文件系统实现，
-  根目录 `<仓库>/var/uploads`（已 gitignore）。落盘名**一律由 `file_id` 生成**，不用用户文件名；
-  用户规范放**独立目录**（`standard/<file_id>/standard.json`），保证判定只加载"本次那一份"。
-  扩展名白名单 + 20 MB 上限 + SHA-256 指纹。
-  **Supabase provider 明确不实现**（缺 bucket 与元数据表，无法验证，不提供空壳）。
+- **存储**：`src/server/storage/` 已实现 local / Supabase 双 Provider；
+  `.env.local` 当前显式使用 Supabase。对象路径**一律由 project_id / kind / file_id /
+  服务端固定名生成**，不用用户文件名；扩展名白名单 + 20 MB 上限 + SHA-256 指纹。
+  Python 使用随机临时目录读取云端文件并在调用后清理。
 - **引擎桥接**：`src/server/skills/python-bridge.ts` —— Node 子进程调用
   `skills/*/scripts/*.py`（stdin/stdout JSON）。**判定逻辑不重写为 TypeScript**。
   桥接脚本：`parse-monitoring-data/scripts/inspect_file.py`、
@@ -84,7 +83,17 @@ ExcavaGuard 面向基坑监测工程师，将当日监测数据和施工工况�
   右栏展示总览 / 风险分布 / 宽松告警 / 报警清单 / 待复核 / 逐测点明细 / 原始载荷。
   **页面不做任何判定**，只展示引擎结果。操作手册见
   `方案与迭代note/11_可视化测试指引.md`。
-- **未做**：鉴权、项目归属校验、运行记录持久化（`run_id` 仅本次请求追溯）、部署与 CI。
+- **本地交付闭环（2026-10-14）**：输入、冻结结果、逐步检查点、失败和人工决定
+  落在 `var/runs/<run_id>/<revision>.json`；原子追加修订和并发版本校验
+  防止覆盖。历史/详情/复核/显式续跑 API 与工作台已接通。
+- **访问边界**：单操作者单项目；开发期绑定 localhost 并拒绝跨站请求，
+  可选密码 HttpOnly 会话，生产缺访问配置则拒绝业务接口。文件和运行绑定项目，
+  下载核对当前通过审计的草稿及文件指纹。没有 Supabase Auth 或多用户项目 ACL。
+- **Supabase 接入准备（2026-10-14）**：项目 URL + publishable key 公共连接验证成功；
+  改用 `sb_secret_...` 服务端配置契约，已提供五张元数据表、RLS、私有 bucket 幂等迁移
+  和脱敏连接/写探针工具。服务端 secret、五张表、RLS、private bucket 与真实数据库/
+  对象写入下载清理探针均已验证；应用 Provider 纵向回归已通过并切至 Supabase。
+- **未做**：云端存储、多用户身份与权限、自动异步恢复、正式工程归档、部署与 CI。
 - **报告/审计与同步 Agent 主链**：canonical 报告适配器只消费冻结日报载荷与稳定
   证据 ID，生成结构化草稿、Excel + 两份 Markdown、事实/单元格绑定和文件哈希；
   独立审计重新读取三件套并核对事实、引用、章节与责任措辞。同步执行器根据 Supervisor
@@ -159,10 +168,11 @@ Supervisor 是唯一总控角色。报告交付与审计 Agent 不能绕过 Supe
 ExcavaGuard/
 ├── AGENTS.md
 ├── memory.md
-├── src/                              Next.js 16 全栈工程（含 /workbench 与 6 个 API 路由）
-├── tests/                            Vitest 88 项通过（另 3 项 local-RAG live 默认跳过）
+├── src/                              Next.js 16 全栈工程（含 /workbench 与运行/复核 API）
+├── tests/                            Vitest 105 项通过（另 4 项 live 默认跳过）
 ├── var/
 │   ├── uploads/                      上传文件存储（gitignore）
+│   ├── runs/                         运行、检查点和人工复核修订（gitignore）
 │   └── report-artifacts/             日报三件套运行产物（gitignore）
 ├── 确定性计算层/                      三阶段引擎（242 项回归测试）
 ├── 数据资产/                          仅本地：模拟数据快照 + 原始数据备份（已 gitignore）
@@ -232,17 +242,19 @@ ExcavaGuard/
 
 待推进（**按优先级**）：
 
-1. **鉴权与持久化**：上传与分析接口的用户鉴权、项目归属校验、运行记录落库；
-   上传文件的 Supabase/对象存储适配器（当前仅本地文件系统）。
-2. **工程师确认入口**：持久化 `awaiting_human_review` 状态，支持接受、退回、拒绝与
-   审计通过产物归档；不得自动签发。
-3. **规范证据主链接线**：在 Supervisor/API 中按风险项可选调用
+1. **云端身份**：Supabase 上传、运行和报告 Provider 已实现；后续补 Supabase Auth
+   和多用户项目成员权限。当前仍使用单操作者单项目访问边界。
+2. **既有本地资产迁移**：`var/` 中已有本地测试历史保留，尚未显式复制到云端；
+   不自动删除。
+3. **正式归档与异步编排**：工程师接受/退回/拒绝已实现；后续建设正式归档、
+   异步 worker 和自动恢复，不得自动签发。
+4. **规范证据主链接线**：在 Supervisor/API 中按风险项可选调用
    `retrieve-standard-evidence` 并评测正式报告引用准确率。
-4. **其余两个 Skill 实体化**：`retrieve-similar-cases` / `analyze-work-condition`。
-5. **P2-1 温度补偿**：轴力类判据可能混入温度效应（已接入 `soil_temperature` 数据）。
-6. **P1-3 工程条件交互补全**：缺什么提示补什么（目前页面已给出提示，但未做逐项引导）。
-7. 部署与 CI。
-8. 案例知识库（脱敏后）—— 可选，须先确认授权。
+5. **其余两个 Skill 实体化**：`retrieve-similar-cases` / `analyze-work-condition`。
+6. **P2-1 温度补偿**：轴力类判据可能混入温度效应（已接入 `soil_temperature` 数据）。
+7. **P1-3 工程条件交互补全**：缺什么提示补什么（目前页面已给出提示，但未做逐项引导）。
+8. 部署与 CI。
+9. 案例知识库（脱敏后）—— 可选，须先确认授权。
 
 ## 记忆维护规则
 
@@ -254,6 +266,55 @@ ExcavaGuard/
 - 不写入密码、Token、个人身份信息、未经脱敏的工程数据或大段运行日志。
 
 ## 决策记录
+
+### 2026-10-14 · Supabase 公共连接与基础设施准备
+
+- 用户已在 `.env.local` 配置项目 URL 和 publishable key；`npm run supabase:check`
+  实测为 `public_connected`，只证明公共客户端可达。
+- 按 Supabase 新式 key 口径，浏览器使用 `sb_publishable_...`，服务端改用
+  `SUPABASE_SECRET_KEY=sb_secret_...`；数据库密码不进入应用配置。对话中出现过的旧
+  数据库密码应在 Dashboard 轮换，轮换值不得写入记忆或仓库。
+- `supabase/migrations/202610140001_excavaguard_storage.sql` 已准备项目、成员、
+  文件、运行修订、报告产物五张表，RLS 默认只读及私有 `excavaguard-private` bucket。
+- `npm run supabase:check` 只读检查，`npm run supabase:verify` 使用随机项目和对象
+  完成真实上传/下载/删除并清理；两者都不回显 key。
+- 后续用户已正确配置 `SUPABASE_SECRET_KEY`；私有 `excavaguard-private` bucket 已通过
+  Storage 管理 API 创建并验证。真实写探针定位到五张元数据表尚未进入 Data API schema；
+  修复检查器以真实 GET 代替会对缺表产生假阳性的 HEAD 检查。
+- 用户随后在 SQL Editor 执行完整迁移，界面返回 `Success. No rows returned`；
+  `npm run supabase:verify` 实测 `infrastructure_verified`，五张表与私有 bucket 全部通过，
+  随机数据库记录和私有对象完成写入、下载、publishable key 拒绝及清理，错误和残留均为 0。
+- Supabase 应用 Provider 随后完成：监测数据与用户规范进入私有 Storage 和文件元数据表；
+  Python 子进程使用验哈希临时文件；运行状态进入不可变 revision 表并以主键实现 CAS；
+  审计通过后三件套进入私有 bucket，下载与接受从云端重新验哈希。
+- `.env.local` 已显式设置 `EXCAVAGUARD_STORAGE_PROVIDER=supabase`。真实 simulated
+  纵向验收覆盖双类型上传、分析、并发 revision、报告下载、人工接受、对象篡改阻断
+  及清理，1/1 通过；
+  初次验收定位并修复 Supabase `+00:00` 时间格式边界和缺表 HEAD 假阳性。
+- 基础设施验证不等于应用 Provider 已实现。Provider 完成上传、Python 临时读取、
+  运行并发修订、三件套下载、失败清理回归前，storage provider 必须保持 local。
+
+### 2026-10-14 · 本地日报交付闭环
+
+- 保留 Next.js + Python 技术栈，不引入新生产依赖；确定性引擎与规范资产不变。
+- 运行输入在计算前保存，冻结结果和 Agent 报告/审计转换后保存完整检查点；
+  失败保存真实错误码。每次写入不可变修订，旧修订提交返回 409。
+- 工作台默认显式开启报告链，API 默认仍只分析。历史可恢复结果与原输入；
+  人工决定绑定记录修订号和完整草稿引用，接受只表示草稿复核。退回/拒绝关闭下载，
+  修正输入后建立关联新运行，旧报告和理由保留。
+- Supervisor 路由进入轨迹；能力调用保存实际起止时间。原预算内支持显式续跑，
+  无检查点、活动任务或预算到期时需新建关联运行；没有异步 worker 或自动恢复。
+- 单操作者密码会话和单项目隔离已实现，生产未配置时拒绝业务 API；
+  历史无归属上传只绑定固定默认项目，切换配置不转移文件。
+- 上传索引原子替换并使用文件锁；运行用完整临时文件与排他发布防并发覆盖。
+  索引或运行损坏必须明确报错，不退回旧成功状态或静默按空处理。
+- 下载绑定当前项目持久化审计结果，并重新验证大小和 SHA-256；
+  当时 Supabase Provider、多用户 ACL、正式工程签发归档仍待实现；同日后续 Provider
+  已接通，见上方 Supabase 决策记录。
+- 验收：`npm run check` 105 项通过，3 项 local-RAG live 默认跳过；
+  `npm run build` 13 条路由生成，部署依赖清单含运行/环境/临时文件数为 0；
+  真实 85 通道宽表完成落盘恢复和接受；浏览器验证刷新恢复、退回关闭下载、
+  修正输入后的关联重跑、三 Agent 轨迹、Excel 下载和接受草稿。
 
 ### 2026-10-14 · 日报三件套与三 Agent 同步主链接通
 
@@ -267,7 +328,8 @@ ExcavaGuard/
 - `src/server/agents/executor.ts` 已按 Supervisor 动作串联报告与审计，报告责任问题最多
   自动重渲染两轮，审计通过后停在 `awaiting_human_review`。
 - `POST /api/runs` 默认仍只返回冻结载荷；显式 `options.generate_report=true` 时执行
-  同步三 Agent 链并在审计通过后返回三件套下载地址。运行状态仍不落库。
+  同步三 Agent 链并在审计通过后返回三件套下载地址。当时运行状态尚不落盘，
+  同日后续已完成本地持久化与复核闭环，见上方决策。
 - 最终 85 通道宽表已完成真实纵向验收：A～F 六类附表全部生成，G 省略，文件审计通过，
   下载端点可读取 Excel，路径穿越被拒绝。
 - 当前“独立审计”是确定性一致性与责任边界审计，不等于独立 LLM 语义审计，也不能证明

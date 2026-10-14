@@ -8,8 +8,8 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 
 ## 当前阶段
 
-项目处于「**确定性计算层、Web 入口、日报三件套与同步三 Agent 主链已接通，
-持久化和人工确认产品化待建设**」的阶段。
+项目处于「**确定性计算层、日报三件套、三 Agent 主链与 Supabase 云端交付闭环已接通，
+多用户权限与正式归档待建设**」的阶段。
 
 ### 已实现（截至 2026-10-14）
 
@@ -33,7 +33,8 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   每日末值历史与日内统计，并透传时间对齐、重采样、插值和末值保持限制；
 - 日报模块接口契约 `contracts/daily_report_input.schema.json`（`excavaguard.daily_report_input/v1`）
   + 校验工具 `tools/validate_daily_report_input.py`；
-- **用户数据上传通道（⑤）**：存储层 `src/server/storage/`（本地文件系统，落盘名由 `file_id` 生成）、
+- **用户数据上传通道（⑤）**：存储层 `src/server/storage/`（local / Supabase 双 Provider，
+  对象名由 `file_id` 生成）、
   `POST /api/monitoring-files`（含上传即解析报告）、`POST /api/standards`（**上传即校验严格程度**）、
   `POST /api/runs`（真实三阶段分析）、`GET /api/monitoring-files/sample`（示例数据）；
 - **Node → Python 引擎桥接**：`src/server/skills/python-bridge.ts` + `skills/*/scripts/*.py`
@@ -71,24 +72,39 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   两轮；`POST /api/runs` 通过显式 `options.generate_report=true` 开启，
   审计通过后提供三件套只读下载地址。默认行为仍只返回确定性载荷；
 - 引擎回归测试 **242 项全部通过**（`python -B pipeline/tests/test_pipeline_stages.py`）；
-- 全栈检查 `npm run check` **88 项通过**（另有 3 项 local-RAG live 测试默认跳过；
-  含 7 项上传/纵向端到端 + 13 项 Agent Runtime/Executor + 6 项报告/审计 Skill），
-  `npm run build` 9 条路由全部生成。
+- **版本化交付闭环**：运行输入、冻结结果、逐步骤检查点、失败、人工接受/退回/拒绝
+  按不可变 revision 保存，支持并发版本校验；
+  `/workbench` 默认开启报告链，可查看历史、恢复输入、展示三 Agent 轨迹、下载三件套、
+  提交复核并建立关联重跑。人工接受只表示草稿复核，不代表正式签发；
+- **单操作者访问边界**：开发期绑定 localhost 且拒绝跨站请求，可选密码 HttpOnly 会话；
+  生产期缺访问配置时拒绝业务接口。文件和运行绑定服务端配置的单项目；
+  下载核验当前持久化审计清单与文件 SHA-256。未实现 Supabase Auth 或多用户 ACL；
+- **Supabase 应用 Provider**：项目 URL + publishable / secret key、迁移与私有 bucket 已验证；
+  新式 `sb_secret_...` 配置契约、五张元数据表 + RLS + 私有 bucket 幂等迁移及无密钥
+  回显的检查/写探针工具已准备；监测文件/用户规范上传、Python 安全临时物化、运行 revision
+  CAS、审计后三件套上传、云端哈希下载与人工复核已接通，`.env.local` 已显式切至 supabase；
+- 全栈检查 `npm run check` **105 项通过**（另有 3 项 local-RAG + 1 项 Supabase live
+  测试默认跳过；
+  含 8 项上传/纵向端到端 + 15 项 Agent Runtime/Executor + 12 项持久化/访问边界
+  + 10 项服务配置 + 6 项报告/审计 Skill），`npm run build` 13 条路由生成；
+  运行目录、环境文件和临时验收文件已从部署依赖追踪中排除。
+- `npm run supabase:test` **1 项真实纵向验收通过**：simulated 监测数据 + 用户规范上传、
+  确定性分析、并发 revision 冲突、三件套私有下载、人工接受、对象篡改阻断和云端清理。
 
 ### 尚未实现
 
-- **编排状态持久化尚未实现**：同步纵向回环已接通，但共享状态仍只存在于本次请求，
-  不能恢复、异步续跑或跨请求提交工程师决定；
-- **鉴权与持久化**：上传与分析接口无用户鉴权、无项目归属校验；运行记录不落库
-  （`run_id` 仅用于本次请求追溯）；上传文件用**本地文件系统**存储，Supabase 适配器未实现
-  （缺 bucket 与元数据表，无法验证，故不提供空壳）；
+- **异步编排**：已有文件检查点和原预算内显式续跑，无异步 worker 或自动恢复；
+  计算未产出快照、活动任务或预算到期时需要加载输入新建关联运行；
+- **云端身份**：当前仍是单操作者单项目访问边界；Supabase Auth、多用户项目成员权限
+  尚未实现。服务端 secret 绕过 RLS，因此现有 API 访问校验不可删除；
+- **既有本地资产迁移**：Provider 切换只影响新写入；`var/` 中已有本地测试历史保留，
+  尚未自动复制或删除；
 - 八个业务 Skill 中仍有两个只有 `SKILL.md` 契约：
   `retrieve-similar-cases` / `analyze-work-condition`。
   已实现的六个是 `parse-monitoring-data`、`normalize-monitoring-data`、`evaluate-thresholds`、
   `retrieve-standard-evidence`、`render-daily-report` 与 `validate-report`；
 - **温度补偿**未实现，轴力类判据可能混入温度效应（P2-1）；
-- **日报交付产品化**：三件套、执行器、API 和下载已接通；尚缺运行持久化、
-  用户鉴权、项目归属、工程师确认入口与正式归档；
+- **正式工程归档**：本地复核和三件套下载已接通，尚无正式签发与工程档案系统；
 - 部署与 CI；
 - **RAG 剩余接线**：本地/在线 Provider 与 Skill 已通过独立检索验收，但 Supervisor/API
   和前端尚未串联 `retrieve-standard-evidence`，正式报告场景引用准确率也未评测。
@@ -152,13 +168,14 @@ ExcavaGuard/
 │   │       ├── monitoring-files/route.ts  GET 列表 / POST 上传监测数据
 │   │       ├── monitoring-files/sample/   示例数据 CSV
 │   │       ├── standards/route.ts         GET 列表 / POST 上传用户规范（含严格度校验）
-│   │       ├── runs/route.ts              POST 三阶段；可选同步报告/审计
+│   │       ├── runs/                      创建/历史/详情/复核/显式续跑
+│   │       ├── session/                   单操作者密码会话
 │   │       └── report-artifacts/          审计通过的三件套只读下载
 │   ├── components/                        服务端界面组件
 │   ├── contracts/                         Zod 请求契约（含 monitoring-files.ts）
 │   └── server/
 │       ├── api/respond.ts                 统一错误响应与异常映射
-│       ├── storage/                       上传文件存储（本地文件系统）
+│       ├── storage/                       local / Supabase 文件、运行和报告 Provider
 │       ├── skills/python-bridge.ts        Node → Python 子进程桥接
 │       ├── skills/{parse-monitoring-data,evaluate-thresholds}/runner.ts
 │       ├── skills/retrieve-standard-evidence/runner.ts
@@ -166,12 +183,13 @@ ExcavaGuard/
 │       ├── agents/                        三 Agent 注册 + Supervisor + 同步执行器
 │       ├── evidence/                      规范证据检索（双 Provider 适配器）
 │       └── config.ts / integrations/      环境配置与外部客户端
-├── tests/                                 Vitest（88 项通过，3 项 local-RAG live 默认跳过）
+├── tests/                                 Vitest（105 项通过，4 项 live 默认跳过）
 ├── package.json / tsconfig.json / next.config.ts / vitest.config.ts / eslint.config.mjs
 ├── .env.example / .nvmrc / .gitignore
 ├── README.md / 项目介绍.html
 ├── var/
 │   ├── uploads/                           上传文件存储（已 gitignore）
+│   ├── runs/                              运行和复核不可变修订（已 gitignore）
 │   └── report-artifacts/                  日报三件套运行产物（已 gitignore）
 ├── 确定性计算层/                    ← 已实现：三阶段确定性流程
 │   ├── 01_数据清单与可用性评估.md
@@ -409,9 +427,11 @@ node tools/bridge-smoke/run_judgement.mjs                                       
 
 # --- Web 全栈 ---
 npm ci
-npm run check                                                                   # 88 项通过，3 项 local-RAG live 默认跳过
-npm run build                                                                   # 9 条路由
+npm run check                                                                   # 105 项通过，4 项 live 默认跳过
+npm run build                                                                   # 13 条路由；运行数据不打包
 npm run dev                                                                     # http://localhost:3000/workbench
+npm run supabase:verify                                                         # 基础设施真实写探针
+npm run supabase:test                                                           # 应用 Provider 真实纵向验收
 
 # --- 在线 RAG 导入准备（只读源资产，不访问云端）---
 npm run rag:prepare                                                             # 7,180 条已复核候选

@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import {
+  agentRunStateSchema,
   supervisorActionSchema,
   type AgentCapabilities,
   type AgentRunState,
@@ -44,12 +45,14 @@ type ExecuteAgentRunInput = {
   timeoutMs?: number;
   maxRevisionRounds?: number;
   templateVersion?: string;
+  initialState?: AgentRunState;
 };
 
 type ExecutorDependencies = {
   render?: typeof renderDailyReport;
   validate?: typeof validateReport;
   now?: () => Date;
+  checkpoint?: (execution: AgentRunExecutionResult) => Promise<void>;
 };
 
 export type AgentRunExecutionResult = {
@@ -130,6 +133,14 @@ function capabilityFailureAction(
   });
 }
 
+function recordTiming(state: AgentRunState, startedAt: string): AgentRunState {
+  return agentRunStateSchema.parse({
+    ...state,
+    trace: state.trace.map((event, index) =>
+      index === state.trace.length - 1 ? { ...event, started_at: startedAt } : event),
+  });
+}
+
 export async function executeAgentRun(
   input: ExecuteAgentRunInput,
   dependencies: ExecutorDependencies = {},
@@ -148,7 +159,7 @@ export async function executeAgentRun(
     throw new Error("Agent 执行器的创建时间或超时预算不合法。");
   }
 
-  let state = createAgentRunState({
+  let state = input.initialState ? agentRunStateSchema.parse(input.initialState) : createAgentRunState({
     runId: input.runId ?? randomUUID(),
     createdAt,
     deadlineAt: new Date(createdAtMs + timeoutMs).toISOString(),
@@ -159,10 +170,32 @@ export async function executeAgentRun(
     evidenceSnapshot: input.evidenceSnapshot ?? null,
     analysisSnapshot: input.analysisSnapshot ?? null,
   });
+  if (state.human_review.decision !== null) {
+    throw new Error("已提交人工决定的运行不可继续自动执行。");
+  }
+  const checkpoint = async (steps: number, terminalAction?: SupervisorAction) => {
+    await dependencies.checkpoint?.({
+      state,
+      terminalAction: terminalAction ?? decideNextAction(state, CAPABILITIES, now().toISOString()),
+      steps,
+    });
+  };
+  await checkpoint(1);
 
   for (let steps = 1; steps <= DEFAULT_MAX_EXECUTION_STEPS; steps += 1) {
     const at = now().toISOString();
     const action = decideNextAction(state, CAPABILITIES, at);
+    state = agentRunStateSchema.parse({
+      ...state,
+      trace: [...state.trace, {
+        event_id: randomUUID(), agent: "supervisor", capability: "route-agent",
+        status: action.type === "wait_for_capability" ? "abstained" : "success",
+        input_versions: { engine: `${state.engine_snapshot.ref.artifact_id}@${state.engine_snapshot.ref.version}` },
+        output_versions: { action: action.type, agent: action.agent },
+        rule_ids: [action.reason_code], evidence_ids: state.evidence_snapshot?.evidence_ids ?? [],
+        error: null, return_reason: action.details, started_at: at, finished_at: at,
+      }],
+    });
 
     if (action.type === "render_report" || action.type === "revise_report") {
       try {
@@ -175,6 +208,7 @@ export async function executeAgentRun(
           version,
         });
         state = recordReportDraft(state, draft, now().toISOString());
+        state = recordTiming(state, at);
       } catch (error) {
         const details = errorDetails(error);
         state = recordCapabilityFailure(state, {
@@ -183,12 +217,12 @@ export async function executeAgentRun(
           ...details,
           at: now().toISOString(),
         });
-        return {
-          state,
-          terminalAction: capabilityFailureAction(action, error),
-          steps,
-        };
+        state = recordTiming(state, at);
+        const terminalAction = capabilityFailureAction(action, error);
+        await checkpoint(steps, terminalAction);
+        return { state, terminalAction, steps };
       }
+      await checkpoint(steps);
       continue;
     }
 
@@ -206,6 +240,7 @@ export async function executeAgentRun(
           version: state.report_draft.ref.version,
         });
         state = recordAuditResult(state, audit, now().toISOString());
+        state = recordTiming(state, at);
       } catch (error) {
         const details = errorDetails(error);
         state = recordCapabilityFailure(state, {
@@ -214,12 +249,12 @@ export async function executeAgentRun(
           ...details,
           at: now().toISOString(),
         });
-        return {
-          state,
-          terminalAction: capabilityFailureAction(action, error),
-          steps,
-        };
+        state = recordTiming(state, at);
+        const terminalAction = capabilityFailureAction(action, error);
+        await checkpoint(steps, terminalAction);
+        return { state, terminalAction, steps };
       }
+      await checkpoint(steps);
       continue;
     }
 

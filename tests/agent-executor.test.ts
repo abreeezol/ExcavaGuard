@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type {
+  AgentRunState,
   ArtifactEnvelope,
   AuditResult,
   ReportDraft,
@@ -183,5 +184,47 @@ describe("三 Agent 同步执行器", () => {
       type: "wait_for_capability",
       reason_code: "CAPABILITY_UNAVAILABLE",
     });
+  });
+
+  it("从报告检查点只继续审计，且存储故障不被误判为报告能力异常", async () => {
+    let checkpoint: AgentRunState | null = null;
+    await expect(executeAgentRun({
+      enginePayload: { schema: "excavaguard.daily_report_input/v1" }, createdAt: NOW,
+    }, {
+      now: () => new Date(NOW),
+      render: async (input) => ({ draft: draftFor(input), trace: {} }),
+      checkpoint: async ({ state }) => {
+        checkpoint = state;
+        if (state.report_draft) throw new Error("store interrupted");
+      },
+    })).rejects.toThrow("store interrupted");
+    expect(checkpoint!.run.status).toBe("draft_ready");
+    expect(checkpoint!.trace.every((event) => event.status !== "failed")).toBe(true);
+    const resumed = await executeAgentRun({
+      enginePayload: null, initialState: checkpoint!,
+    }, {
+      now: () => new Date(NOW),
+      render: async () => { throw new Error("must not render again"); },
+      validate: async ({ draft }) => ({ audit: auditFor(draft, true), trace: {} }),
+    });
+    expect(resumed.state.run.status).toBe("awaiting_human_review");
+    expect(resumed.state.engine_snapshot).toEqual(checkpoint!.engine_snapshot);
+    expect(resumed.state.report_draft).toEqual(checkpoint!.report_draft);
+    expect(resumed.state.limits).toEqual(checkpoint!.limits);
+  });
+
+  it("续跑不重置原截止时间，已到期时不调用任何报告能力", async () => {
+    const stopped = await executeAgentRun({
+      enginePayload: { schema: "excavaguard.daily_report_input/v1" }, createdAt: NOW,
+    }, {
+      now: () => new Date(NOW),
+      render: async () => { throw new Error("unavailable"); },
+    });
+    const resumed = await executeAgentRun({ enginePayload: null, initialState: stopped.state }, {
+      now: () => new Date("2026-10-14T02:00:00Z"),
+      render: async () => { throw new Error("must not call"); },
+    });
+    expect(resumed.terminalAction.reason_code).toBe("DEADLINE_EXCEEDED");
+    expect(resumed.state.limits).toEqual(stopped.state.limits);
   });
 });

@@ -1,15 +1,25 @@
 import { apiError, apiErrorFromException, apiOk } from "@/server/api/respond";
 import { EngineError, EngineUnavailableError } from "@/server/skills/python-bridge";
 import { inspectMonitoringFile } from "@/server/skills/parse-monitoring-data/runner";
-import { listFiles, localPathOf, saveFile } from "@/server/storage/monitoring-file-store";
+import {
+  listFiles,
+  materializeStoredFile,
+  saveFile,
+} from "@/server/storage/monitoring-file-store";
 import type { ReadReport } from "@/contracts/monitoring-files";
+import { requireAccess } from "@/server/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 列出已上传的监测数据文件（新→旧）。 */
-export async function GET() {
-  return apiOk({ files: await listFiles("monitoring") });
+export async function GET(request: Request) {
+  try {
+    const access = requireAccess(request);
+    return apiOk({ files: await listFiles("monitoring", access.project_id) });
+  } catch (error) {
+    return apiErrorFromException(error);
+  }
 }
 
 /**
@@ -20,6 +30,12 @@ export async function GET() {
  * **解析检查失败不影响上传结果** —— 文件已保存，报告里带上具体原因。
  */
 export async function POST(request: Request) {
+  let access;
+  try {
+    access = requireAccess(request);
+  } catch (error) {
+    return apiErrorFromException(error);
+  }
   const mediaType = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
   if (mediaType !== "multipart/form-data") {
     return apiError(415, "UNSUPPORTED_MEDIA_TYPE", "请使用 multipart/form-data 上传文件。");
@@ -44,19 +60,22 @@ export async function POST(request: Request) {
       originalName: file.name,
       bytes,
       mediaType: file.type,
+      projectId: access.project_id,
     });
 
     let readReport: ReadReport | null = null;
-    const abs = await localPathOf(stored.file_id);
-    if (abs) {
+    const materialized = await materializeStoredFile(stored.file_id);
+    if (materialized) {
       try {
-        readReport = (await inspectMonitoringFile(abs)).report;
+        readReport = (await inspectMonitoringFile(materialized.path)).report;
       } catch (error) {
         if (error instanceof EngineError || error instanceof EngineUnavailableError) {
           readReport = { ok: false, errors: [error.message] };
         } else {
           throw error;
         }
+      } finally {
+        await materialized.cleanup();
       }
     }
 

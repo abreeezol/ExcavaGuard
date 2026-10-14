@@ -12,6 +12,7 @@ export type FileKind = z.infer<typeof fileKindSchema>;
 
 export const storedFileSchema = z.strictObject({
   file_id: z.uuid(),
+  project_id: z.uuid().optional(),
   kind: fileKindSchema,
   original_name: z.string().trim().min(1),
   size_bytes: z.number().int().nonnegative(),
@@ -19,7 +20,7 @@ export const storedFileSchema = z.strictObject({
   /** 内容指纹，用于确认「分析用的就是上传的那份」。 */
   sha256: z.string().regex(/^[0-9a-f]{64}$/),
   created_at: z.iso.datetime(),
-  /** 当前仅实现 local；supabase 为生产路径，见存储层说明。 */
+  /** 实际存储 Provider；切换由服务端显式配置。 */
   storage: z.enum(["local", "supabase"]),
 });
 

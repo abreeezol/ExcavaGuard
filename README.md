@@ -7,6 +7,8 @@
 三 Agent 首版已收敛为 Supervisor、报告交付与独立审计。Supervisor 的共享状态、
 确定性路由、两轮退回、预算和失效规则已由同步执行器串联；报告/审计 Skill 可生成并
 审计 Excel + 两份 Markdown 三件套。八个业务 Skill 中已有六个具备可调用实现。
+工作台现已接通本地运行持久化、历史恢复、三 Agent 轨迹、三件套下载及人工接受/
+退回/拒绝。接受仅记录草稿复核，不等于工程签发。
 
 ## 本地启动
 
@@ -44,7 +46,7 @@ src/
 └── server/
     ├── config.ts                  # 按服务读取环境变量
     ├── api/respond.ts             # 统一错误响应与异常映射
-    ├── storage/                   # 上传文件存储（本地文件系统实现）
+    ├── storage/                   # local / Supabase 文件、运行与报告 Provider
     ├── agents/                    # 三 Agent 注册 + Supervisor + 同步执行器
     ├── evidence/                  # 规范证据检索接口与双 Provider 适配器
     ├── skills/
@@ -57,8 +59,9 @@ skills/                            # 业务契约；scripts/ 下是引擎桥接�
 rag/                               # RAG 接入合同与规范有效性审核清单
 方案与迭代note/                     # 业务方案、架构和实现范围
 确定性计算层/                       # 三阶段确定性引擎（242 项回归测试）
-var/uploads/                       # 上传文件存储（gitignore，删除即重置）
-var/report-artifacts/              # 日报三件套运行产物（gitignore）
+var/uploads/                       # 切换前的本地上传资产（gitignore，保留）
+var/report-artifacts/              # 报告渲染临时目录及旧本地产物（gitignore）
+var/runs/                          # 切换前的本地运行修订（gitignore，保留）
 ```
 
 页面与 Route Handlers 共用一个 Next.js 应用。`src/server/` 使用 `server-only` 隔离，禁止从 Client Component 导入。`src/contracts/` 只放可共享的数据契约，不引用服务端模块。
@@ -89,9 +92,12 @@ cp .env.example .env.local
 | 服务 | 环境变量 | 当前行为 |
 | --- | --- | --- |
 | **确定性引擎** | `EXCAVAGUARD_PYTHON`、`EXCAVAGUARD_BRIDGE_TIMEOUT_MS` | 指定 Python 解释器与调用超时；不配则优先仓库 `.venv`，再尝试 PATH 上的 `python3`、`python` |
-| **上传存储** | `EXCAVAGUARD_UPLOAD_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | 存储根目录（默认 `<仓库>/var/uploads`）与 provider（当前仅 `local`） |
+| **上传存储** | `EXCAVAGUARD_UPLOAD_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | `local` 或 `supabase`；当前本机已显式切至 Supabase |
+| **运行存储** | `EXCAVAGUARD_RUN_ROOT` | 默认 `<仓库>/var/runs/<run_id>/<revision>.json`；不可变修订，原子发布 |
+| **访问控制** | `EXCAVAGUARD_ACCESS_PASSWORD`、`EXCAVAGUARD_SESSION_SECRET`、`EXCAVAGUARD_PROJECT_ID` | 单操作者单项目；开发期无密码只允许本机；生产期必须配置密码和签名密钥 |
 | LLM | `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` | 创建 OpenAI 兼容 Chat 适配器；不默认指定供应商或模型 |
-| Supabase | `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_STORAGE_BUCKET` | 创建服务端管理客户端；**尚无表结构与上传逻辑**，存储适配器未实现 |
+| Supabase 公共连接 | `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 项目可达性已验证；publishable key 只具备 RLS 允许的低权限 |
+| Supabase 服务端 | `SUPABASE_SECRET_KEY`、`SUPABASE_STORAGE_BUCKET` | 新式 secret key 仅供受保护服务端；上传、运行 revision 和报告 Provider 已接通 |
 | RAG 选择 | `RAG_PROVIDER` | 必须显式选择 `pinecone` 或 `local` |
 | Pinecone | `PINECONE_API_KEY`、`PINECONE_INDEX`、`PINECONE_TEXT_FIELD`、可选 `PINECONE_NAMESPACE` | 查询 integrated embedding 索引 |
 | Pinecone 导入 | `PINECONE_CLOUD`、`PINECONE_REGION`、`PINECONE_EMBED_MODEL` | 仅供离线建索引/批量导入工具使用 |
@@ -101,7 +107,21 @@ cp .env.example .env.local
 
 客户端按需创建，不在页面渲染和构建时读取密钥或发送请求。配置缺失或格式不合法会抛出 `IntegrationConfigError`，错误不携带原始配置值。目标 Pinecone 索引已完成连接、配置、导入和查询验收；完整配置仍不代表 Supervisor 主链路已经接通。
 
-Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需要实现用户鉴权、项目权限校验和文件所有权校验。不要将任何密钥改为 `NEXT_PUBLIC_*`，也不要提交 `.env.local`。
+Supabase 管理客户端会绕过 RLS，云端接入仍需用户身份、项目成员权限和文件归属设计。
+当前访问边界只是单操作者单项目，不代表已实现 Supabase Auth 或多用户 ACL。
+不要将任何密钥改为 `NEXT_PUBLIC_*`，也不要提交 `.env.local`。
+
+Supabase 基础设施准备：
+
+```bash
+npm run supabase:check    # 当前配置和只读检查，不输出 key
+npm run supabase:verify   # 迁移和 secret 配置后，执行可清理的真实写探针
+```
+
+迁移文件、控制台操作和状态说明见
+[`supabase/README.md`](supabase/README.md)。`public_connected` 只证明项目 URL 与
+publishable key 可达。当前基础设施写探针已达到 `infrastructure_verified`；
+应用 Provider 真实纵向回归也已通过并显式切换。
 
 ## 规范证据 Provider
 
@@ -143,7 +163,14 @@ Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需�
   `excavaguard.daily_report_input/v1`；显式设置 `options.generate_report=true`
   时继续执行报告、审计和人工复核交接。
 - `GET /api/report-artifacts/<draft_id>/<file_name>`：只读下载 Excel 或 Markdown
-  草稿产物；`/api/runs` 只在审计通过后返回下载地址。
+  草稿产物；必须绑定当前项目、当前已审计草稿，重新验证文件大小和 SHA-256。
+- `GET/POST/DELETE /api/session`：访问状态、密码登录、退出，使用 HttpOnly 会话。
+- `GET /api/runs` / `GET /api/runs/<run_id>`：最近 100 次摘要 / 完整请求与结果。
+- `POST /api/runs/<run_id>/review`：`expected_revision`、完整 `draft_ref`、
+  `decision`（accepted / needs_changes / rejected）、必填 `reason`。
+  旧版本或重复决定返回 409；退回和拒绝关闭下载，不修改事实。
+- `POST /api/runs/<run_id>/resume`：显式提交 `expected_revision`，只续跑已保存的
+  Agent 检查点；不重置原预算。无检查点、活动任务或预算到期时需加载输入新建关联运行。
 
 `POST /api/runs` 请求体：
 
@@ -170,6 +197,16 @@ Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需�
 开启报告链后，响应的 `agent_run.state` 保存 engineSnapshot、报告草稿、审计结果和轨迹；
 正常完成时状态为 `awaiting_human_review`，`agent_run.downloads` 提供固定三件套地址。
 这只表示确定性审计通过，仍不代表工程师已审核、已发布预警或已正式签发。
+响应同时包含 `record`（版本化持久化记录）。原 API 默认只分析，工作台默认显式开启
+报告链。页面「运行历史」打开已保存结果，「加载输入并新建关联运行」恢复原工程条件和
+文件引用；修正后新建 `parent_run_id` 关联运行，原记录和复核理由保留。
+
+本地启动绑定 localhost。可选密码至少 12 字符、签名密钥至少 32 字符；生产未配置
+时业务 API 返回 `ACCESS_NOT_CONFIGURED`。会话 8 小时过期；更换密码或项目使旧会话失效。
+历史无项目字段的上传文件只归入固定默认项目，切换配置不会自动转移文件。
+运行目录和上传目录应一起备份；不要直接清理有引用的上传或报告文件。
+上传索引写入锁若因进程崩溃遗留，先停止全部服务并确认没有写入，再清理
+`var/uploads/index.json.lock` 空锁目录后重启。运行修订无需锁目录。
 
 `POST /api/runs` 的返回：
 
@@ -189,13 +226,13 @@ Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需�
 
 ### 尚未实现
 
-- **鉴权与项目归属校验**：上传与分析接口目前无用户身份校验，`project_id` 不会被校验是否存在。
-- **运行记录持久化**：`run_id` 仅用于本次请求追溯，不写数据库。
-- **对象存储**：上传文件用本地文件系统（`var/uploads/`）。声明 `EXCAVAGUARD_STORAGE_PROVIDER=supabase` 会直接报错并说明原因 —— 缺少 bucket 与元数据表，无法验证，因此不提供空壳实现。
-- **工程师确认与归档**：三件套生成、逐单元格审计和只读下载已接通，但工程师
-  接受/退回入口、签发和归档尚未实现。
-- **可恢复编排与语义审计**：同步三 Agent 主链已接通；状态持久化、异步恢复、
-  Supervisor 内规范证据自动检索和独立模型语义审计尚未实现。
+- **多用户身份与权限**：当前只有单操作者密码会话和单项目隔离，未实现用户注册、
+  项目成员权限或 Supabase Auth。
+- **既有本地资产迁移**：Supabase Provider 已用于新上传、运行 revision 和三件套；
+  `var/` 中已有本地测试历史保留，未自动复制或删除。
+- **正式签发与归档**：接受/退回/拒绝和本地复核记录已接通，仍没有正式签发或工程档案系统。
+- **异步编排与语义审计**：已保存检查点并支持原预算内显式续跑；未实现异步 worker、
+  自动恢复、Supervisor 内规范证据检索和独立模型语义审计。
 
 ## 开发检查
 
@@ -209,9 +246,11 @@ npm start           # 运行已经构建的应用
 
 `tests/upload-and-run.test.ts` 是**端到端**用例（上传 → 解析 → 分析 → 宽松阈值 → 缺 H 弃权），需要 Python；找不到解释器时整个 suite **自动跳过**，其余用例不受影响。
 
-验收（更新至 2026-10-14）：`npm run check` 88 条测试通过，3 条需显式启动 sidecar
-的 local-RAG live 测试默认跳过；已覆盖 13 条 Agent Runtime/Executor、7 条上传/纵向
-端到端（含最终 85 通道宽表）与 6 条报告/审计 Skill 用例。`npm run build` 生成 9 条路由。
+验收（更新至 2026-10-14）：`npm run check` 105 条测试通过，3 条 local-RAG 与
+1 条 Supabase Provider live 测试默认跳过；已覆盖 15 条 Agent Runtime/Executor、8 条上传/纵向
+端到端（含最终 85 通道宽表）、12 条持久化/访问边界及 6 条报告/审计 Skill 用例。
+`npm run build` 生成 13 条路由；浏览器验证历史恢复、退回、关联重跑、轨迹、下载与接受。
+`npm run supabase:test` 另有 1 条真实云端纵向验收通过并自动清理测试资产。
 引擎侧历史验收为 242 项回归测试、27 个模拟场景和日报契约校验通过。
 
 在限制写入用户目录的沙箱内，Next.js 命令可添加 `CI=1 NEXT_TELEMETRY_DISABLED=1`，使其配置缓存落在项目 `.next/cache/`。例如 `CI=1 NEXT_TELEMETRY_DISABLED=1 npm run build`。
@@ -222,10 +261,11 @@ npm start           # 运行已经构建的应用
 
 1. ~~确认 CSV 字段、单位、方向、项目阈值和规则来源~~ ✅ 已完成（`确定性计算层/09_用户数据文件契约.md`）。
 2. ~~实现解析、标准化、阈值判断的确定性 Skill~~ ✅ 已完成（`skills/<name>/scripts/`，Python 桥接）。
-3. **增加鉴权、项目归属校验、运行记录表与对象存储适配器**，完善共享工程状态。
+3. ~~接入真实 Supabase 项目、私有 bucket、上传/运行/报告 Provider~~ ✅；
+   下一步接入 Supabase Auth 与多用户项目成员权限。
 4. ~~建立 Supervisor 显式状态图、有限重试、失效规则与运行轨迹基础~~ ✅ 已完成。
 5. ~~实现日报三件套、独立审计、同步 Agent 执行器与 API~~ ✅ 已完成；
-   下一步接入人工确认、鉴权与持久化。
+   本地人工复核、访问边界、运行持久化和前端入口也已接通。
 
 完整要求见 [AGENTS.md](AGENTS.md)、[项目记忆](memory.md)、
 [开发推进记录](方案与迭代note/10_开发推进记录.md)、
