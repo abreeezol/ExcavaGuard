@@ -39,6 +39,14 @@ DEFAULT_PROHIBITED_PHRASES = (
 )
 
 
+def normalize_narrative_fact_value(value: Any) -> Any:
+    if isinstance(value, list) and all(
+        item is None or isinstance(item, (str, int, float, bool)) for item in value
+    ):
+        return "、".join(str(item) for item in value if item is not None)
+    return value
+
+
 def emit(body: dict) -> None:
     print(json.dumps(body, ensure_ascii=False, separators=(",", ":")))
 
@@ -209,6 +217,8 @@ def main() -> int:
                 )
             )
             continue
+        if binding_id.startswith("narrative-fact-"):
+            source_value = normalize_narrative_fact_value(source_value)
         if value_hash(source_value) != binding.get("fact_value_hash"):
             bindings_valid = False
             issues.append(

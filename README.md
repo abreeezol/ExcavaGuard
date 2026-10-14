@@ -56,9 +56,11 @@ npm run dev
 
 RAG 目前分两层看：
 
-- 当前 `.env.local` 的 `RAG_PROVIDER=pinecone`，独立调用 `retrieve-standard-evidence` 时会走在线 Pinecone 索引 `excava-guard` / namespace `standards-v1`。
+- 当前 `.env.local` 的 `RAG_PROVIDER=pinecone`，AI 日报模式会由 Supervisor 在运行时调用
+  `retrieve-standard-evidence`，走在线 Pinecone 索引 `excava-guard` / namespace `standards-v1`。
 - 本地 RAG sidecar 已可用，启动 `source/server.py --port 8600` 并改为 `RAG_PROVIDER=local` 后，会走本地 BGE + Chroma 运行副本。
-- 但工作台主链路当前仍以确定性规范库完成阈值判定和报告生成；`retrieve-standard-evidence` 尚未在 Supervisor/API/前端报告主链中自动串联。换句话说，RAG Provider 已验收，主链自动引用增强属于初版后的打磨项。
+- RAG 只为日报第四节提供可追溯条文证据，不参与风险判定；阈值和风险等级仍来自确定性规范库。
+- LLM 日报需要 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`。当前本机这三项未配置，因此真实模型质量尚未验收；可用 mock 测试验证接线和失败保护。
 
 ## 目录
 
@@ -129,7 +131,7 @@ cp .env.example .env.local
 | **文件存储** | `EXCAVAGUARD_UPLOAD_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | `local` 或 `supabase`；当前本机已显式切至 Supabase |
 | **运行存储** | `EXCAVAGUARD_RUN_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | `supabase` 时写入 `excavaguard_run_revisions`；`local` 时写入 `<仓库>/var/runs/<run_id>/<revision>.json` |
 | **访问控制** | `EXCAVAGUARD_ACCESS_PASSWORD`、`EXCAVAGUARD_SESSION_SECRET`、`EXCAVAGUARD_PROJECT_ID` | 单操作者单项目；开发期无密码只允许本机；生产期必须配置密码和签名密钥 |
-| LLM | `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` | 创建 OpenAI 兼容 Chat 适配器；不默认指定供应商或模型 |
+| LLM | `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` | AI 日报模式必填；创建 OpenAI 兼容 Chat 适配器，不默认指定供应商或模型 |
 | Supabase 公共连接 | `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 项目可达性已验证；publishable key 只具备 RLS 允许的低权限 |
 | Supabase 服务端 | `SUPABASE_SECRET_KEY`、`SUPABASE_STORAGE_BUCKET` | 新式 secret key 仅供受保护服务端；上传、运行 revision 和报告 Provider 已接通 |
 | RAG 选择 | `RAG_PROVIDER` | 必须显式选择 `pinecone` 或 `local`；当前本机配置为 `pinecone` |
@@ -161,7 +163,8 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
 
 `src/server/evidence/` 提供统一的 `StandardEvidenceRetriever`，上层 Skill 不区分具体向量库：
 
-这部分是已验收的证据检索能力，不等同于工作台主链已经自动调用 RAG。当前 `/workbench` 的上传、计算、报告和审计可以不依赖 RAG 完成；把规范证据检索串进 Supervisor/API/前端报告链，是后续打磨方向。
+这部分是已验收的证据检索能力。AI 日报模式会在 Supervisor 阶段自动调用；
+显式选择 `report_mode=template` 时只走确定性模板，不调用 LLM 或运行时 RAG，适合独立计算和表式调试。
 
 - `PineconeStandardEvidenceRetriever`：调用 integrated embedding 的 `searchRecords` 文本检索，应用规范版本、监测项、基坑等级、地区和生效状态过滤。
 - `LocalStandardEvidenceRetriever`：只接受 `localhost`、`127.0.0.1` 或 `::1`，调用 `POST /api/evidence/search`。
@@ -225,7 +228,8 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
   },
   "project": { "name": "××基坑工程" },       // 可选，进入载荷
   "options": {
-    "generate_report": true                  // 可选；默认 false
+    "generate_report": true,                 // 可选；默认 false
+    "report_mode": "ai"                      // 可选；ai 或 template，生成报告时默认 ai
   }
 }
 ```
@@ -267,8 +271,8 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
 - **既有本地资产迁移**：Supabase Provider 已用于新上传、运行 revision 和三件套；
   `var/` 中已有本地测试历史保留，未自动复制或删除。
 - **正式签发与归档**：接受/退回/拒绝和本地复核记录已接通，仍没有正式签发或工程档案系统。
-- **异步编排与语义审计**：已保存检查点并支持原预算内显式续跑；未实现异步 worker、
-  自动恢复、Supervisor 内规范证据检索和独立模型语义审计。
+- **异步编排与真实模型验收**：已保存检查点并支持原预算内显式续跑；未实现异步 worker
+  或自动恢复。独立模型语义审计已接线，但当前本机缺 LLM 配置，尚未完成真实模型质量验收。
 
 ## 开发检查
 
@@ -282,11 +286,14 @@ npm start           # 运行已经构建的应用
 
 `tests/upload-and-run.test.ts` 是**端到端**用例（上传 → 解析 → 分析 → 宽松阈值 → 缺 H 弃权），需要 Python；找不到解释器时整个 suite **自动跳过**，其余用例不受影响。
 
-验收（更新至 2026-10-14）：`npm run check` 105 条测试通过，3 条 local-RAG 与
-1 条 Supabase Provider live 测试默认跳过；已覆盖 15 条 Agent Runtime/Executor、8 条上传/纵向
-端到端（含最终 85 通道宽表）、12 条持久化/访问边界及 6 条报告/审计 Skill 用例。
+验收（更新至 2026-10-14）：`npm run check` 118 条测试通过，4 个 live suite 共
+6 条测试默认跳过；已覆盖 16 条 Agent Executor、8 条上传/纵向端到端（含最终 85 通道宽表）、
+12 条持久化/访问边界、7 条报告/审计 Skill 用例，以及 LLM 客户端模拟服务。
 `npm run build` 生成 13 条路由；浏览器验证历史恢复、退回、关联重跑、轨迹、下载与接受。
 `npm run supabase:test` 另有 1 条真实云端纵向验收通过并自动清理测试资产。
+`npm run rag:test` 另有 1 条真实 Pinecone 纵向验收通过：最终宽表、AI 模式 mock LLM、
+真实 RAG、三件套和审计全链路打通，并逐字段比对远端返回证据与本地导入清单。
+`npm run ai:test` 需要配置 LLM 三项后显式运行；当前本机未配置，未做真实模型质量验收。
 引擎侧历史验收为 242 项回归测试、27 个模拟场景和日报契约校验通过。
 
 在限制写入用户目录的沙箱内，Next.js 命令可添加 `CI=1 NEXT_TELEMETRY_DISABLED=1`，使其配置缓存落在项目 `.next/cache/`。例如 `CI=1 NEXT_TELEMETRY_DISABLED=1 npm run build`。
@@ -296,7 +303,8 @@ npm start           # 运行已经构建的应用
 ## 初版后打磨方向
 
 1. **账号与权限**：接入 Supabase Auth 或等价身份系统，建立项目成员、角色、文件、运行记录和报告下载的权限隔离。
-2. **RAG 主链串联**：把 `retrieve-standard-evidence` 接进 Supervisor/API/前端报告链，形成正式报告场景下的规范证据引用、无命中弃权和引用准确率评测。
+2. **真实模型与引用质量评测**：配置实际 LLM 后运行 `npm run ai:test`，并围绕正式工程场景评估
+   日报正文质量、RAG 引用准确率、无命中弃权和审计问题召回。
 3. **部署与 CI**：补齐生产环境变量、构建发布、数据库迁移执行方式、自动化检查和回滚说明。
 4. **异步编排与恢复**：将当前同步执行器升级为 worker/任务队列模式，支持长任务、预算到期后的自动恢复和失败重试。
 5. **正式归档与签发**：区分“草稿复核接受”和“正式工程签发”，接入工程档案或导出归档流程。

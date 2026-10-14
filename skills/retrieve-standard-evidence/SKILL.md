@@ -47,7 +47,7 @@ description: "检索带来源与适用条件的规范条文证据。需要解释
 
 ## 失败与弃权边界
 
-- 未配置检索器：以 `EVIDENCE_NOT_FOUND` 弃权。
+- 未配置检索器或 Provider 调用失败：以 `EVIDENCE_UNAVAILABLE` 弃权。
 - `query` 为空或参数无效：以 `INVALID_INPUT` 弃权。
 - 未找到适用条文：以 `EVIDENCE_NOT_FOUND` 弃权，并明确不得作规范性结论。
 - 证据版本失效、适用条件不明或多条证据冲突：以 `EVIDENCE_CONFLICT` 弃权并要求人工复核。
@@ -58,3 +58,5 @@ description: "检索带来源与适用条件的规范条文证据。需要解释
 - 服务端 runner：`src/server/skills/retrieve-standard-evidence/runner.ts`
 - Provider 适配器：`src/server/evidence/`
 - Pinecone 导入与元数据门禁：`tools/rag/`、`rag/standard-status.json`
+- AI 日报模式由 `src/server/agents/executor.ts` 的 Supervisor 阶段调用本 Skill；
+  证据只进入报告引用和语义审计上下文，不参与或改写确定性风险判定。

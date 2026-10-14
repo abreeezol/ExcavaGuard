@@ -61,6 +61,8 @@ export const createRunRequestSchema = z.strictObject({
         .optional(),
       /** 显式开启三 Agent 报告/审计链；默认仍只返回冻结引擎载荷。 */
       generate_report: z.boolean().optional(),
+      /** AI 模式实际调用模型与 RAG；模板模式用于计算/表式调试。 */
+      report_mode: z.enum(["ai", "template"]).optional(),
     })
     .optional(),
 });

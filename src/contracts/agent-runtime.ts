@@ -184,6 +184,8 @@ export const agentRunStateSchema = z
       deadline_at: z.iso.datetime(),
     }),
     engine_snapshot: artifactEnvelopeSchema,
+    report_mode: z.enum(["ai", "template"]).default("template"),
+    plan_snapshot: artifactEnvelopeSchema.nullable().default(null),
     evidence_snapshot: supportingSnapshotSchema.nullable(),
     analysis_snapshot: supportingSnapshotSchema.nullable(),
     report_draft: reportDraftSchema.nullable(),

@@ -71,6 +71,11 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   engineSnapshot → Supervisor → 报告 → 审计 → 人工复核，报告责任问题最多自动重渲染
   两轮；`POST /api/runs` 通过显式 `options.generate_report=true` 开启，
   审计通过后提供三件套只读下载地址。默认行为仍只返回确定性载荷；
+- **AI 日报主链**：报告链默认使用 `report_mode=ai`。Supervisor 先调用 LLM 规划重点测项
+  与规范检索主题，再调用 `retrieve-standard-evidence` 做运行时 RAG；报告交付 Agent
+  调用 LLM 生成受约束正文，审计 Agent 在确定性文件审计通过后再调用独立 LLM 做语义审查。
+  模型只能使用冻结事实占位符和本次证据 ID，不得改写风险等级或规范原文；缺少 LLM 配置、
+  检索服务不可用、引用非法、模型输出越界或预算耗尽时停止完整 AI 交付并保留检查点。
 - 引擎回归测试 **242 项全部通过**（`python -B pipeline/tests/test_pipeline_stages.py`）；
 - **版本化交付闭环**：运行输入、冻结结果、逐步骤检查点、失败、人工接受/退回/拒绝
   按不可变 revision 保存，支持并发版本校验；
@@ -83,13 +88,16 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   新式 `sb_secret_...` 配置契约、五张元数据表 + RLS + 私有 bucket 幂等迁移及无密钥
   回显的检查/写探针工具已准备；监测文件/用户规范上传、Python 安全临时物化、运行 revision
   CAS、审计后三件套上传、云端哈希下载与人工复核已接通，`.env.local` 已显式切至 supabase；
-- 全栈检查 `npm run check` **105 项通过**（另有 3 项 local-RAG + 1 项 Supabase live
-  测试默认跳过；
-  含 8 项上传/纵向端到端 + 15 项 Agent Runtime/Executor + 12 项持久化/访问边界
-  + 10 项服务配置 + 6 项报告/审计 Skill），`npm run build` 13 条路由生成；
+- 全栈检查 `npm run check` **118 项通过**（另有 4 个 live suite 的 6 项测试默认跳过：
+  真实 LLM、local-RAG、Pinecone-RAG、Supabase live；
+  含 8 项上传/纵向端到端 + 16 项 Agent Executor + 12 项持久化/访问边界
+  + 10 项服务配置 + 7 项报告/审计 Skill），`npm run build` 13 条路由生成；
   运行目录、环境文件和临时验收文件已从部署依赖追踪中排除。
 - `npm run supabase:test` **1 项真实纵向验收通过**：simulated 监测数据 + 用户规范上传、
   确定性分析、并发 revision 冲突、三件套私有下载、人工接受、对象篡改阻断和云端清理。
+- `npm run rag:test` **1 项真实 Pinecone 纵向验收通过**：85 通道最终宽表 → AI 模式
+  mock LLM 响应 → 真实 Pinecone RAG → Python 三件套 → 确定性审计；逐字段比对远端返回文本
+  与 `var/rag/pinecone-records.jsonl` 本地清单，RAG 证据进入日报第四节。
 
 ### 尚未实现
 
@@ -106,8 +114,11 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 - **温度补偿**未实现，轴力类判据可能混入温度效应（P2-1）；
 - **正式工程归档**：本地复核和三件套下载已接通，尚无正式签发与工程档案系统；
 - 部署与 CI；
-- **RAG 剩余接线**：本地/在线 Provider 与 Skill 已通过独立检索验收，但 Supervisor/API
-  和前端尚未串联 `retrieve-standard-evidence`，正式报告场景引用准确率也未评测。
+- **真实 LLM 质量验收**：OpenAI-compatible 适配器和三角色调用链已实现，但当前
+  `.env.local` 缺 `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`，因此真实模型日报质量
+  尚未验收；`npm run ai:test` 需配置后显式运行。
+- **正式报告引用准确率评测**：RAG 已接入 AI 日报主链并通过真实 Pinecone 纵向验收，
+  但尚未做成体系的工程场景引用准确率评测。
 - **最终输入兼容性**：`final_test/监测数据整合_7天_10分钟.xlsx` 的 85 通道混合宽表
   已通过真实上传和 `/api/runs` 验收（85,680 条源记录；报告日 `2026-10-08`
   聚合为 340 条计算历史，日报载荷只交付当日 85 条），并通过三 Agent 三件套生成、
@@ -183,7 +194,7 @@ ExcavaGuard/
 │       ├── agents/                        三 Agent 注册 + Supervisor + 同步执行器
 │       ├── evidence/                      规范证据检索（双 Provider 适配器）
 │       └── config.ts / integrations/      环境配置与外部客户端
-├── tests/                                 Vitest（105 项通过，4 项 live 默认跳过）
+├── tests/                                 Vitest（118 项通过，6 项 live 默认跳过）
 ├── package.json / tsconfig.json / next.config.ts / vitest.config.ts / eslint.config.mjs
 ├── .env.example / .nvmrc / .gitignore
 ├── README.md / 项目介绍.html
@@ -427,11 +438,13 @@ node tools/bridge-smoke/run_judgement.mjs                                       
 
 # --- Web 全栈 ---
 npm ci
-npm run check                                                                   # 105 项通过，4 项 live 默认跳过
+npm run check                                                                   # 118 项通过，6 项 live 默认跳过
 npm run build                                                                   # 13 条路由；运行数据不打包
 npm run dev                                                                     # http://localhost:3000/workbench
 npm run supabase:verify                                                         # 基础设施真实写探针
 npm run supabase:test                                                           # 应用 Provider 真实纵向验收
+npm run rag:test                                                                # 真实 Pinecone + 最终宽表 + 三件套验收
+npm run ai:test                                                                 # 需配置 LLM 三项；真实 LLM + RAG 验收
 
 # --- 在线 RAG 导入准备（只读源资产，不访问云端）---
 npm run rag:prepare                                                             # 7,180 条已复核候选

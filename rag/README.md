@@ -102,7 +102,8 @@ LOCAL_RAG_TIMEOUT_MS=10000
 ```
 
 当前在线配置保持有效，兼容修复不强制切换 Provider。浏览器通过 Next.js 服务端
-Retriever 查询本地服务，不持有底层凭证。前端证据展示与三 Agent 执行器仍待串联。
+Retriever 查询本地服务，不持有底层凭证。AI 日报模式已经由 Supervisor 串联
+`retrieve-standard-evidence`；模板模式不调用运行时 RAG。
 
 实现要点：
 
@@ -208,5 +209,6 @@ integrated dense retrieval 不提供词项命中信息，统一证据输出中�
 检索实现上线前仍需验证版本有效性、适用范围、来源定位、无结果行为和引用准确率。证据不足或冲突时，上层 Skill 必须主动弃权。
 
 当前 `excava-guard / standards-v1` 已导入 7,180 条记录；远端记录数与本地清单一致，
-真实语义查询返回的正文和来源元数据已逐字段比对通过。Supervisor/API 尚未调用该 Skill，
-正式报告场景的引用准确率评测也尚未完成。
+真实语义查询返回的正文和来源元数据已逐字段比对通过。`npm run rag:test` 已验证
+最终 85 通道宽表在 AI 模式下可通过 Supervisor 调用 Pinecone RAG，并把命中原文写入
+日报第四节；正式工程场景的系统性引用准确率评测仍需后续补充。

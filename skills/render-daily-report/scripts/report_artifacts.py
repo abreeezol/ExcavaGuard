@@ -19,7 +19,8 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from report_adapter import canonical_json, value_hash
+from report_adapter import canonical_json, cover_blocks, value_hash
+from appendix_forms import APPENDIX_FORMS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ARTIFACT_ROOT = REPO_ROOT / "var" / "report-artifacts"
@@ -134,7 +135,9 @@ def _put_fact(
 
 
 def _item_note(item: dict[str, Any]) -> str:
-    parts = [f"风险等级：{item.get('risk_level') or '未知'}"]
+    parts = [f"监测项：{item.get('metric_name') or '未知'}",
+             f"风险等级：{item.get('risk_level') or '未知'}",
+             f"单位：{item.get('unit') or '未提供'}"]
     reasons = item.get("abstain_reasons") or item.get("abstain") or []
     if reasons:
         parts.append("待复核：" + "；".join(str(reason) for reason in reasons))
@@ -267,8 +270,6 @@ def _build_cover_sheet(
     sheet = _new_sheet()
     project = report["sections"]["project"]
     summary = report["sections"]["summary"]
-    analysis = report["sections"]["work_condition_analysis"]
-    disclaimer = report["sections"]["disclaimer"]
 
     _merge(sheet, 1, 1, 8, report["title"], style="title")
     _merge(
@@ -317,29 +318,17 @@ def _build_cover_sheet(
     _put_fact(sheet, payload, 9, 7, "data_quality.blocked_records")
     _put(sheet, 9, 8, "必须")
 
-    _merge(sheet, 11, 1, 8, "工况分析", style="section")
-    _merge(sheet, 12, 1, 8, analysis.get("work_condition"), style="body")
-
-    _merge(sheet, 14, 1, 8, "限制与待复核事项", style="section")
-    row = 15
-    limitations = list(report.get("review_gaps") or [])
-    limitations.extend(str(item) for item in analysis.get("limitations") or [])
-    limitations.append("巡视记录未提供；未生成附表G，不得据此判定巡视正常。")
-    for limitation in dict.fromkeys(limitations):
-        _merge(sheet, row, 1, 8, f"- {limitation}", style="note")
+    row = 11
+    for title, paragraphs in cover_blocks(report):
+        _merge(sheet, row, 1, 8, title, style="section")
         row += 1
-
-    _merge(sheet, row + 1, 1, 8, "签署", style="section")
-    _merge(
-        sheet,
-        row + 2,
-        1,
-        8,
-        "编制：＿＿＿＿　审核：＿＿＿＿　签发：＿＿＿＿（均须人工填写）",
-        style="body",
-    )
-    _merge(sheet, row + 4, 1, 8, "使用边界", style="section")
-    _merge(sheet, row + 5, 1, 8, disclaimer, style="note")
+        for text in paragraphs:
+            # Preserve every character while keeping long OCR clauses visible in Excel.
+            for line in str(text).split("\n"):
+                for offset in range(0, len(line), 240):
+                    _merge(sheet, row, 1, 8, line[offset:offset + 240], style="body")
+                    row += 1
+        row += 1
     return sheet
 
 
@@ -361,38 +350,60 @@ def _build_form_sheets(
         if not rows:
             continue
         name = FORM_TITLES[form]
-        headers, _values = _form_row(form, rows[0][1], payload, rows[0][0])
-        sheet = _new_sheet(header_row=5)
-        _merge(sheet, 1, 1, len(headers), name, style="title")
-        _merge(
-            sheet,
-            2,
-            1,
-            len(headers),
-            f"工程名称：{_display(project.get('name'))}　报告日期：{_display(project.get('report_date'))}",
-            style="body",
-        )
-        _merge(
-            sheet,
-            3,
-            1,
-            len(headers),
-            "数值与风险等级均引用冻结引擎载荷；“—”表示载荷未提供，不作推断。",
-            style="note",
-        )
+        template = APPENDIX_FORMS[form[-1]]
+        headers = template["columns"]
+        sheet = _new_sheet(header_row=6)
+        for row, text in enumerate(template["header_lines"], 1):
+            if row == 2:
+                text = f"工程名称：{_display(project.get('name'))}　报表编号：＿＿＿＿（草稿）"
+            if row == 5:
+                text = f"本次监测日期：{_display(project.get('report_date'))}　上次监测时间：见冻结记录"
+            _merge(sheet, row, 1, len(headers), text, style="title" if row == 1 else "body")
         for column, header in enumerate(headers, 1):
-            _put(sheet, 5, column, header, style="header")
-        for row_number, (item_index, item) in enumerate(rows, 6):
+            _put(sheet, 6, column, header, style="header")
+        selected_indices = {
+            "表A": [0, 1, 3, 4, 5, 9],
+            "表B": [0, 1, 2, 4, 5, 6, 9],
+            "表C": [0, 1, 2, 3, 4, 6, 7, 10],
+            "表D": [0, 1, 2, 3, 4, 6, 7, 10],
+            "表E": [0, 1, 2, 3, 4, 5, 7, 8, 11],
+            "表F": [1, 2, 3, 4, 5, 6, 8, 9, 11],
+        }
+        for row_number, (item_index, item) in enumerate(rows, 7):
             _headers, values = _form_row(form, item, payload, item_index)
+            values = [values[index] for index in selected_indices[form]]
+            if form == "表E":
+                values[:3] = [("—", None)] * 3
+                values[-1] = (str(values[-1][0]) + "；未提供高程基准，高程栏留空，原观测值见冻结明细。", None)
             for column, (value, fact_path) in enumerate(values, 1):
                 _put(
                     sheet,
                     row_number,
                     column,
                     value,
-                    style="risk" if _headers[column - 1] == "风险等级" else "body",
+                    style="body",
                     fact_path=fact_path,
                 )
+        footer_row = len(rows) + 8
+        narrative = report["sections"].get("narrative") or {}
+        form_analysis = next((item for item in narrative.get("appendix_analysis", [])
+                              if item["form"] == form[-1]), None)
+        work_condition = narrative.get("work_condition", {}).get("text") or report["sections"]["work_condition_analysis"]["work_condition"]
+        analysis = form_analysis["analysis"]["text"] if form_analysis else "风险与弃权见逐测点备注；请工程师核对实测值与适用判据。"
+        recommendation = form_analysis["recommendation"]["text"] if form_analysis else "对未知项补充资料后复核，对超限项核验现场情况；本表为草稿。"
+        footer = [
+            f"工况描述：{work_condition}",
+            f"简要分析及判断性结论：{analysis}",
+            f"复核建议：{recommendation}",
+            f"工程负责人：＿＿＿＿　监测单位：{_display(project.get('monitoring_unit'))}",
+            template["footer_lines"][-1],
+        ]
+        for text in footer:
+            for line in text.split("\n"):
+                for offset in range(0, len(line), 240):
+                    _merge(sheet, footer_row, 1, len(headers), line[offset:offset + 240], style="note")
+                    footer_row += 1
+        sheet["data_end_row"] = len(rows) + 6
         sheets[name] = sheet
     return sheets
 
@@ -401,55 +412,47 @@ def _build_alert_sheet(
     report: dict[str, Any],
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    headers = ["测点", "监测项目", "风险等级", "本次值", "累计变化", "变化速率", "单位", "规则ID", "规范", "条文"]
-    sheet = _new_sheet(header_row=3)
-    _merge(sheet, 1, 1, len(headers), "超限测点清单（草稿）", style="title")
+    """超限测点清单 —— 对齐 GB 50497-2019 附录表式。"""
+    headers = ["测点", "监测项目", "末次监测日期", "末次累计量", "单位", "报警值",
+               "占报警值", "预警等级", "变化速率", "规范依据"]
+    sheet = _new_sheet(header_row=1)
     for column, header in enumerate(headers, 1):
-        _put(sheet, 3, column, header, style="header")
+        _put(sheet, 1, column, header, style="header")
     alerts = payload.get("alerts") or []
     if not alerts:
-        _merge(
-            sheet,
-            4,
-            1,
-            len(headers),
-            "冻结载荷未列出报警及以上条目；未知项仍须查看待复核事项。",
-            style="note",
-        )
+        _merge(sheet, 2, 1, len(headers),
+               "冻结载荷未列出报警及以上条目；未知项仍须查看封面三、待复核事项。",
+               style="note")
         return sheet
-    for row, alert in enumerate(alerts, 4):
-        prefix = f"alerts.{row - 4}"
+    for row, alert in enumerate(alerts, 2):
+        prefix = f"alerts.{row - 2}"
         checks = alert.get("checks") or []
-        units = {
-            str(check.get(key)).strip()
-            for check in checks
-            if isinstance(check, dict)
-            for key in ("unit", "value_unit", "limit_unit")
-            if check.get(key) not in (None, "")
-        }
+        units = {str(check.get(key)).strip() for check in checks if isinstance(check, dict)
+                 for key in ("unit", "value_unit", "limit_unit") if check.get(key) not in (None, "")}
         unit = next(iter(units)) if len(units) == 1 else "—"
         evidence = alert.get("evidence") if isinstance(alert.get("evidence"), dict) else {}
+        cumulative = alert.get("cumulative")
+        alarm_value = alert.get("limit_value") or alert.get("warning_value")
+        # 占报警值百分比
+        ratio_str = "—"
+        if isinstance(cumulative, (int, float)) and isinstance(alarm_value, (int, float)) and alarm_value != 0:
+            ratio_str = f"{round(cumulative / alarm_value * 100, 1)}%"
         values = [
             (alert.get("point_id"), f"{prefix}.point_id"),
             (alert.get("metric_name"), f"{prefix}.metric_name"),
-            (alert.get("risk_level"), f"{prefix}.risk_level"),
-            (alert.get("current"), f"{prefix}.current"),
-            (alert.get("cumulative"), f"{prefix}.cumulative"),
-            (alert.get("rate"), f"{prefix}.rate"),
+            (alert.get("timestamp") or alert.get("date"), f"{prefix}.timestamp"),
+            (cumulative, f"{prefix}.cumulative"),
             (unit, None),
-            (alert.get("rule_id"), f"{prefix}.rule_id"),
-            (evidence.get("standard"), None),
-            (evidence.get("clause"), None),
+            (alarm_value, f"{prefix}.limit_value" if alarm_value is not None else None),
+            (ratio_str, None),
+            (alert.get("risk_level"), f"{prefix}.risk_level"),
+            (alert.get("rate"), f"{prefix}.rate"),
+            (evidence.get("clause") or evidence.get("standard"), None),
         ]
         for column, (value, fact_path) in enumerate(values, 1):
-            _put(
-                sheet,
-                row,
-                column,
-                value,
-                style="risk" if column == 3 else "body",
-                fact_path=fact_path,
-            )
+            _put(sheet, row, column, value,
+                 style="risk" if column == 8 else "body",
+                 fact_path=fact_path)
     return sheet
 
 
@@ -511,7 +514,8 @@ def _build_source_sheet(
     report: dict[str, Any],
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    headers = ["测点", "监测项目", "量值语义", "来源标记", "源Sheet", "源列", "日内聚合统计"]
+    headers = ["测点", "监测项目", "量值语义", "来源标记", "源Sheet", "源列", "日内聚合统计",
+               "初始观测值", "上次观测值", "本次观测值"]
     sheet = _new_sheet(header_row=5)
     _merge(sheet, 1, 1, len(headers), "来源与口径说明", style="title")
     _merge(
@@ -544,6 +548,9 @@ def _build_source_sheet(
             (metadata.get("source_sheet"), None),
             (metadata.get("source_column"), None),
             (metadata.get("daily_aggregation") or {}, None),
+            (item.get("baseline"), f"{prefix}.baseline"),
+            (item.get("previous"), f"{prefix}.previous"),
+            (item.get("current"), f"{prefix}.current"),
         ]
         for column, (value, fact_path) in enumerate(values, 1):
             _put(sheet, row, column, value, fact_path=fact_path)
@@ -558,8 +565,6 @@ def build_workbook_model(
     sheets["监测日报"] = _build_cover_sheet(report, payload)
     sheets.update(_build_form_sheets(report, payload))
     sheets["超限测点清单"] = _build_alert_sheet(report, payload)
-    sheets["待复核事项"] = _build_review_sheet(report, payload)
-    sheets["来源说明"] = _build_source_sheet(report, payload)
 
     bindings: list[dict[str, str]] = []
     for sheet_name, sheet in sheets.items():
@@ -634,6 +639,10 @@ def _write_workbook(path: Path, model: dict[str, Any]) -> None:
                 for cell in cells:
                     cell.border = BORDER
                     cell.alignment = Alignment(vertical="center", wrap_text=True)
+            text = str(spec["cells"][(row, start_column)]["value"])
+            worksheet.row_dimensions[row].height = min(
+                400, max(24, 18 * (1 + len(text) // max(30, (end_column - start_column + 1) * 14)))
+            )
         for column in range(1, max_column + 1):
             values = [
                 str(cell_spec["value"])
@@ -642,6 +651,15 @@ def _write_workbook(path: Path, model: dict[str, Any]) -> None:
             ]
             width = min(42, max(12, max((len(value) for value in values), default=10) + 2))
             worksheet.column_dimensions[get_column_letter(column)].width = width
+        for (row, column), cell_spec in spec["cells"].items():
+            if any(start_row == row for start_row, *_ in spec["merges"]):
+                continue
+            text = str(cell_spec["value"])
+            width = worksheet.column_dimensions[get_column_letter(column)].width
+            worksheet.row_dimensions[row].height = max(
+                worksheet.row_dimensions[row].height or 24,
+                min(140, 18 * (1 + len(text) // max(10, int(width / 2)))),
+            )
         worksheet.sheet_view.showGridLines = False
         worksheet.freeze_panes = (
             f"A{spec['header_row'] + 1}" if spec.get("header_row") else "A4"
@@ -649,7 +667,7 @@ def _write_workbook(path: Path, model: dict[str, Any]) -> None:
         if spec.get("header_row"):
             worksheet.auto_filter.ref = (
                 f"A{spec['header_row']}:"
-                f"{get_column_letter(max_column)}{worksheet.max_row}"
+                f"{get_column_letter(max_column)}{spec.get('data_end_row', worksheet.max_row)}"
             )
         worksheet.print_title_rows = (
             f"1:{spec['header_row']}" if spec.get("header_row") else "1:2"
@@ -679,9 +697,14 @@ def render_appendices_markdown(model: dict[str, Any], report_date: Any) -> str:
             spec["cells"].get((header_row, column), {"value": ""})["value"]
             for column in range(1, max_column + 1)
         ]
+        for row in range(1, header_row):
+            text = spec["cells"].get((row, 1), {}).get("value")
+            if text:
+                lines.extend([str(text), ""])
         lines.append("| " + " | ".join(_markdown_cell(value) for value in headers) + " |")
         lines.append("| " + " | ".join(["---"] * max_column) + " |")
-        for row in range(header_row + 1, max_row + 1):
+        data_end = spec.get("data_end_row", max_row)
+        for row in range(header_row + 1, data_end + 1):
             values = [
                 spec["cells"].get((row, column), {"value": ""})["value"]
                 for column in range(1, max_column + 1)
@@ -689,6 +712,10 @@ def render_appendices_markdown(model: dict[str, Any], report_date: Any) -> str:
             if any(value not in (None, "") for value in values):
                 lines.append("| " + " | ".join(_markdown_cell(value) for value in values) + " |")
         lines.append("")
+        for row in range(data_end + 1, max_row + 1):
+            text = spec["cells"].get((row, 1), {}).get("value")
+            if text:
+                lines.extend([str(text), ""])
     return "\n".join(lines).rstrip() + "\n"
 
 

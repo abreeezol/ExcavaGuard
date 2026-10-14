@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download } from "lucide-react";
 import type { PersistedRun, ReviewRequest } from "@/contracts/runs";
+import { standardEvidenceSchema } from "@/contracts/standard-evidence";
 
 const DECISIONS = { accepted: "接受草稿", needs_changes: "退回修改", rejected: "拒绝草稿" } as const;
 const AGENTS = { supervisor: "Supervisor", "report-delivery": "报告交付 Agent", audit: "审计 Agent" };
@@ -33,6 +34,19 @@ export function RunDelivery({
   const [reason, setReason] = useState("");
   const execution = record.result?.agent_run;
   const state = execution?.state;
+  const models = [...new Set(state?.trace.filter((event) =>
+    event.capability.startsWith("llm-") && event.status === "success",
+  ).map((event) => event.output_versions.model).filter(Boolean) ?? [])];
+  const evidencePayload = state?.evidence_snapshot?.artifact?.payload;
+  const candidates = evidencePayload && typeof evidencePayload === "object" && "evidence" in evidencePayload
+    && Array.isArray(evidencePayload.evidence) ? evidencePayload.evidence : [];
+  const evidence = candidates.flatMap((candidate) => {
+    const parsed = standardEvidenceSchema.safeParse(candidate);
+    return parsed.success ? [parsed.data] : [];
+  });
+  const reportPayload = state?.report_draft?.payload;
+  const markdown = reportPayload && typeof reportPayload === "object" && "markdown" in reportPayload
+    && typeof reportPayload.markdown === "string" ? reportPayload.markdown : null;
   const canReview = record.execution_status === "completed" &&
     state?.run.status === "awaiting_human_review" && state.audit_result?.valid &&
     !record.review && state.human_review.decision === null;
@@ -45,6 +59,8 @@ export function RunDelivery({
         <span className="wb-chip">{executionLabel(record.execution_status)}</span>
         {state && <span className="wb-chip">{record.review ? decisionLabel(record.review.decision) : executionLabel(state.run.status)}</span>}
         {state && <span className="wb-chip">自动修订 {state.run.revision_count}/{state.limits.max_revision_rounds}</span>}
+        {state && <span className="wb-chip">{state.report_mode === "ai" ? "AI 日报" : "确定性模板"} · 模型调用 {state.limits.model_calls_used}/{state.limits.max_model_calls}</span>}
+        {models.map((model) => <span className="wb-chip" key={model}>{model}</span>)}
       </div>
       {record.error && <div className="wb-alert wb-alert-error" role="alert">{record.error.code}：{record.error.message}</div>}
       <div className="wb-actions">
@@ -72,6 +88,25 @@ export function RunDelivery({
           {state?.audit_result?.issues.map((issue) => (
             <p className="wb-hint" key={issue.issue_id}>{issue.code} · {issue.responsibility}：{issue.message}</p>
           ))}
+          {markdown && (
+            <details className="wb-accordion">
+              <summary>监测日报正文预览{state?.audit_result?.valid ? "（审计通过，待工程师复核）" : "（未通过审计）"}</summary>
+              <pre style={{ whiteSpace: "pre-wrap" }}>{markdown}</pre>
+            </details>
+          )}
+          {state?.evidence_snapshot && (
+            <details className="wb-accordion">
+              <summary>本次 RAG 规范依据 · {evidence.length} 条</summary>
+              {state.evidence_snapshot.gaps.map((gap) => <p className="wb-hint" key={gap}>{gap}</p>)}
+              {evidence.map((item) => (
+                <div key={item.id}>
+                  <p>{item.metadata.standard_name} · {item.metadata.standard_version} · {item.metadata.clause}</p>
+                  <p className="wb-hint">{item.provider} · {item.id} · {item.metadata.source_location}</p>
+                  <pre style={{ whiteSpace: "pre-wrap" }}>{item.text}</pre>
+                </div>
+              ))}
+            </details>
+          )}
           {state?.trace.map((event, index) => (
             <details className="wb-accordion" key={event.event_id}>
               <summary>{index + 1}. {AGENTS[event.agent]} · {event.capability} · {event.status}</summary>

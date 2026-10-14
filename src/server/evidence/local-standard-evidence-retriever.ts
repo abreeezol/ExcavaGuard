@@ -17,6 +17,7 @@ type LocalRetrieverOptions = {
   baseUrl: string;
   timeoutMs: number;
   fetchImpl?: typeof fetch;
+  signal?: AbortSignal;
 };
 
 function parseLoopbackBaseUrl(value: string): URL {
@@ -80,7 +81,10 @@ export class LocalStandardEvidenceRetriever implements StandardEvidenceRetriever
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(query.data),
         redirect: "error",
-        signal: AbortSignal.timeout(this.options.timeoutMs),
+        signal: AbortSignal.any([
+          AbortSignal.timeout(this.options.timeoutMs),
+          ...(this.options.signal ? [this.options.signal] : []),
+        ]),
       });
     } catch (error) {
       throw new EvidenceRetrievalError(

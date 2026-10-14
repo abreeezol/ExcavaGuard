@@ -65,7 +65,7 @@ function parseSupportingSnapshot(
 }
 
 function supportingPayload(snapshot: SupportingSnapshot | null): unknown {
-  return snapshot?.status === "ready"
+  return snapshot?.status === "ready" || snapshot?.status === "insufficient"
     ? (snapshot.artifact?.payload ?? null)
     : null;
 }
@@ -89,7 +89,7 @@ export async function renderDailyReport(
     .string()
     .trim()
     .min(1)
-    .parse(request.templateVersion ?? "deep-pit-monitoring-report/service-v2");
+    .parse(request.templateVersion ?? "deep-pit-monitoring-report/service-v3");
   const artifactId = randomUUID();
   const artifactOutputDir = resolve(
     process.cwd(),
