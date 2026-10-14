@@ -73,8 +73,10 @@ function draftFor(
   version: number,
   hashChar: string,
 ): ReportDraft {
+  const draftRef = ref("excavaguard.report_draft/v1", version, hashChar);
+  const artifactPath = `var/report-artifacts/${draftRef.artifact_id}`;
   return {
-    ref: ref("excavaguard.report_draft/v1", version, hashChar),
+    ref: draftRef,
     source_refs: {
       engine: state.engine_snapshot.ref,
       evidence: state.evidence_snapshot?.artifact?.ref ?? null,
@@ -88,6 +90,37 @@ function draftFor(
         fact_value_hash: "f".repeat(64),
       },
     ],
+    artifacts: [
+      {
+        kind: "workbook",
+        file_name: "监测日报_测试_草稿.xlsx",
+        relative_path: `${artifactPath}/监测日报_测试_草稿.xlsx`,
+        media_type:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        sha256: "1".repeat(64),
+        size_bytes: 1,
+        sheets: ["监测日报"],
+      },
+      {
+        kind: "cover_markdown",
+        file_name: "监测日报_测试_草稿_封面.md",
+        relative_path: `${artifactPath}/监测日报_测试_草稿_封面.md`,
+        media_type: "text/markdown; charset=utf-8",
+        sha256: "2".repeat(64),
+        size_bytes: 1,
+        sheets: [],
+      },
+      {
+        kind: "appendices_markdown",
+        file_name: "监测日报_测试_草稿_附表及清单.md",
+        relative_path: `${artifactPath}/监测日报_测试_草稿_附表及清单.md`,
+        media_type: "text/markdown; charset=utf-8",
+        sha256: "3".repeat(64),
+        size_bytes: 1,
+        sheets: [],
+      },
+    ],
+    artifact_bindings: [],
     citations: state.evidence_snapshot?.evidence_ids.map((evidenceId, index) => ({
       citation_id: `citation-${index + 1}`,
       report_path: "sections.basis",

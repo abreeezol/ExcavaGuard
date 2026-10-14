@@ -104,11 +104,15 @@ def main() -> int:
     payload = request.get("daily_report_input")
     report = request.get("report_payload")
     bindings = request.get("fact_bindings")
+    artifacts = request.get("artifacts")
+    artifact_bindings = request.get("artifact_bindings")
     citations = request.get("citations")
     if not isinstance(payload, dict) or not isinstance(report, dict):
         return fail("INVALID_INPUT", "缺少日报输入载荷或报告草稿。")
     if not isinstance(bindings, list) or not isinstance(citations, list):
         return fail("INVALID_INPUT", "事实绑定与引用必须是数组。")
+    if not isinstance(artifacts, list) or not isinstance(artifact_bindings, list):
+        return fail("INVALID_INPUT", "三件套清单与单元格绑定必须是数组。")
 
     issues: list[dict[str, Any]] = []
     checks: list[dict[str, Any]] = []
@@ -313,6 +317,69 @@ def main() -> int:
             )
         )
 
+    artifact_trace: dict[str, Any] = {}
+    try:
+        from report_artifacts import audit_report_artifacts
+
+        raw_artifact_issues, artifact_trace = audit_report_artifacts(
+            expected_report,
+            payload,
+            artifacts,
+            artifact_bindings,
+        )
+    except ImportError as exc:
+        raw_artifact_issues = [
+            {
+                "code": "ARTIFACT_AUDIT_UNAVAILABLE",
+                "path": "artifacts",
+                "message": f"日报三件套审计依赖不可用：{exc}",
+            }
+        ]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raw_artifact_issues = [
+            {
+                "code": "ARTIFACT_AUDIT_FAILED",
+                "path": "artifacts",
+                "message": f"日报三件套审计异常：{exc}",
+            }
+        ]
+    for artifact_issue in raw_artifact_issues:
+        issues.append(
+            issue(
+                str(artifact_issue.get("code") or "ARTIFACT_AUDIT_FAILED"),
+                str(artifact_issue.get("path") or "artifacts"),
+                str(artifact_issue.get("message") or "日报三件套审计失败。"),
+                expected=artifact_issue.get("expected"),
+                actual=artifact_issue.get("actual"),
+            )
+        )
+    artifact_codes = {
+        str(artifact_issue.get("code")) for artifact_issue in raw_artifact_issues
+    }
+    checks.extend(
+        [
+            {
+                "name": "exported-artifacts",
+                "valid": not raw_artifact_issues,
+                "details": "固定三件套、受控路径、文件哈希和字节数检查。",
+            },
+            {
+                "name": "workbook-cell-bindings",
+                "valid": not any(
+                    code.startswith("WORKBOOK_")
+                    or code == "ARTIFACT_BINDING_SET_MISMATCH"
+                    for code in artifact_codes
+                ),
+                "details": "Excel 工作表、单元格值与冻结事实绑定检查。",
+            },
+            {
+                "name": "markdown-correspondence",
+                "valid": "MARKDOWN_CONTENT_MISMATCH" not in artifact_codes,
+                "details": "封面及附表 Markdown 与结构化报告/Excel 模型对应检查。",
+            },
+        ]
+    )
+
     unique_issues: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str]] = set()
     for item in issues:
@@ -337,6 +404,7 @@ def main() -> int:
                 "issue_count": len(unique_issues),
                 "source_report_hash": value_hash(report),
                 "expected_report_hash": value_hash(expected_report),
+                **artifact_trace,
             },
         }
     )

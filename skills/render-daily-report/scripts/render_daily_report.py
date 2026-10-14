@@ -57,6 +57,12 @@ def main() -> int:
     template_version = request.get("template_version") or TEMPLATE_VERSION
     if not isinstance(template_version, str) or not template_version.strip():
         return fail("INVALID_INPUT", "template_version 必须是非空字符串。")
+    artifact_id = request.get("artifact_id")
+    artifact_output_dir = request.get("artifact_output_dir")
+    if not isinstance(artifact_id, str) or not artifact_id.strip():
+        return fail("INVALID_INPUT", "artifact_id 必须是非空字符串。")
+    if not isinstance(artifact_output_dir, str) or not artifact_output_dir.strip():
+        return fail("INVALID_INPUT", "artifact_output_dir 必须是非空字符串。")
 
     report, bindings, citations, trace = build_report(
         payload,
@@ -64,6 +70,20 @@ def main() -> int:
         analysis_payload=request.get("work_condition_analysis"),
         template_version=template_version.strip(),
     )
+    try:
+        from report_artifacts import export_report_artifacts
+
+        artifacts, artifact_bindings, artifact_trace = export_report_artifacts(
+            report,
+            payload,
+            output_dir=artifact_output_dir,
+            artifact_id=artifact_id,
+        )
+    except ImportError as exc:
+        return fail("DEPENDENCY_UNAVAILABLE", f"日报三件套导出依赖不可用：{exc}")
+    except Exception as exc:  # noqa: BLE001
+        return fail("ARTIFACT_EXPORT_FAILED", f"日报三件套导出失败：{exc}")
+
     emit(
         {
             "schema": RESULT_SCHEMA,
@@ -72,11 +92,13 @@ def main() -> int:
             "result": {
                 "report_payload": report,
                 "fact_bindings": bindings,
+                "artifacts": artifacts,
+                "artifact_bindings": artifact_bindings,
                 "citations": citations,
                 "template_version": template_version.strip(),
                 "review_required": True,
             },
-            "trace": trace,
+            "trace": {**trace, **artifact_trace},
         }
     )
     return 0

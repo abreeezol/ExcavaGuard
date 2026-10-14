@@ -36,7 +36,9 @@ from ingest import (                                             # noqa: E402
     normalize_metric_name,
 )
 from file_reader import (                                        # noqa: E402
+    aggregate_daily_records,
     read_monitoring_file,
+    read_monitoring_rows,
     map_header,
     detect_delimiter,
 )
@@ -124,6 +126,19 @@ codes = {f for r in bad for f in r.flags}
 check("非数值被标记", "NON_NUMERIC_VALUE" in codes, str(codes))
 check("日期无法解析被标记", "UNPARSED_TIMESTAMP" in codes, str(codes))
 check("单位无法识别被标记", "UNSUPPORTED_UNIT" in codes, str(codes))
+
+semantic_conflict = normalize_records([
+    {
+        **clean_records()[1],
+        "measurement_semantics": "precomputed_cumulative",
+        "baseline_value": 100.0,
+    },
+])
+semantic_quality = scan_records(semantic_conflict)
+check("已有累计量强制使用语义零基准", semantic_conflict[0].baseline_value == 0.0)
+check("已有累计量与非零基准冲突被高严重度识别",
+      semantic_quality.by_code.get("SEMANTIC_BASELINE_CONFLICT") == 1,
+      str(semantic_quality.by_code))
 
 q = scan_records(recs)
 check("干净数据不产生高中危问题", q.by_severity.get("高", 0) == 0, str(q.by_severity))
@@ -248,6 +263,9 @@ check("地下水位归属问题类别=渗漏水与地下水异常", jg.problem_c
 # 未知监测项弃权
 ju = judge(compute("not_a_metric", 1.0, baseline=0.0, previous=0.5, interval_days=1.0), reg, CTX)
 check("未知监测项弃权", "UNKNOWN_METRIC" in ju.abstain, str(ju.abstain))
+check("全部弃权时整体风险保持未知而非正常",
+      summarize([ju])["overall_risk_level"] == "未知",
+      str(summarize([ju])))
 
 
 # ===========================================================================
@@ -464,6 +482,21 @@ check("报告日期注入生效", p2["project"]["report_date"] == "2026-08-07")
 check("测点台账注入生效", any(it["point_name"] == "墙顶水平位移 1 号点" for it in p2["items"]))
 check("未注入台账时测点名为 null", rep_in["items"][0]["point_name"] is None)
 
+selected_day = build_daily_report_input(
+    result,
+    report_date="2026-09-15",
+    item_date="2026-09-15",
+)
+check("日报筛选只交付报告日条目",
+      len(selected_day["items"]) == 1
+      and selected_day["items"][0]["timestamp"].startswith("2026-09-15"))
+check("日报筛选保留历史计算条数",
+      selected_day["context"]["records"] == 1
+      and selected_day["context"]["history_records"] == 6,
+      str(selected_day["context"]))
+check("日报筛选后重新计算汇总", selected_day["summary"]["total"] == 1,
+      str(selected_day["summary"]))
+
 # --- 明细字段齐备与语义 ---
 item_req = schema["$defs"]["item"]["required"]
 missing = [k for k in item_req if k not in rep_in["items"][0]]
@@ -474,6 +507,8 @@ check("明细判定与自身计算对齐（未串行）",
       all(it["point_id"] == j["point_id"] for it, j in zip(rep_in["items"], result.stage3["judgments"])))
 check("明细 needs_review 与 abstain 一致",
       all(it["needs_review"] == bool(it["abstain"]) for it in rep_in["items"]))
+check("明细保留量值语义与来源字段",
+      all({"measurement_semantics", "source_flags", "source_metadata"} <= set(it) for it in rep_in["items"]))
 
 # --- 报警清单 / 复核队列 ---
 check("报警清单只含报警及以上",
@@ -635,6 +670,89 @@ check("端到端：派生标记透传到判定结果",
       str(_res_e2e.stage3["judgments"][-1]["flags"]))
 check("端到端：阶段一输出派生统计", _res_e2e.stage1["derived_fields"]["baseline_derived"] == 7,
       str(_res_e2e.stage1.get("derived_fields")))
+
+# --- 混合宽表：表头展开、累计语义、日报聚合、共享点号隔离 ---
+_wide_rows = [
+    [
+        "时间",
+        "深层水平位移-B-DP-01-累计位移量(mm)",
+        "裂缝-LF-01-长度-原始值(mm)",
+        "裂缝-LF-01-宽度-原始值(mm)",
+    ],
+    ["2026-10-05 00:00:00", 5.0, 100.0, 1.0],
+    ["2026-10-05 23:50:00", 7.0, 101.0, 1.2],
+    ["2026-10-06 00:00:00", 7.1, 101.2, 1.3],
+    ["2026-10-06 23:50:00", 9.0, 102.0, 1.5],
+]
+_wide_records, _wide_report = read_monitoring_rows(
+    _wide_rows,
+    {
+        "format": "excel",
+        "sheet": "监测数据",
+        "source_flags": ["SOURCE_TIME_ALIGNED", "SOURCE_RESAMPLED"],
+    },
+)
+check("宽表被识别并展开", _wide_report["ok"] and _wide_report["layout"] == "wide")
+check("宽表通道与记录数正确",
+      _wide_report["channel_count"] == 3 and len(_wide_records) == 12, str(_wide_report))
+check("裂缝长度/宽度共享点号但保留独立监测项",
+      {(r["point_id"], r["metric"]) for r in _wide_records if r["point_id"] == "LF-01"}
+      == {("LF-01", "裂缝长度"), ("LF-01", "裂缝宽度")})
+check("宽表来源限制被保留",
+      "SOURCE_RESAMPLED" in _wide_records[0]["source_flags"], str(_wide_records[0]))
+
+_daily_records, _daily_report = aggregate_daily_records(_wide_records, "2026-10-06")
+check("宽表按通道保留每日末值历史",
+      len(_daily_records) == 6 and _daily_report["channels"] == 3, str(_daily_report))
+check("日报聚合保留日内统计",
+      _daily_records[0]["source_metadata"]["daily_aggregation"]["sample_count"] == 2,
+      str(_daily_records[0]["source_metadata"]))
+
+_wide_norm = normalize_records(
+    _daily_records,
+    metric_aliases=build_metric_aliases(StandardsRegistry().display_names()),
+)
+_wide_derived = derive_temporal_fields(_wide_norm)
+_deep_last = next(
+    r for r in _wide_norm
+    if r.point_id == "B-DP-01" and r.timestamp.startswith("2026-10-06")
+)
+_length_last = next(
+    r for r in _wide_norm
+    if r.point_id == "LF-01" and r.metric_key == "裂缝长度" and r.timestamp.startswith("2026-10-06")
+)
+_width_last = next(
+    r for r in _wide_norm
+    if r.point_id == "LF-01" and r.metric_key == "裂缝宽度" and r.timestamp.startswith("2026-10-06")
+)
+check("已有累计量使用语义零基准而非窗口首值",
+      _deep_last.baseline_value == 0.0
+      and "PRECOMPUTED_CUMULATIVE" in _deep_last.flags
+      and "BASELINE_DERIVED" not in _deep_last.flags,
+      str(_deep_last.to_dict()))
+check("裂缝长度与宽度时序不串线",
+      _length_last.previous_value == 101.0 and _width_last.previous_value == 1.2,
+      f"length={_length_last.previous_value}, width={_width_last.previous_value}")
+check("时序派生按测点+监测项统计",
+      _wide_derived["points"] == 2 and _wide_derived["series"] == 3, str(_wide_derived))
+
+_wide_pipeline = run_pipeline(_daily_records, CTX)
+_deep_calc = next(
+    c for c in _wide_pipeline.stage2["results"]
+    if c["point_id"] == "B-DP-01" and c["timestamp"].startswith("2026-10-06")
+)
+check("阶段二保留预计算累计量数值", _deep_calc["outputs"]["cumulative"] == 9.0, str(_deep_calc))
+check("来源元数据透传到阶段二",
+      _deep_calc["inputs"]["source_metadata"]["daily_aggregation"]["last_value"] == 9.0)
+
+_bad_wide_records, _bad_wide_report = read_monitoring_rows([
+    ["时间", "深层水平位移-B-DP-01-累计位移量(mm)", "无法识别通道"],
+    ["2026-10-05 00:00:00", 1.0, 2.0],
+])
+check("宽表含未识别通道时整表拒绝而非静默丢列",
+      not _bad_wide_report["ok"] and not _bad_wide_records
+      and _bad_wide_report["unmapped_columns"] == ["无法识别通道"],
+      str(_bad_wide_report))
 
 shutil.rmtree(_tmpdir, ignore_errors=True)
 

@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -70,6 +71,7 @@ METRIC_SHORT_ALIASES: dict[str, str] = {
     "地下水位变化": "groundwater_level",
     "地表沉降": "surface_settlement",
     "地表位移": "surface_settlement",
+    "地表竖向位移": "surface_settlement",
     "地面沉降": "surface_settlement",
     "建筑沉降": "building_settlement",
     "建筑物沉降": "building_settlement",
@@ -94,6 +96,7 @@ METRIC_SHORT_ALIASES: dict[str, str] = {
     "温度": "soil_temperature",
     "地温": "soil_temperature",
     "分层沉降": "soil_layered_vertical_displacement",
+    "分层竖向位移": "soil_layered_vertical_displacement",
     "土体分层沉降": "soil_layered_vertical_displacement",
 }
 
@@ -175,6 +178,9 @@ class NormalizedRecord:
     interval_days: float | None
 
     data_origin: str = "real"  # real | simulated | unknown
+    measurement_semantics: str = "raw_observation"
+    source_flags: list[str] = field(default_factory=list)
+    source_metadata: dict = field(default_factory=dict)
     raw: dict = field(default_factory=dict)
     flags: list[str] = field(default_factory=list)
 
@@ -190,6 +196,9 @@ class NormalizedRecord:
             "previous_value": self.previous_value,
             "interval_days": self.interval_days,
             "data_origin": self.data_origin,
+            "measurement_semantics": self.measurement_semantics,
+            "source_flags": self.source_flags,
+            "source_metadata": self.source_metadata,
             "flags": self.flags,
         }
 
@@ -271,7 +280,8 @@ def normalize_records(
 
     输入字典建议字段（缺失的置 None 并标记，不做推断）：
         point_id, timestamp, metric_key, value, unit, direction,
-        baseline_value, previous_value, interval_days, data_origin
+        baseline_value, previous_value, interval_days, data_origin,
+        measurement_semantics, source_flags, source_metadata
 
     `metric_aliases` 用于把用户习惯写法（如中文监测项名称"围护墙顶部水平位移"）
     映射到规范库的 `metric_key`。不提供时按原样保留。
@@ -309,7 +319,18 @@ def normalize_records(
         if not val_ok and raw_value not in (None, ""):
             flags.append("NON_NUMERIC_VALUE")
 
+        semantics = str(r.get("measurement_semantics") or "raw_observation").strip().lower()
+        if semantics not in ("raw_observation", "precomputed_cumulative"):
+            flags.append("UNKNOWN_MEASUREMENT_SEMANTICS")
+            semantics = "unknown"
+
         base, _ = _norm_number(r.get("baseline_value"))
+        if semantics == "precomputed_cumulative":
+            if base is not None and abs(base) > 1e-12:
+                flags.append("SEMANTIC_BASELINE_CONFLICT")
+            base = 0.0
+            flags.extend(["PRECOMPUTED_CUMULATIVE", "SEMANTIC_BASELINE_ZERO"])
+
         prev, _ = _norm_number(r.get("previous_value"))
         interval, _ = _norm_number(r.get("interval_days"))
         if interval is None:
@@ -318,8 +339,13 @@ def normalize_records(
             if ok_h:
                 interval = hours / 24.0
 
-        val, unit, uflags = normalize_value_unit(val, r.get("unit"), target_unit)
-        flags.extend(uflags)
+        source_unit = r.get("unit")
+        val, unit, uflags = normalize_value_unit(val, source_unit, target_unit)
+        base, _base_unit, base_flags = normalize_value_unit(base, source_unit, target_unit)
+        prev, _prev_unit, previous_flags = normalize_value_unit(prev, source_unit, target_unit)
+        for flag in [*uflags, *base_flags, *previous_flags]:
+            if flag not in flags:
+                flags.append(flag)
 
         raw_dir = str(r.get("direction") or "").strip()
         direction = DIRECTION_ALIASES.get(raw_dir.lower(), DIRECTION_ALIASES.get(raw_dir))
@@ -333,6 +359,30 @@ def normalize_records(
             flags.append("UNKNOWN_DATA_ORIGIN")
             origin = "unknown"
 
+        raw_source_flags = r.get("source_flags")
+        if isinstance(raw_source_flags, list):
+            source_flags = [str(flag).strip() for flag in raw_source_flags if str(flag).strip()]
+        elif raw_source_flags not in (None, ""):
+            source_flags = [
+                flag.strip()
+                for flag in str(raw_source_flags).replace("；", ",").replace(";", ",").split(",")
+                if flag.strip()
+            ]
+        else:
+            source_flags = []
+
+        raw_source_metadata = r.get("source_metadata")
+        if isinstance(raw_source_metadata, dict):
+            source_metadata = dict(raw_source_metadata)
+        elif isinstance(raw_source_metadata, str) and raw_source_metadata.strip():
+            try:
+                parsed_metadata = json.loads(raw_source_metadata)
+                source_metadata = parsed_metadata if isinstance(parsed_metadata, dict) else {"raw": raw_source_metadata}
+            except (TypeError, ValueError):
+                source_metadata = {"raw": raw_source_metadata}
+        else:
+            source_metadata = {}
+
         out.append(
             NormalizedRecord(
                 point_id=point_id,
@@ -345,6 +395,9 @@ def normalize_records(
                 previous_value=prev,
                 interval_days=interval,
                 data_origin=origin,
+                measurement_semantics=semantics,
+                source_flags=source_flags,
+                source_metadata=source_metadata,
                 raw=dict(r),
                 flags=flags,
             )
@@ -408,12 +461,13 @@ def derive_temporal_fields(records: list[NormalizedRecord]) -> dict:
 
     返回统计信息供阶段一输出与审计。
     """
-    by_point: dict[str, list[NormalizedRecord]] = {}
+    by_series: dict[tuple[str, str], list[NormalizedRecord]] = {}
     for r in records:
-        by_point.setdefault(r.point_id, []).append(r)
+        by_series.setdefault((r.point_id, r.metric_key), []).append(r)
 
     stats = {
-        "points": len(by_point),
+        "points": len({r.point_id for r in records}),
+        "series": len(by_series),
         "baseline_derived": 0,
         "previous_derived": 0,
         "interval_derived": 0,
@@ -421,7 +475,7 @@ def derive_temporal_fields(records: list[NormalizedRecord]) -> dict:
         "interval_hours_used": 0,
     }
 
-    for _pid, group in by_point.items():
+    for _series_key, group in by_series.items():
         group.sort(key=lambda r: _ts_sort_key(r.timestamp))
 
         # 有效观测 = 数值可解析的记录；空值/非数值不参与派生
@@ -436,7 +490,8 @@ def derive_temporal_fields(records: list[NormalizedRecord]) -> dict:
             for r in group:
                 if r is not valid[0] and r.baseline_value is None:
                     r.baseline_value = valid[0].value
-                    r.flags.append(BASELINE_DERIVED)
+                    if BASELINE_DERIVED not in r.flags:
+                        r.flags.append(BASELINE_DERIVED)
                     stats["baseline_derived"] += 1
 
         prev_rec: NormalizedRecord | None = None

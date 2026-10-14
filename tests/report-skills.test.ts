@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { beforeAll, describe, expect, it } from "vitest";
+import { appendFileSync, existsSync, rmSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type {
   ArtifactEnvelope,
   ReportDraft,
@@ -16,9 +18,13 @@ async function probePython(bin: string): Promise<boolean> {
       clearTimeout(timer);
       resolve(ok);
     };
-    const child = spawn(bin, ["-c", "print('ok')"], {
+    const child = spawn(
+      bin,
+      ["-c", "import openpyxl; print(openpyxl.__version__)"],
+      {
       stdio: ["ignore", "pipe", "pipe"],
-    });
+      },
+    );
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       done(false);
@@ -29,9 +35,11 @@ async function probePython(bin: string): Promise<boolean> {
 }
 
 const PYTHON = await (async () => {
+  const localPython = resolve(process.cwd(), ".venv", "bin", "python");
   const candidates = [
     process.env.EXCAVAGUARD_PYTHON,
     process.env.PYTHON,
+    existsSync(localPython) ? localPython : null,
     "python3",
     "python",
   ].filter((value): value is string => Boolean(value && value.trim()));
@@ -45,6 +53,47 @@ type RenderRunner = typeof import("@/server/skills/render-daily-report/runner");
 type ValidateRunner = typeof import("@/server/skills/validate-report/runner");
 
 const describeWithPython = PYTHON ? describe : describe.skip;
+const artifactDirectories = new Set<string>();
+
+function trackArtifacts(draft: ReportDraft): ReportDraft {
+  const first = draft.artifacts[0];
+  if (first) {
+    artifactDirectories.add(dirname(resolve(process.cwd(), first.relative_path)));
+  }
+  return draft;
+}
+
+async function overwriteWorkbookCell(
+  workbookPath: string,
+  sheetName: string,
+): Promise<void> {
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    const child = spawn(
+      PYTHON as string,
+      [
+        "-c",
+        [
+          "import openpyxl, sys",
+          "path, sheet = sys.argv[1], sys.argv[2]",
+          "wb = openpyxl.load_workbook(path)",
+          "wb[sheet]['D6'] = 999",
+          "wb.save(path)",
+        ].join(";"),
+        workbookPath,
+        sheetName,
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let stderr = "";
+    child.stderr.setEncoding("utf-8");
+    child.stderr.on("data", (chunk: string) => (stderr += chunk));
+    child.on("error", rejectPromise);
+    child.on("close", (code) => {
+      if (code === 0) resolvePromise();
+      else rejectPromise(new Error(stderr || `Python exit ${code}`));
+    });
+  });
+}
 
 function ref(schema: string, hashChar: string) {
   return {
@@ -64,6 +113,9 @@ function engineItem(overrides: Record<string, unknown> = {}) {
     metric_name: "围护墙顶部水平位移",
     timestamp: "2026-10-13T08:00:00+08:00",
     data_origin: "real",
+    measurement_semantics: "raw_observation",
+    source_flags: [],
+    source_metadata: {},
     baseline: 0,
     previous: 18,
     current: 22,
@@ -224,16 +276,51 @@ describeWithPython("报告交付与独立审计 Skill", () => {
     validateRunner = await import("@/server/skills/validate-report/runner");
   });
 
+  afterAll(() => {
+    for (const directory of artifactDirectories) {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("从冻结载荷生成带事实绑定和证据 ID 的草稿", async () => {
     const engine = engineSnapshot();
     const evidence = evidenceSnapshot();
-    const { draft, trace } = await renderRunner.renderDailyReport({
+    const rendered = await renderRunner.renderDailyReport({
       engineSnapshot: engine,
       evidenceSnapshot: evidence,
     });
+    const draft = trackArtifacts(rendered.draft);
+    const { trace } = rendered;
 
     expect(draft.ref.schema).toBe("excavaguard.report_draft/v1");
     expect(draft.fact_bindings.length).toBeGreaterThan(30);
+    expect(draft.artifacts.map((artifact) => artifact.kind)).toEqual([
+      "workbook",
+      "cover_markdown",
+      "appendices_markdown",
+    ]);
+    expect(
+      draft.artifacts.every((artifact) =>
+        existsSync(resolve(process.cwd(), artifact.relative_path)),
+      ),
+    ).toBe(true);
+    expect(draft.artifact_bindings.length).toBeGreaterThan(20);
+    expect(
+      draft.artifacts.find((artifact) => artifact.kind === "workbook")?.sheets,
+    ).toEqual(
+      expect.arrayContaining([
+        "监测日报",
+        "附表A_水平位移监测日报表",
+        "超限测点清单",
+        "待复核事项",
+        "来源说明",
+      ]),
+    );
+    expect(
+      draft.artifacts
+        .find((artifact) => artifact.kind === "workbook")
+        ?.sheets.some((sheet) => sheet.startsWith("附表G")),
+    ).toBe(false);
     expect(draft.citations).toEqual([
       expect.objectContaining({
         evidence_id: "std-gb50497-2019-8.0.4",
@@ -252,25 +339,34 @@ describeWithPython("报告交付与独立审计 Skill", () => {
     expect(trace).toMatchObject({
       calculation_performed: false,
       risk_reclassified: false,
+      artifact_binding_count: draft.artifact_bindings.length,
     });
   });
 
   it("独立审计通过未被修改的草稿", async () => {
     const engine = engineSnapshot();
     const evidence = evidenceSnapshot();
-    const { draft } = await renderRunner.renderDailyReport({
+    const { draft: rawDraft } = await renderRunner.renderDailyReport({
       engineSnapshot: engine,
       evidenceSnapshot: evidence,
     });
+    const draft = trackArtifacts(rawDraft);
     const { audit } = await validateRunner.validateReport({
       draft,
       engineSnapshot: engine,
       evidenceSnapshot: evidence,
     });
 
+    expect(audit.issues, JSON.stringify(audit.issues, null, 2)).toEqual([]);
     expect(audit.valid).toBe(true);
-    expect(audit.issues).toEqual([]);
     expect(audit.checks.every((check) => check.valid)).toBe(true);
+    expect(audit.checks.map((check) => check.name)).toEqual(
+      expect.arrayContaining([
+        "exported-artifacts",
+        "workbook-cell-bindings",
+        "markdown-correspondence",
+      ]),
+    );
   });
 
   it("报告数字被修改后审计阻断且不修改源事实", async () => {
@@ -280,6 +376,7 @@ describeWithPython("报告交付与独立审计 Skill", () => {
       engineSnapshot: engine,
       evidenceSnapshot: evidence,
     });
+    trackArtifacts(rendered.draft);
     const draft = structuredClone(rendered.draft) as ReportDraft;
     (
       draft.payload as {
@@ -310,6 +407,7 @@ describeWithPython("报告交付与独立审计 Skill", () => {
     const rendered = await renderRunner.renderDailyReport({
       engineSnapshot: engine,
     });
+    trackArtifacts(rendered.draft);
     const draft = structuredClone(rendered.draft) as ReportDraft;
     (draft.payload as { template_version: string }).template_version =
       "unapproved-template/v1";
@@ -322,6 +420,66 @@ describeWithPython("报告交付与独立审计 Skill", () => {
     expect(audit.valid).toBe(false);
     expect(audit.issues.map((item) => item.code)).toContain(
       "REPORT_CONTENT_MISMATCH",
+    );
+  });
+
+  it("附表 Markdown 被修改后审计同时检出文件哈希与内容不一致", async () => {
+    const engine = engineSnapshot();
+    const rendered = await renderRunner.renderDailyReport({
+      engineSnapshot: engine,
+    });
+    const draft = trackArtifacts(rendered.draft);
+    const markdown = draft.artifacts.find(
+      (artifact) => artifact.kind === "appendices_markdown",
+    );
+    expect(markdown).toBeDefined();
+    appendFileSync(
+      resolve(process.cwd(), markdown!.relative_path),
+      "\n未经绑定的修改\n",
+      "utf-8",
+    );
+
+    const { audit } = await validateRunner.validateReport({
+      draft,
+      engineSnapshot: engine,
+    });
+
+    expect(audit.valid).toBe(false);
+    expect(audit.issues.map((item) => item.code)).toEqual(
+      expect.arrayContaining([
+        "ARTIFACT_HASH_MISMATCH",
+        "ARTIFACT_SIZE_MISMATCH",
+        "MARKDOWN_CONTENT_MISMATCH",
+      ]),
+    );
+  });
+
+  it("Excel 事实单元格被修改后审计阻断", async () => {
+    const engine = engineSnapshot();
+    const rendered = await renderRunner.renderDailyReport({
+      engineSnapshot: engine,
+    });
+    const draft = trackArtifacts(rendered.draft);
+    const workbook = draft.artifacts.find(
+      (artifact) => artifact.kind === "workbook",
+    );
+    expect(workbook).toBeDefined();
+    await overwriteWorkbookCell(
+      resolve(process.cwd(), workbook!.relative_path),
+      "附表A_水平位移监测日报表",
+    );
+
+    const { audit } = await validateRunner.validateReport({
+      draft,
+      engineSnapshot: engine,
+    });
+
+    expect(audit.valid).toBe(false);
+    expect(audit.issues.map((item) => item.code)).toEqual(
+      expect.arrayContaining([
+        "ARTIFACT_HASH_MISMATCH",
+        "WORKBOOK_CELL_MISMATCH",
+      ]),
     );
   });
 });

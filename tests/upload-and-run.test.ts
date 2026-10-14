@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /**
@@ -38,9 +38,14 @@ async function probePython(bin: string): Promise<boolean> {
 }
 
 const PYTHON = await (async () => {
-  const candidates = [process.env.EXCAVAGUARD_PYTHON, process.env.PYTHON, "python3", "python"].filter(
-    (value): value is string => Boolean(value && value.trim()),
-  );
+  const localPython = resolve(process.cwd(), ".venv", "bin", "python");
+  const candidates = [
+    process.env.EXCAVAGUARD_PYTHON,
+    process.env.PYTHON,
+    existsSync(localPython) ? localPython : null,
+    "python3",
+    "python",
+  ].filter((value): value is string => Boolean(value && value.trim()));
   for (const bin of candidates) {
     if (await probePython(bin)) return bin;
   }

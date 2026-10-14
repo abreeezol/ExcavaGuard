@@ -38,6 +38,9 @@ class CalcResult:
     point_id: str | None = None
     timestamp: str | None = None
     data_origin: str = "real"
+    measurement_semantics: str = "raw_observation"
+    source_flags: list[str] = field(default_factory=list)
+    source_metadata: dict = field(default_factory=dict)
 
     current: float | None = None
     baseline: float | None = None
@@ -68,6 +71,9 @@ class CalcResult:
                 "baseline": self.baseline,
                 "previous": self.previous,
                 "interval_days": self.interval_days,
+                "measurement_semantics": self.measurement_semantics,
+                "source_flags": self.source_flags,
+                "source_metadata": self.source_metadata,
             },
             "outputs": {
                 "cumulative": self.cumulative,
@@ -140,6 +146,9 @@ def compute(
     point_id: str | None = None,
     timestamp: str | None = None,
     data_origin: str = "real",
+    measurement_semantics: str = "raw_observation",
+    source_flags: Sequence[str] | None = None,
+    source_metadata: dict | None = None,
     history: Sequence[tuple[float, float]] | None = None,
     expected_interval_days: float | None = None,
     input_flags: Sequence[str] | None = None,
@@ -154,6 +163,9 @@ def compute(
         point_id=point_id,
         timestamp=timestamp,
         data_origin=data_origin,
+        measurement_semantics=measurement_semantics,
+        source_flags=list(source_flags or ()),
+        source_metadata=dict(source_metadata or {}),
         current=current,
         baseline=baseline,
         previous=previous,
@@ -215,8 +227,17 @@ def compute_batch(
                 point_id=getattr(rec, "point_id", None),
                 timestamp=getattr(rec, "timestamp", None),
                 data_origin=getattr(rec, "data_origin", "real"),
-                history=(histories or {}).get(getattr(rec, "point_id", None)),
+                measurement_semantics=getattr(rec, "measurement_semantics", "raw_observation"),
+                source_flags=getattr(rec, "source_flags", None),
+                source_metadata=getattr(rec, "source_metadata", None),
+                history=(
+                    (histories or {}).get(
+                        (getattr(rec, "point_id", None), getattr(rec, "metric_key", ""))
+                    )
+                    or (histories or {}).get(getattr(rec, "point_id", None))
+                ),
                 expected_interval_days=expected_interval_days,
+                input_flags=getattr(rec, "flags", None),
             )
         )
     return out

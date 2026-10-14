@@ -149,6 +149,22 @@ def scan_records(
                 add("FORMAT_INCONSISTENT", "低", r, "方向字段取值异常", "统一为 positive / negative")
             elif f == "MISSING_POINT_ID":
                 add("FORMAT_INCONSISTENT", "低", r, "测点编号缺失", "补齐测点编号后重新导入")
+            elif f == "UNKNOWN_MEASUREMENT_SEMANTICS":
+                add(
+                    "UNKNOWN_MEASUREMENT_SEMANTICS",
+                    "高",
+                    r,
+                    "量值语义无法识别",
+                    "明确标注 raw_observation 或 precomputed_cumulative 后重新导入",
+                )
+            elif f == "SEMANTIC_BASELINE_CONFLICT":
+                add(
+                    "SEMANTIC_BASELINE_CONFLICT",
+                    "高",
+                    r,
+                    "已有累计量同时提供了非零基准，输入语义冲突",
+                    "确认该列是累计量还是原始观测值后重新导入",
+                )
 
         if value_range and r.value is not None:
             lo, hi = value_range
@@ -166,12 +182,12 @@ def scan_records(
                 )
 
     # --- 序列级检查 -----------------------------------------------------
-    series: dict[str, list] = {}
+    series: dict[tuple[str, str], list] = {}
     for r in recs:
         if r.value is not None:
-            series.setdefault(r.point_id, []).append(r)
+            series.setdefault((r.point_id, r.metric_key), []).append(r)
 
-    for pid, seq in series.items():
+    for _series_key, seq in series.items():
         seq = sorted(seq, key=lambda x: (x.timestamp or ""))
 
         # 时间倒流（按已排序后的原始顺序判断）

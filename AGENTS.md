@@ -8,9 +8,10 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
 
 ## 当前阶段
 
-项目处于「**确定性计算层已闭环，Web 入口已接通，上层编排层仍在设计**」的阶段。
+项目处于「**确定性计算层、Web 入口、日报三件套与同步三 Agent 主链已接通，
+持久化和人工确认产品化待建设**」的阶段。
 
-### 已实现（截至 2026-10-13）
+### 已实现（截至 2026-10-14）
 
 - `确定性计算层/`：三阶段流程 —— **阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对**；
 - 阶段一：数据接入与归一化（单位按量纲换算、日期解析、来源标识）、14 类噪音与缺失识别（只识别不修改）；
@@ -24,7 +25,12 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   （测点/时间/项目/数值/单位），`baseline_value` / `previous_value` / `interval_days`
   **由阶段一按测点时序确定性派生**（显式提供的值优先，派生打 `*_DERIVED` 标记）；
   通用读取器 `file_reader.py` 支持编码探测（utf-8-sig/utf-8/gb18030/gbk/big5/latin-1）、
-  中英文列名别名（88 条监测项别名 + 25 条方向别名）、CSV/TSV/Excel；
+  中英文列名别名（90 条监测项别名 + 25 条方向别名）、CSV/TSV/Excel；
+- **最终混合宽表接入**：`file_reader.py` 可解析
+  `监测项目-测点号-量值语义(单位)`，`normalize-monitoring-data` 已实现 Python 脚本与
+  服务端 runner；已有累计量使用语义零基准，不按上传窗口重新归零；
+  时序、质量和趋势统一按 `(point_id, metric_key)` 分组；宽表按报告日保留逐通道
+  每日末值历史与日内统计，并透传时间对齐、重采样、插值和末值保持限制；
 - 日报模块接口契约 `contracts/daily_report_input.schema.json`（`excavaguard.daily_report_input/v1`）
   + 校验工具 `tools/validate_daily_report_input.py`；
 - **用户数据上传通道（⑤）**：存储层 `src/server/storage/`（本地文件系统，落盘名由 `file_id` 生成）、
@@ -56,35 +62,40 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   `src/contracts/agent-runtime.ts` 定义版本化快照、草稿、审计、预算与轨迹契约，
   `src/server/agents/supervisor.ts` 已实现确定性路由、最多两轮修订、能力缺失等待、
   上游变更导致下游失效及工程师接管；
-- **报告与审计 Skill 基础**：`render-daily-report` 已实现冻结载荷到结构化草稿、
-  Markdown、事实绑定和证据引用的适配；`validate-report` 已实现独立重渲染、事实哈希、
-  引用、章节与责任措辞校验。两者复用 `deep-pit-monitoring-report` 的表式经验，
-  不使用其中的第二套计算、重判或本地 RAG；三 Agent 执行器与 API 尚未接通；
-- 引擎回归测试 **223 项全部通过**（`python -B pipeline/tests/test_pipeline_stages.py`）；
-- 全栈检查 `npm run check` **79 项通过**（含 6 项端到端 + 10 项 Agent Runtime
-  + 4 项报告/审计 Skill），
-  `npm run build` 8 条路由全部生成。
+- **日报三件套与逐单元格审计**：`render-daily-report` 只消费冻结载荷，生成
+  `xlsx + 封面 Markdown + 附表及清单 Markdown`、事实/单元格绑定和文件哈希；
+  `validate-report` 重新读取文件，核对哈希、Excel 单元格、Markdown、引用、章节和
+  责任措辞。只生成实际出现的附表 A～F；缺巡视时省略 G 并明确不得判为巡视正常；
+- **三 Agent 同步执行器与 API**：`src/server/agents/executor.ts` 已串联
+  engineSnapshot → Supervisor → 报告 → 审计 → 人工复核，报告责任问题最多自动重渲染
+  两轮；`POST /api/runs` 通过显式 `options.generate_report=true` 开启，
+  审计通过后提供三件套只读下载地址。默认行为仍只返回确定性载荷；
+- 引擎回归测试 **242 项全部通过**（`python -B pipeline/tests/test_pipeline_stages.py`）；
+- 全栈检查 `npm run check` **88 项通过**（另有 3 项 local-RAG live 测试默认跳过；
+  含 7 项上传/纵向端到端 + 13 项 Agent Runtime/Executor + 6 项报告/审计 Skill），
+  `npm run build` 9 条路由全部生成。
 
 ### 尚未实现
 
-- **编排层（⑥）尚未端到端接通**：Supervisor 路由与共享状态基础已实现，
-  但执行器、API、持久化和报告—审计纵向回环尚未实现；
+- **编排状态持久化尚未实现**：同步纵向回环已接通，但共享状态仍只存在于本次请求，
+  不能恢复、异步续跑或跨请求提交工程师决定；
 - **鉴权与持久化**：上传与分析接口无用户鉴权、无项目归属校验；运行记录不落库
   （`run_id` 仅用于本次请求追溯）；上传文件用**本地文件系统**存储，Supabase 适配器未实现
   （缺 bucket 与元数据表，无法验证，故不提供空壳）；
-- 八个业务 Skill 中仍有三个只有 `SKILL.md` 契约：
-  `normalize-monitoring-data` / `retrieve-similar-cases` / `analyze-work-condition`。
-  已实现的五个是 `parse-monitoring-data`、`evaluate-thresholds`、
+- 八个业务 Skill 中仍有两个只有 `SKILL.md` 契约：
+  `retrieve-similar-cases` / `analyze-work-condition`。
+  已实现的六个是 `parse-monitoring-data`、`normalize-monitoring-data`、`evaluate-thresholds`、
   `retrieve-standard-evidence`、`render-daily-report` 与 `validate-report`；
 - **温度补偿**未实现，轴力类判据可能混入温度效应（P2-1）；
-- **日报交付主链**：报告与审计 Skill 已能生成和校验结构化草稿/Markdown，
-  但尚未接入 Supervisor 执行器、API、持久化和最终版式文件导出；
+- **日报交付产品化**：三件套、执行器、API 和下载已接通；尚缺运行持久化、
+  用户鉴权、项目归属、工程师确认入口与正式归档；
 - 部署与 CI；
 - **RAG 剩余接线**：本地/在线 Provider 与 Skill 已通过独立检索验收，但 Supervisor/API
   和前端尚未串联 `retrieve-standard-evidence`，正式报告场景引用准确率也未评测。
-- **最终输入兼容性**：`final_test/监测数据整合_7天_10分钟.xlsx` 是 85 通道混合宽表，
-  现有五列长表读取器还不能直接消费。宽表解析、累计值语义、来源/重采样标记、
-  日报聚合口径和附录 A～G 三件套导出尚待接入，见 `final_test/README.md`。
+- **最终输入兼容性**：`final_test/监测数据整合_7天_10分钟.xlsx` 的 85 通道混合宽表
+  已通过真实上传和 `/api/runs` 验收（85,680 条源记录；报告日 `2026-10-08`
+  聚合为 340 条计算历史，日报载荷只交付当日 85 条），并通过三 Agent 三件套生成、
+  A～F 表式、无 G 行为、审计及下载验收，见 `final_test/README.md`。
 
 > **已修复（原 P0-1）**：用户上传原始观测表不再 100% 弃权。
 > 2026-10-10 实测：仅含 5 个必填列的 7 期数据 → 弃权 1/7，正确识别出 6 期危险报警。
@@ -141,7 +152,8 @@ ExcavaGuard/
 │   │       ├── monitoring-files/route.ts  GET 列表 / POST 上传监测数据
 │   │       ├── monitoring-files/sample/   示例数据 CSV
 │   │       ├── standards/route.ts         GET 列表 / POST 上传用户规范（含严格度校验）
-│   │       └── runs/route.ts              POST 创建分析任务（真实三阶段）
+│   │       ├── runs/route.ts              POST 三阶段；可选同步报告/审计
+│   │       └── report-artifacts/          审计通过的三件套只读下载
 │   ├── components/                        服务端界面组件
 │   ├── contracts/                         Zod 请求契约（含 monitoring-files.ts）
 │   └── server/
@@ -151,14 +163,16 @@ ExcavaGuard/
 │       ├── skills/{parse-monitoring-data,evaluate-thresholds}/runner.ts
 │       ├── skills/retrieve-standard-evidence/runner.ts
 │       ├── skills/{render-daily-report,validate-report}/runner.ts
-│       ├── agents/                        三 Agent 注册 + Supervisor 状态机基础
+│       ├── agents/                        三 Agent 注册 + Supervisor + 同步执行器
 │       ├── evidence/                      规范证据检索（双 Provider 适配器）
 │       └── config.ts / integrations/      环境配置与外部客户端
-├── tests/                                 Vitest（79 项，含 10 项 Agent Runtime）
+├── tests/                                 Vitest（88 项通过，3 项 local-RAG live 默认跳过）
 ├── package.json / tsconfig.json / next.config.ts / vitest.config.ts / eslint.config.mjs
 ├── .env.example / .nvmrc / .gitignore
 ├── README.md / 项目介绍.html
-├── var/uploads/                     ← 上传文件存储（已 gitignore，删除即可重置）
+├── var/
+│   ├── uploads/                           上传文件存储（已 gitignore）
+│   └── report-artifacts/                  日报三件套运行产物（已 gitignore）
 ├── 确定性计算层/                    ← 已实现：三阶段确定性流程
 │   ├── 01_数据清单与可用性评估.md
 │   ├── 02_三阶段流程与规范比对说明.md
@@ -172,7 +186,7 @@ ExcavaGuard/
 │   │   ├── stage2_deterministic_calc/    阶段二 · 确定性计算
 │   │   ├── stage3_standard_comparison/   阶段三 · 规范比对（含 limit_strictness.py）
 │   │   ├── orchestrator.py               三阶段编排 + 日报接口
-│   │   └── tests/                        223 项回归测试
+│   │   └── tests/                        242 项回归测试
 │   ├── contracts/                        日报接口契约 + 用户数据文件契约
 │   ├── standards/
 │   │   ├── default/                      默认规范库（基坑智守项目相关规范，22 项监测项）
@@ -198,14 +212,14 @@ ExcavaGuard/
 │   ├── README.md
 │   ├── parse-monitoring-data/
 │   │   └── scripts/inspect_file.py       ← 解析检查桥接脚本
-│   ├── normalize-monitoring-data/
+│   ├── normalize-monitoring-data/scripts/normalize_records.py
 │   ├── evaluate-thresholds/
 │   │   └── scripts/                      ← run_judgement.py / check_strictness.py
 │   ├── retrieve-standard-evidence/
 │   ├── retrieve-similar-cases/
 │   ├── analyze-work-condition/
-│   ├── render-daily-report/scripts/       ← 冻结载荷到草稿的薄适配器
-│   ├── validate-report/scripts/           ← 结构化事实与引用审计
+│   ├── render-daily-report/scripts/       ← 草稿 + 三件套确定性渲染
+│   ├── validate-report/scripts/           ← 事实、引用与文件审计
 │   ├── deep-pit-monitoring-report/        ← 日报表式与实现参考资产
 │   └── _archive/prototypes/               ← 非主链团队原型留档
 ```
@@ -311,7 +325,7 @@ Skill 之间只传递结构化数据，不把自然语言摘要作为下游计�
 - 确定性计算层**只产出结构化载荷**（`excavaguard.daily_report_input/v1`），
   不生成日报正文与版式文件、不撰写结论与建议措辞；日报由后续独立 Agent 负责。
   载荷中 `risk_level = "未知"` 表示弃权，**不是"安全"**，必须转人工复核，禁止渲染为正常项。
-- **引擎判定逻辑不得用 TypeScript 重写**。判定已有 223 项回归测试覆盖，
+- **引擎判定逻辑不得用 TypeScript 重写**。判定已有 242 项回归测试覆盖，
   二次实现会给「同一输入必得同一输出」这条确定性性质引入偏差；
   Web 侧只做协议转换（子进程调用 `skills/*/scripts/*.py`）。
 - 不使用案例相似性证明因果关系。
@@ -377,12 +391,12 @@ python -m venv .venv
 
 在项目提供正式构建、检查和测试命令前，不得臆造命令。新增工具链后，应将经过实际验证的命令补充到本文件。
 
-### 已验证的命令（更新至 2026-10-13）
+### 已验证的命令（更新至 2026-10-14）
 
 ```bash
 # --- 引擎（纯标准库 Python，无第三方依赖）---
 cd 确定性计算层
-python -B pipeline/tests/test_pipeline_stages.py                                # 223 项
+python -B pipeline/tests/test_pipeline_stages.py                                # 242 项
 python -B tools/run_simulated_validation.py                                     # 场景 27/27
 python -B tools/run_combined_real_and_simulated.py                              # 真实 + 模拟合并
 python -B tools/export_input_contract.py                                        # 导出数据契约
@@ -395,8 +409,8 @@ node tools/bridge-smoke/run_judgement.mjs                                       
 
 # --- Web 全栈 ---
 npm ci
-npm run check                                                                   # ESLint + TypeScript + Vitest 79 项
-npm run build                                                                   # 8 条路由
+npm run check                                                                   # 88 项通过，3 项 local-RAG live 默认跳过
+npm run build                                                                   # 9 条路由
 npm run dev                                                                     # http://localhost:3000/workbench
 
 # --- 在线 RAG 导入准备（只读源资产，不访问云端）---

@@ -46,18 +46,65 @@ export const citationBindingSchema = z.strictObject({
   evidence_id: nonEmptyText,
 });
 
-export const reportDraftSchema = z.strictObject({
-  ref: artifactRefSchema,
-  source_refs: z.strictObject({
-    engine: artifactRefSchema,
-    evidence: artifactRefSchema.nullable(),
-    analysis: artifactRefSchema.nullable(),
-  }),
-  fact_bindings: z.array(factBindingSchema),
-  citations: z.array(citationBindingSchema),
-  review_required: z.literal(true),
-  payload: z.unknown(),
+export const reportArtifactSchema = z.strictObject({
+  kind: z.enum(["workbook", "cover_markdown", "appendices_markdown"]),
+  file_name: z.string().trim().min(1).regex(/^[^/\\]+$/),
+  relative_path: z
+    .string()
+    .trim()
+    .regex(/^var\/report-artifacts\/[0-9a-f-]{36}\/[^/\\]+$/),
+  media_type: nonEmptyText,
+  sha256: contentHashSchema,
+  size_bytes: z.number().int().positive(),
+  sheets: z.array(nonEmptyText),
 });
+
+export const artifactFactBindingSchema = z.strictObject({
+  artifact_kind: z.literal("workbook"),
+  location: nonEmptyText,
+  fact_path: nonEmptyText,
+  fact_value_hash: contentHashSchema,
+  rendered_value_hash: contentHashSchema,
+});
+
+export const reportDraftSchema = z
+  .strictObject({
+    ref: artifactRefSchema,
+    source_refs: z.strictObject({
+      engine: artifactRefSchema,
+      evidence: artifactRefSchema.nullable(),
+      analysis: artifactRefSchema.nullable(),
+    }),
+    fact_bindings: z.array(factBindingSchema),
+    artifacts: z.array(reportArtifactSchema).length(3),
+    artifact_bindings: z.array(artifactFactBindingSchema),
+    citations: z.array(citationBindingSchema),
+    review_required: z.literal(true),
+    payload: z.unknown(),
+  })
+  .superRefine((value, context) => {
+    const expectedPrefix = `var/report-artifacts/${value.ref.artifact_id}/`;
+    const kinds = value.artifacts.map((artifact) => artifact.kind);
+    if (new Set(kinds).size !== 3) {
+      context.addIssue({
+        code: "custom",
+        path: ["artifacts"],
+        message: "日报草稿必须包含三种互不重复的固定产物。",
+      });
+    }
+    value.artifacts.forEach((artifact, index) => {
+      if (
+        !artifact.relative_path.startsWith(expectedPrefix) ||
+        !artifact.relative_path.endsWith(`/${artifact.file_name}`)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["artifacts", index, "relative_path"],
+          message: "日报产物路径必须绑定当前草稿 ID 和文件名。",
+        });
+      }
+    });
+  });
 
 export const auditResponsibilitySchema = z.enum([
   "report-delivery",
@@ -279,6 +326,8 @@ export const supervisorActionSchema = z.strictObject({
 export type ArtifactRef = z.output<typeof artifactRefSchema>;
 export type ArtifactEnvelope = z.output<typeof artifactEnvelopeSchema>;
 export type SupportingSnapshot = z.output<typeof supportingSnapshotSchema>;
+export type ReportArtifact = z.output<typeof reportArtifactSchema>;
+export type ArtifactFactBinding = z.output<typeof artifactFactBindingSchema>;
 export type ReportDraft = z.output<typeof reportDraftSchema>;
 export type AuditResult = z.output<typeof auditResultSchema>;
 export type TraceEvent = z.output<typeof traceEventSchema>;

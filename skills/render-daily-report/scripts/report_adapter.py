@@ -17,9 +17,9 @@ SKILLS_ROOT = Path(__file__).resolve().parents[2]
 DEEP_REPORT_SCRIPTS = SKILLS_ROOT / "deep-pit-monitoring-report" / "scripts"
 sys.path.insert(0, str(DEEP_REPORT_SCRIPTS))
 
-from render_report import DEFAULT_FORM_MAP, pick_form  # noqa: E402
+from render_report import DEFAULT_FORM_MAP  # noqa: E402
 
-TEMPLATE_VERSION = "deep-pit-monitoring-report/service-v1"
+TEMPLATE_VERSION = "deep-pit-monitoring-report/service-v2"
 ITEM_FACT_FIELDS = (
     "point_id",
     "point_name",
@@ -28,6 +28,9 @@ ITEM_FACT_FIELDS = (
     "metric_name",
     "timestamp",
     "data_origin",
+    "measurement_semantics",
+    "source_flags",
+    "source_metadata",
     "baseline",
     "previous",
     "current",
@@ -126,13 +129,20 @@ def _extract_analysis(payload: Any) -> dict[str, Any]:
     }
 
 
+def _appendix_form(metric_name: str) -> str | None:
+    for form in DEFAULT_FORM_MAP.get("order", []):
+        if any(
+            keyword and keyword in metric_name
+            for keyword in DEFAULT_FORM_MAP.get("rules", {}).get(form, [])
+        ):
+            return form
+    return None
+
+
 def _adapt_item(item: dict[str, Any]) -> dict[str, Any]:
     copied = {field: deepcopy(item.get(field)) for field in ITEM_FACT_FIELDS}
     copied["unit"] = _unit_from_checks(item.get("checks"))
-    copied["appendix_form"] = pick_form(
-        str(item.get("metric_name") or ""),
-        DEFAULT_FORM_MAP,
-    )
+    copied["appendix_form"] = _appendix_form(str(item.get("metric_name") or ""))
     return copied
 
 
@@ -237,6 +247,7 @@ def _markdown(report: dict[str, Any]) -> str:
         lines.append("- 无引擎弃权条目。")
     for gap in report["review_gaps"]:
         lines.append(f"- {_cell(gap)}")
+    lines.append("- 巡视记录未提供；未生成附表G，不得据此判定巡视正常。")
 
     lines += [
         "",
@@ -245,6 +256,10 @@ def _markdown(report: dict[str, Any]) -> str:
         f"- 问题数：{_cell(sections['data_quality'].get('issue_count'))}",
         f"- 被阻塞期次数：{_cell(sections['data_quality'].get('blocked_records'))}",
         f"- 问题分布：{_cell(canonical_json(sections['data_quality'].get('by_code') or {}))}",
+        "",
+        "## 来源与口径说明",
+        "",
+        "- 来源标记和日内聚合统计仅用于追溯，报告层未据此重算数值或改变风险等级。",
         "",
         "## 工况分析",
         "",
@@ -314,6 +329,26 @@ def build_report(
     if missing_units:
         review_gaps.append(
             f"{missing_units} 条明细未在冻结载荷中提供可唯一识别的单位，已显示为“—”。"
+        )
+    unmapped_forms = sum(1 for item in items if item.get("appendix_form") is None)
+    if unmapped_forms:
+        review_gaps.append(
+            f"{unmapped_forms} 条明细无法无歧义映射到附表 A～F，"
+            "未写入附表并保留在待复核及来源说明中。"
+        )
+    source_flags = sorted(
+        {
+            str(flag)
+            for item in items
+            for flag in (item.get("source_flags") or [])
+            if str(flag).strip()
+        }
+    )
+    if source_flags:
+        review_gaps.append(
+            "本期数据含来源或预处理限制，详见来源说明："
+            + "、".join(source_flags)
+            + "。"
         )
 
     report = {

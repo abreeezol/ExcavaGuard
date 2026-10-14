@@ -8,7 +8,7 @@ import { resolve } from "node:path";
  * ===================================
  *
  * 确定性计算引擎是 `确定性计算层/pipeline/` 下的纯标准库 Python 代码
- * （阶段一 数据准备 / 阶段二 确定性计算 / 阶段三 规范比对，203 项回归测试）。
+ * （阶段一 数据准备 / 阶段二 确定性计算 / 阶段三 规范比对，242 项回归测试）。
  *
  * 为什么不重写成 TypeScript：引擎的判定逻辑已被 203 项测试覆盖，
  * 二次实现等于给"确定性"计算引入偏差风险。桥接只做**协议转换**，
@@ -49,11 +49,17 @@ export class EngineUnavailableError extends Error {
 }
 
 const PYTHON_CANDIDATES = [
-  process.env.EXCAVAGUARD_PYTHON,
-  process.env.PYTHON,
-  "python3",
-  "python",
-].filter((value): value is string => Boolean(value && value.trim()));
+  ...new Set(
+    [
+      process.env.EXCAVAGUARD_PYTHON,
+      process.env.PYTHON,
+      resolve(process.cwd(), ".venv", "bin", "python"),
+      resolve(process.cwd(), ".venv", "Scripts", "python.exe"),
+      "python3",
+      "python",
+    ].filter((value): value is string => Boolean(value && value.trim())),
+  ),
+];
 
 const TIMEOUT_MS = Number(process.env.EXCAVAGUARD_BRIDGE_TIMEOUT_MS ?? 30_000);
 

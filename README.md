@@ -5,8 +5,8 @@
 **确定性计算层已接通。** 可以上传监测数据与用户规范，运行「阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对」并查看逐测点判定、生效规范来源与待复核项。可视化操作见 `方案与迭代note/11_可视化测试指引.md`。
 
 三 Agent 首版已收敛为 Supervisor、报告交付与独立审计。Supervisor 的共享状态、
-确定性路由、两轮退回、预算和失效规则已有代码基础；报告/审计 Skill 已实现，
-执行器与 API 仍待接入。八个业务 Skill 中已有五个具备可调用实现。
+确定性路由、两轮退回、预算和失效规则已由同步执行器串联；报告/审计 Skill 可生成并
+审计 Excel + 两份 Markdown 三件套。八个业务 Skill 中已有六个具备可调用实现。
 
 ## 本地启动
 
@@ -19,7 +19,10 @@ npm run dev
 
 打开 <http://localhost:3000>；可视化测试工作台在 <http://localhost:3000/workbench>。端口被占用时可使用 `npm run dev -- --port 3001`。
 
-**前置条件：本机需有可用的 Python。** 确定性计算引擎是 `确定性计算层/pipeline/` 下的纯标准库 Python 代码，由 Node 以子进程调用。默认依次尝试 PATH 上的 `python3`、`python`；想指定解释器就在 `.env.local` 写 `EXCAVAGUARD_PYTHON=<绝对路径>`。找不到时会明确返回 `[ENGINE_UNAVAILABLE]`，不会假装成功。
+**前置条件：本机需有可用的 Python。** 确定性计算引擎由 Node 以子进程调用。
+默认优先使用仓库 `.venv/bin/python`，再尝试 PATH 上的 `python3`、`python`；
+三件套导出需要 `openpyxl`。想指定解释器就在 `.env.local` 写
+`EXCAVAGUARD_PYTHON=<绝对路径>`。找不到时会明确返回 `[ENGINE_UNAVAILABLE]`。
 
 ## 目录
 
@@ -34,14 +37,15 @@ src/
 │       ├── health/route.ts         # 应用存活检查
 │       ├── monitoring-files/       # 上传监测数据（含上传即解析报告）+ 示例数据
 │       ├── standards/route.ts      # 上传用户规范（上传即校验阈值严格程度）
-│       └── runs/route.ts           # 创建分析任务，返回日报接口载荷
+│       ├── runs/route.ts           # 三阶段分析；可显式开启报告/审计
+│       └── report-artifacts/       # 三件套只读下载；URL 仅在审计通过后返回
 ├── components/                    # 服务端界面组件
 ├── contracts/                     # Zod 请求契约、角色和 Skill 标识
 └── server/
     ├── config.ts                  # 按服务读取环境变量
     ├── api/respond.ts             # 统一错误响应与异常映射
     ├── storage/                   # 上传文件存储（本地文件系统实现）
-    ├── agents/                    # 三 Agent 注册 + Supervisor 状态机基础
+    ├── agents/                    # 三 Agent 注册 + Supervisor + 同步执行器
     ├── evidence/                  # 规范证据检索接口与双 Provider 适配器
     ├── skills/
     │   ├── registry.ts            # 八个 Skill 的契约路径与实现状态
@@ -52,13 +56,14 @@ tests/                             # 接口边界、契约一致性、上传到�
 skills/                            # 业务契约；scripts/ 下是引擎桥接脚本（Python）
 rag/                               # RAG 接入合同与规范有效性审核清单
 方案与迭代note/                     # 业务方案、架构和实现范围
-确定性计算层/                       # 三阶段确定性引擎（223 项回归测试）
+确定性计算层/                       # 三阶段确定性引擎（242 项回归测试）
 var/uploads/                       # 上传文件存储（gitignore，删除即重置）
+var/report-artifacts/              # 日报三件套运行产物（gitignore）
 ```
 
 页面与 Route Handlers 共用一个 Next.js 应用。`src/server/` 使用 `server-only` 隔离，禁止从 Client Component 导入。`src/contracts/` 只放可共享的数据契约，不引用服务端模块。
 
-**引擎不重写为 TypeScript。** 判定逻辑已有 223 项回归测试覆盖，二次实现会给「同一输入必得同一输出」这条确定性性质引入偏差；Web 侧只做协议转换。
+**引擎不重写为 TypeScript。** 判定逻辑已有 242 项回归测试覆盖，二次实现会给「同一输入必得同一输出」这条确定性性质引入偏差；Web 侧只做协议转换。
 
 ## 依赖基线
 
@@ -83,7 +88,7 @@ cp .env.example .env.local
 
 | 服务 | 环境变量 | 当前行为 |
 | --- | --- | --- |
-| **确定性引擎** | `EXCAVAGUARD_PYTHON`、`EXCAVAGUARD_BRIDGE_TIMEOUT_MS` | 指定 Python 解释器与调用超时；不配则依次尝试 PATH 上的 `python3`、`python` |
+| **确定性引擎** | `EXCAVAGUARD_PYTHON`、`EXCAVAGUARD_BRIDGE_TIMEOUT_MS` | 指定 Python 解释器与调用超时；不配则优先仓库 `.venv`，再尝试 PATH 上的 `python3`、`python` |
 | **上传存储** | `EXCAVAGUARD_UPLOAD_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | 存储根目录（默认 `<仓库>/var/uploads`）与 provider（当前仅 `local`） |
 | LLM | `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` | 创建 OpenAI 兼容 Chat 适配器；不默认指定供应商或模型 |
 | Supabase | `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_STORAGE_BUCKET` | 创建服务端管理客户端；**尚无表结构与上传逻辑**，存储适配器未实现 |
@@ -92,7 +97,7 @@ cp .env.example .env.local
 | Pinecone 导入 | `PINECONE_CLOUD`、`PINECONE_REGION`、`PINECONE_EMBED_MODEL` | 仅供离线建索引/批量导入工具使用 |
 | 本地 RAG | `LOCAL_RAG_BASE_URL`、`LOCAL_RAG_TIMEOUT_MS` | 调用 loopback 服务的统一证据接口 |
 
-确定性引擎与上传存储**不需要外部服务即可工作**，是当前唯一可端到端跑通的链路。
+确定性引擎、上传存储和不附在线证据的基础日报链**不需要外部服务即可工作**。
 
 客户端按需创建，不在页面渲染和构建时读取密钥或发送请求。配置缺失或格式不合法会抛出 `IntegrationConfigError`，错误不携带原始配置值。目标 Pinecone 索引已完成连接、配置、导入和查询验收；完整配置仍不代表 Supervisor 主链路已经接通。
 
@@ -120,8 +125,9 @@ Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需�
 模型在启动期预加载，`/api/evidence/health` 就绪后可使用本地 Provider；
 只打开 `var/rag/chroma_db/` 运行副本，不写版本化知识资产。接口回归及真实验收命令见
 [`rag/README.md`](rag/README.md)。
-最终 7 天混合宽表与日报三件套的接入缺口、数据来源和交付要求见
-[`final_test/README.md`](final_test/README.md)；“支持 xlsx”不等于已支持该宽表。
+最终 7 天混合宽表已接入长表展开、累计量语义、来源留痕与日报聚合；
+日报三件套的数据来源边界和交付验收见
+[`final_test/README.md`](final_test/README.md)。
 
 ## 接口
 
@@ -133,7 +139,11 @@ Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需�
 - `GET /api/monitoring-files/sample`：下载示例数据 CSV（6 列、中文表头、UTF-8 BOM）。
 - `GET /api/standards` / `POST /api/standards`：列出 / 上传用户规范。
   **上传即校验严格程度** —— 凡比默认规范更宽松的项，连同默认值的规范名称与条文号一并返回。
-- `POST /api/runs`：创建分析任务，返回日报接口载荷 `excavaguard.daily_report_input/v1`。
+- `POST /api/runs`：创建分析任务，默认返回日报接口载荷
+  `excavaguard.daily_report_input/v1`；显式设置 `options.generate_report=true`
+  时继续执行报告、审计和人工复核交接。
+- `GET /api/report-artifacts/<draft_id>/<file_name>`：只读下载 Excel 或 Markdown
+  草稿产物；`/api/runs` 只在审计通过后返回下载地址。
 
 `POST /api/runs` 请求体：
 
@@ -150,9 +160,16 @@ Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需�
     "post_slab_from": "YYYY-MM-DD | null",
     "design_values": { "support_axial_force": 1000 }
   },
-  "project": { "name": "××基坑工程" }        // 可选，进入载荷
+  "project": { "name": "××基坑工程" },       // 可选，进入载荷
+  "options": {
+    "generate_report": true                  // 可选；默认 false
+  }
 }
 ```
+
+开启报告链后，响应的 `agent_run.state` 保存 engineSnapshot、报告草稿、审计结果和轨迹；
+正常完成时状态为 `awaiting_human_review`，`agent_run.downloads` 提供固定三件套地址。
+这只表示确定性审计通过，仍不代表工程师已审核、已发布预警或已正式签发。
 
 `POST /api/runs` 的返回：
 
@@ -175,10 +192,10 @@ Supabase 管理客户端会绕过 RLS。后续启用任何业务接口前，需�
 - **鉴权与项目归属校验**：上传与分析接口目前无用户身份校验，`project_id` 不会被校验是否存在。
 - **运行记录持久化**：`run_id` 仅用于本次请求追溯，不写数据库。
 - **对象存储**：上传文件用本地文件系统（`var/uploads/`）。声明 `EXCAVAGUARD_STORAGE_PROVIDER=supabase` 会直接报错并说明原因 —— 缺少 bucket 与元数据表，无法验证，因此不提供空壳实现。
-- **日报版式交付**：报告 Skill 已生成可审计的结构化草稿与 Markdown 预览，
-  但最终 xlsx 版式导出、下载接口和工程师确认入口尚未接通。
-- **Agent 纵向执行链路**：Supervisor、报告和审计基础已实现，但执行器、API、
-  状态持久化与真实模型调用尚未接通。
+- **工程师确认与归档**：三件套生成、逐单元格审计和只读下载已接通，但工程师
+  接受/退回入口、签发和归档尚未实现。
+- **可恢复编排与语义审计**：同步三 Agent 主链已接通；状态持久化、异步恢复、
+  Supervisor 内规范证据自动检索和独立模型语义审计尚未实现。
 
 ## 开发检查
 
@@ -192,9 +209,10 @@ npm start           # 运行已经构建的应用
 
 `tests/upload-and-run.test.ts` 是**端到端**用例（上传 → 解析 → 分析 → 宽松阈值 → 缺 H 弃权），需要 Python；找不到解释器时整个 suite **自动跳过**，其余用例不受影响。
 
-验收（更新至 2026-10-13）：`npm run check` 79 条测试通过，含 10 条 Agent Runtime、
-6 条上传到分析端到端用例与 4 条报告/审计 Skill 用例；`npm run build` 通过。
-引擎侧历史验收为 223 项回归测试、27 个模拟场景和日报契约校验通过。
+验收（更新至 2026-10-14）：`npm run check` 88 条测试通过，3 条需显式启动 sidecar
+的 local-RAG live 测试默认跳过；已覆盖 13 条 Agent Runtime/Executor、7 条上传/纵向
+端到端（含最终 85 通道宽表）与 6 条报告/审计 Skill 用例。`npm run build` 生成 9 条路由。
+引擎侧历史验收为 242 项回归测试、27 个模拟场景和日报契约校验通过。
 
 在限制写入用户目录的沙箱内，Next.js 命令可添加 `CI=1 NEXT_TELEMETRY_DISABLED=1`，使其配置缓存落在项目 `.next/cache/`。例如 `CI=1 NEXT_TELEMETRY_DISABLED=1 npm run build`。
 
@@ -206,8 +224,8 @@ npm start           # 运行已经构建的应用
 2. ~~实现解析、标准化、阈值判断的确定性 Skill~~ ✅ 已完成（`skills/<name>/scripts/`，Python 桥接）。
 3. **增加鉴权、项目归属校验、运行记录表与对象存储适配器**，完善共享工程状态。
 4. ~~建立 Supervisor 显式状态图、有限重试、失效规则与运行轨迹基础~~ ✅ 已完成。
-5. ~~实现日报生成与独立审计 Skill 基础~~ ✅ 已完成；下一步接入 Agent 执行器、
-   API、人工确认与持久化。
+5. ~~实现日报三件套、独立审计、同步 Agent 执行器与 API~~ ✅ 已完成；
+   下一步接入人工确认、鉴权与持久化。
 
 完整要求见 [AGENTS.md](AGENTS.md)、[项目记忆](memory.md)、
 [开发推进记录](方案与迭代note/10_开发推进记录.md)、

@@ -28,7 +28,7 @@ export default function HomePage() {
             <ShieldCheck size={19} aria-hidden="true" />
             <p>
               确定性计算层已接通：可上传监测数据与用户规范，运行风险识别。
-              日报生成与鉴权仍待实现。
+              日报三件套与独立审计已接通；鉴权、持久化与工程师确认入口仍待实现。
             </p>
           </div>
 

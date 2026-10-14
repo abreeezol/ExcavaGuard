@@ -34,7 +34,9 @@ stdin （JSON）：
 
 `records` 与 `options.file_path` 必须提供其一。提供 `file_path` 时，
 由本脚本调用 `file_reader.read_monitoring_file()` 读取（自动探测编码与分隔符），
-读取报告写入 `trace.read_report`；**必填列缺失时以 `MISSING_FIELD` 退出码 2 拒绝**。
+读取报告写入 `trace.read_report`。混合宽表会按通道展开，并按报告日生成截至该日的
+每日末值历史；原高频条数和日内统计保留在读取报告及来源元数据中。
+**必填列缺失或宽表通道无法明确解析时以 `MISSING_FIELD` 退出码 2 拒绝**。
 
 stdout（JSON）：
 
@@ -122,6 +124,8 @@ def main() -> int:
     # --- 记录来源：内联 records 或由引擎读取文件 ---
     records = req.get("records")
     read_report: dict | None = None
+    aggregation_report: dict | None = None
+    source_record_count: int | None = None
     file_path = opts.get("file_path")
     if not isinstance(records, list) or not records:
         if not file_path:
@@ -143,6 +147,18 @@ def main() -> int:
             )
         if not records:
             return _fail("DATA_QUALITY", "文件没有可用的数据行。", 2)
+        source_record_count = len(records)
+        if read_report.get("layout") == "wide":
+            try:
+                from file_reader import aggregate_daily_records
+
+                records, aggregation_report = aggregate_daily_records(
+                    records,
+                    report_date=opts.get("report_date"),
+                )
+            except ValueError as exc:
+                return _fail("DATA_QUALITY", str(exc), 2)
+            read_report["daily_aggregation"] = aggregation_report
 
     ctx_raw = req.get("context")
     if not isinstance(ctx_raw, dict):
@@ -151,7 +167,7 @@ def main() -> int:
         # 不阻断，但明确告知：%H 类限值无法换算（见 06_..._目标实现度评估.md P1-2）
         sys.stderr.write(
             "WARN: 未提供 excavation_depth_m，%H 类限值无法换算，"
-            "累计值判定将只用绝对量限值（可能偏松）。\n"
+            "实测值未超过绝对量上界时累计值判定将弃权并转人工复核。\n"
         )
 
     try:
@@ -191,6 +207,7 @@ def main() -> int:
             project=opts.get("project"),
             points_meta=opts.get("points_meta"),
             report_date=opts.get("report_date"),
+            item_date=opts.get("report_date") if aggregation_report else None,
         )
 
         elapsed = round((time.perf_counter() - t0) * 1000, 1)
@@ -204,9 +221,11 @@ def main() -> int:
                 "trace": {
                     "elapsed_ms": elapsed,
                     "records": len(records),
+                    "source_records": source_record_count or len(records),
                     "engine_dir": str(engine),
                     "python": sys.version.split()[0],
                     "read_report": read_report,
+                    "daily_aggregation": aggregation_report,
                 },
             },
             ensure_ascii=False,

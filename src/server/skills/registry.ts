@@ -29,6 +29,10 @@ const IMPLEMENTED: Partial<Record<SkillId, SkillImplementation>> = {
   "parse-monitoring-data": {
     scripts: ["skills/parse-monitoring-data/scripts/inspect_file.py"],
   },
+  "normalize-monitoring-data": {
+    scripts: ["skills/normalize-monitoring-data/scripts/normalize_records.py"],
+    runner: "src/server/skills/normalize-monitoring-data/runner.ts",
+  },
   "evaluate-thresholds": {
     scripts: [
       "skills/evaluate-thresholds/scripts/run_judgement.py",

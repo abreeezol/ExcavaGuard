@@ -43,6 +43,8 @@ type CreateAgentRunStateInput = {
   deadlineAt: string;
   maxModelCalls: number;
   engineSnapshot: ArtifactEnvelope;
+  evidenceSnapshot?: SupportingSnapshot | null;
+  analysisSnapshot?: SupportingSnapshot | null;
   maxRevisionRounds?: number;
 };
 
@@ -165,8 +167,8 @@ export function createAgentRunState(input: CreateAgentRunStateInput): AgentRunSt
       deadline_at: input.deadlineAt,
     },
     engine_snapshot: input.engineSnapshot,
-    evidence_snapshot: null,
-    analysis_snapshot: null,
+    evidence_snapshot: input.evidenceSnapshot ?? null,
+    analysis_snapshot: input.analysisSnapshot ?? null,
     report_draft: null,
     audit_result: null,
     human_review: {

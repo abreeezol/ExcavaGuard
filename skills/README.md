@@ -40,17 +40,19 @@
 | Skill | 状态 | 实现 |
 |---|---|---|
 | `parse-monitoring-data` | `implemented` | `scripts/inspect_file.py` |
+| `normalize-monitoring-data` | `implemented` | `scripts/normalize_records.py` + 服务端 runner |
 | `evaluate-thresholds` | `implemented` | `scripts/run_judgement.py`、`scripts/check_strictness.py` |
 | `retrieve-standard-evidence` | `implemented` | `src/server/skills/retrieve-standard-evidence/runner.ts` |
 | `render-daily-report` | `implemented` | `scripts/render_daily_report.py` + 服务端 runner |
 | `validate-report` | `implemented` | `scripts/validate_report.py` + 服务端 runner |
-| 其余三个 | `not_implemented` | — |
+| 其余两个 | `not_implemented` | — |
 
 **确定性计算实现放在对应 `scripts/` 中，由服务端工具层以子进程方式调用。**
 
 - 实现语言为 **Python**（不是 TypeScript）：确定性计算引擎位于 `确定性计算层/pipeline/`，
-  为**纯标准库、零第三方依赖**；`scripts/` 下是**薄协议封装**，不含判定逻辑。
-- 不用 TypeScript 重写引擎：判定逻辑已有 223 项回归测试覆盖，
+  核心计算为纯标准库；Excel 输入/导出使用仓库 `.venv` 中的 `openpyxl`。
+  `scripts/` 下是**薄协议封装**，不含判定逻辑。
+- 不用 TypeScript 重写引擎：判定逻辑已有 242 项回归测试覆盖，
   二次实现会给「同一输入必得同一输出」这条确定性性质引入偏差。
 - Node 侧桥接实现：`src/server/skills/python-bridge.ts`（超时、错误码映射、解释器探测）。
 - 规范证据检索是服务端 TypeScript runner，通过统一 Retriever 调用 Pinecone 或本地 Provider；
@@ -96,7 +98,8 @@ Schema 校验的共享状态；每个角色必须声明职责、可用 Skill、�
 ## 参考与归档资产
 
 - `deep-pit-monitoring-report/`：日报表式与实现参考资产。服务端只通过 canonical
-  `render-daily-report` / `validate-report` 适配器复用其中的表式经验。
+  `render-daily-report` / `validate-report` 适配器复用其中的表式经验；canonical
+  路径输出受控三件套并逐文件、逐单元格审计，不调用该参考资产中的重判或 RAG。
 - `_archive/prototypes/fill-summary-table/`：附录 C/D/E/F 与判定汇总表填表原型。
 - `_archive/prototypes/monitoring-preprocess-evaluate/`：宽表预处理、附表 E/F 和预警评价原型。
 
