@@ -127,9 +127,75 @@ def stats():
     return {"chunks": count, "docs": docs, "doc_count": len(docs)}
 
 
+@app.get("/api/port")
+def port_info():
+    """Report the port this process actually bound.
+
+    Lets launcher scripts discover the real URL after auto-avoidance, so the
+    local deployment link stays stable across machines.
+    """
+    bound = getattr(app.state, "bound_port", None)
+    return {"port": bound, "url": f"http://127.0.0.1:{bound}" if bound else None}
+
+
 if __name__ == "__main__":
+    import socket
     import uvicorn
+
+    def port_is_free(port: int) -> bool:
+        """True only if we can actually bind 127.0.0.1:port.
+
+        Uses a real bind rather than a TCP connect probe, so it also rejects
+        ports in the Windows reserved/excluded ranges (WinError 10013), which
+        is the usual reason 8600 fails on Windows machines.
+        """
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", port))
+            except OSError:
+                return False
+        return True
+
+    def pick_port(preferred: int, span: int = 200) -> int:
+        """Return the preferred port if usable, else scan upward for a free one."""
+        if port_is_free(preferred):
+            return preferred
+        for candidate in range(preferred + 1, preferred + span + 1):
+            if port_is_free(candidate):
+                return candidate
+        raise SystemExit(
+            f"未找到可用端口（已尝试 {preferred}-{preferred + span}）。"
+            "请用 --port 手动指定一个不在系统保留段内的端口。"
+        )
+
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=8600)
+    ap.add_argument(
+        "--port",
+        type=int,
+        default=8600,
+        help="首选端口；被占用或落在系统保留段时自动向后寻找可用端口。",
+    )
+    ap.add_argument(
+        "--no-auto-port",
+        action="store_true",
+        help="禁用端口自动避让，端口不可用则直接失败。",
+    )
     args = ap.parse_args()
-    uvicorn.run(app, host="127.0.0.1", port=args.port)
+
+    if args.no_auto_port:
+        port = args.port
+    else:
+        port = pick_port(args.port)
+        if port != args.port:
+            print(
+                f"[提示] 端口 {args.port} 不可用（被占用或属系统保留段），"
+                f"已自动改用 {port}。",
+                file=sys.stderr,
+            )
+
+    url = f"http://127.0.0.1:{port}"
+    app.state.bound_port = port
+    print(f"\n  ExcavaGuard 本地 Demo 已启动")
+    print(f"  请在浏览器打开： {url}\n", file=sys.stderr)
+
+    uvicorn.run(app, host="127.0.0.1", port=port)

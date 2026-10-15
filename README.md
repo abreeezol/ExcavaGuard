@@ -4,6 +4,9 @@ ExcavaGuard 是面向基坑监测工程师的 AI 监测日报助手。系统读�
 
 项目原则是：**规则主判、RAG 举证、模型表达、工程师签发**。系统不会自动发布预警，也不会替代工程师审核或正式签发报告。
 
+> **第一次拿到本项目？** 完整部署步骤见 [`DEPLOY.md`](DEPLOY.md)：两条启动路径、前置条件（含 Git LFS 权重）、
+> 常见问题与 2026-10-15 在 Windows 11 上的实测验证记录都在里面。
+
 ## 初版提交状态
 
 当前版本可以作为**单操作者、单项目、云端存储的初版工作台**提交：
@@ -32,6 +35,42 @@ npm run dev
 默认优先使用仓库 `.venv/bin/python`，再尝试 PATH 上的 `python3`、`python`；
 三件套导出需要 `openpyxl`。想指定解释器就在 `.env.local` 写
 `EXCAVAGUARD_PYTHON=<绝对路径>`。找不到时会明确返回 `[ENGINE_UNAVAILABLE]`。
+
+### 启动离线 RAG Demo（可选，5 分钟看效果）
+
+如果只想快速验证「输一段监测描述 → 规范核对 → 生成日报」，可以只跑 Python 侧的离线 Demo，
+不必安装 486 个 npm 包。项目自带跨平台启动器：
+
+```bash
+# Windows
+.venv\Scripts\python.exe start_demo.py --open
+
+# macOS / Linux
+.venv/bin/python start_demo.py --open
+```
+
+也可以直接双击 `start_demo.bat`（Windows）或执行 `./start_demo.sh`（macOS / Linux）。
+
+**端口不要写死。** 8600 在部分 Windows 机器上落在 Hyper-V / WSL / Docker 的动态保留段，
+会直接报 `WinError 10013`，且该保留段**因机器而异、重启后会漂移**。
+启动器会对 `127.0.0.1:<port>` 做真实 bind 探测并自动避让，然后把本机实际可用的地址打印出来：
+
+```text
+✅ 服务已就绪： http://127.0.0.1:8666
+```
+
+请以终端输出的这一行为准——换一台电脑端口可能不同，但这一行始终正确。
+`source/server.py` 自身同样内置避让，因此沿用旧的 `--port 8600` 命令也不会再报错。
+
+| 启动器参数 | 作用 |
+|---|---|
+| `--open` | 启动后自动打开浏览器 |
+| `--port <n>` | 首选端口（仍会自动避让占用与保留段） |
+| `--check-only` | 只打印可用地址后退出，适合脚本调用 |
+
+启动后页面顶部应显示「知识库 8698 个条款块 / 30 部规范」；若显示 0 或「未就绪」，
+通常是 Git LFS 权重没拉取（真实文件应为 95,842,633 字节，LFS 指针只有 133 字节），
+执行 `git lfs install && git lfs pull` 即可。更多排查见 [`DEPLOY.md`](DEPLOY.md)。
 
 ## 初版使用路径
 
