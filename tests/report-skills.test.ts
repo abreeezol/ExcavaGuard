@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { appendFileSync, existsSync, rmSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type {
@@ -228,10 +228,64 @@ function dailyReportInput() {
   };
 }
 
+function dailyReportInputWithAllForms() {
+  const payload = dailyReportInput();
+  const source_flags = ["WIDE_FORMAT_EXPANDED"];
+  const extraItems = [
+    engineItem({
+      point_id: "QN-01",
+      metric_key: "wall_internal_force",
+      metric_name: "围护墙内力",
+      source_flags,
+    }),
+    engineItem({
+      point_id: "ZL-01",
+      metric_key: "support_axial_force",
+      metric_name: "支撑轴力",
+      source_flags,
+    }),
+    engineItem({
+      point_id: "SW-01",
+      metric_key: "groundwater_level",
+      metric_name: "地下水位",
+      source_flags,
+    }),
+    engineItem({
+      point_id: "LF-01",
+      metric_key: "crack_width_surface",
+      metric_name: "地表裂缝",
+      source_flags,
+    }),
+  ];
+  const items = [...payload.items, ...extraItems];
+  return {
+    ...payload,
+    context: {
+      ...payload.context,
+      real_records: items.length,
+      records: items.length,
+    },
+    summary: {
+      ...payload.summary,
+      total: items.length,
+      by_risk_level: { 报警: items.length - 1, 未知: 1 },
+      by_data_origin: { real: items.length },
+    },
+    items,
+  };
+}
+
 function engineSnapshot(): ArtifactEnvelope {
   return {
     ref: ref("excavaguard.daily_report_input/v1", "a"),
     payload: dailyReportInput(),
+  };
+}
+
+function engineSnapshotWithAllForms(): ArtifactEnvelope {
+  return {
+    ref: ref("excavaguard.daily_report_input/v1", "d"),
+    payload: dailyReportInputWithAllForms(),
   };
 }
 
@@ -365,6 +419,62 @@ describeWithPython("报告交付与独立审计 Skill", () => {
         "markdown-correspondence",
       ]),
     );
+  });
+
+  it("附表 C-F 前置监测日期和孔号，并以规范依据替代逐行来源标记", async () => {
+    const engine = engineSnapshotWithAllForms();
+    const rendered = await renderRunner.renderDailyReport({
+      engineSnapshot: engine,
+    });
+    const draft = trackArtifacts(rendered.draft);
+    const appendices = draft.artifacts.find(
+      (artifact) => artifact.kind === "appendices_markdown",
+    );
+    expect(appendices).toBeDefined();
+    const markdown = readFileSync(
+      resolve(process.cwd(), appendices!.relative_path),
+      "utf-8",
+    );
+    const coverMarkdown = String((draft.payload as { markdown: string }).markdown);
+    const workCondition = coverMarkdown
+      .split("## 一、工况描述\n")[1]
+      ?.split("\n## 二、")[0];
+    expect(workCondition).toBeDefined();
+    expect(workCondition).toContain("规范依据：GB 50497-2019 表8.0.4");
+    expect(workCondition).not.toContain("数据来源标记");
+    const sheets = [
+      ["附表C_围护墙内力等监测日报表", 2],
+      ["附表D_支撑轴力等监测日报表", 3],
+      ["附表E_地下水位等监测日报表", 4],
+      ["附表F_裂缝监测日报表", 5],
+    ] as const;
+    for (const [sheet, itemIndex] of sheets) {
+      const section = markdown
+        .split(`## ${sheet}\n`)[1]
+        ?.split("\n## ")[0];
+      expect(section).toBeDefined();
+      expect(section).toContain("| 监测日期 | 孔号(点号) |");
+      expect(section).toContain("规范依据：GB 50497-2019 表8.0.4");
+      expect(section).not.toContain("来源标记：");
+      expect(draft.artifact_bindings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            location: `${sheet}!A7`,
+            fact_path: `items.${itemIndex}.timestamp`,
+          }),
+          expect.objectContaining({
+            location: `${sheet}!B7`,
+            fact_path: `items.${itemIndex}.point_id`,
+          }),
+        ]),
+      );
+    }
+    const { audit } = await validateRunner.validateReport({
+      draft,
+      engineSnapshot: engine,
+    });
+    expect(audit.issues).toEqual([]);
+    expect(audit.valid).toBe(true);
   });
 
   it("冻结 LLM 正文写入五节完整日报，与附表 Markdown 分离且独立重读审计通过", async () => {

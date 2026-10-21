@@ -52,6 +52,29 @@ def _display(value: Any) -> Any:
     return value
 
 
+def _standard_basis(item: dict[str, Any]) -> str:
+    evidence = item.get("evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    effective = item.get("effective_standard")
+    effective = effective if isinstance(effective, dict) else {}
+    standard = (
+        evidence.get("standard")
+        or effective.get("source_label")
+        or effective.get("source_id")
+    )
+    clause = evidence.get("clause")
+    parts = [
+        str(value).strip()
+        for value in (standard, clause)
+        if value not in (None, "") and str(value).strip()
+    ]
+    if not parts:
+        return "未匹配适用规范（待复核）"
+    if len(parts) == 2 and parts[1] in parts[0]:
+        parts.pop()
+    return " ".join(parts)
+
+
 def _markdown_cell(value: Any) -> str:
     displayed = _display(value)
     if isinstance(displayed, float):
@@ -137,13 +160,11 @@ def _put_fact(
 def _item_note(item: dict[str, Any]) -> str:
     parts = [f"监测项：{item.get('metric_name') or '未知'}",
              f"风险等级：{item.get('risk_level') or '未知'}",
-             f"单位：{item.get('unit') or '未提供'}"]
+             f"单位：{item.get('unit') or '未提供'}",
+             f"规范依据：{_standard_basis(item)}"]
     reasons = item.get("abstain_reasons") or item.get("abstain") or []
     if reasons:
         parts.append("待复核：" + "；".join(str(reason) for reason in reasons))
-    flags = item.get("source_flags") or []
-    if flags:
-        parts.append("来源标记：" + "、".join(str(flag) for flag in flags))
     if item.get("unit") in (None, ""):
         parts.append("单位未在冻结载荷中唯一提供")
     return "；".join(parts)
@@ -207,8 +228,10 @@ def _form_row(
         )
     if form in ("表C", "表D"):
         return (
-            ["深度(m)", "本次测值", "上次测值", "本次变化", "累计变化", "单位", "组号", "点号", "监测项目", "风险等级", "备注"],
+            ["监测日期", "孔号(点号)", "深度(m)", "本次测值", "上次测值", "本次变化", "累计变化", "单位", "组号", "监测项目", "风险等级", "备注"],
             [
+                common["timestamp"],
+                common["point_id"],
                 blank,
                 common["current"],
                 common["previous"],
@@ -216,7 +239,6 @@ def _form_row(
                 common["cumulative"],
                 unit,
                 blank,
-                common["point_id"],
                 common["metric_name"],
                 common["risk_level"],
                 note,
@@ -224,8 +246,10 @@ def _form_row(
         )
     if form == "表E":
         return (
-            ["初始值", "本次值", "上次值", "本次变化", "累计变化", "变化速率", "单位", "编号", "点号", "监测项目", "风险等级", "备注"],
+            ["监测日期", "孔号(点号)", "初始值", "本次值", "上次值", "本次变化", "累计变化", "变化速率", "单位", "编号", "监测项目", "风险等级", "备注"],
             [
+                common["timestamp"],
+                common["point_id"],
                 common["baseline"],
                 common["current"],
                 common["previous"],
@@ -234,7 +258,6 @@ def _form_row(
                 common["rate"],
                 unit,
                 blank,
-                common["point_id"],
                 common["metric_name"],
                 common["risk_level"],
                 note,
@@ -245,9 +268,10 @@ def _form_row(
     is_length = "长度" in metric or "length" in metric
     is_width = "宽度" in metric or "width" in metric
     return (
-        ["监测时间", "长度", "宽度", "本次测试值", "单次变化", "累计变化", "变化速率", "单位", "点号", "形态", "风险等级", "备注"],
+        ["监测日期", "孔号(点号)", "长度", "宽度", "本次测试值", "单次变化", "累计变化", "变化速率", "单位", "形态", "风险等级", "备注"],
         [
             common["timestamp"],
+            common["point_id"],
             common["current"] if is_length else blank,
             common["current"] if is_width else blank,
             common["current"],
@@ -255,7 +279,6 @@ def _form_row(
             common["cumulative"],
             common["rate"],
             unit,
-            common["point_id"],
             blank,
             common["risk_level"],
             note,
@@ -364,16 +387,16 @@ def _build_form_sheets(
         selected_indices = {
             "表A": [0, 1, 3, 4, 5, 9],
             "表B": [0, 1, 2, 4, 5, 6, 9],
-            "表C": [0, 1, 2, 3, 4, 6, 7, 10],
-            "表D": [0, 1, 2, 3, 4, 6, 7, 10],
-            "表E": [0, 1, 2, 3, 4, 5, 7, 8, 11],
-            "表F": [1, 2, 3, 4, 5, 6, 8, 9, 11],
+            "表C": [0, 1, 2, 3, 4, 5, 6, 8, 11],
+            "表D": [0, 1, 2, 3, 4, 5, 6, 8, 11],
+            "表E": [0, 1, 2, 3, 4, 5, 6, 7, 9, 12],
+            "表F": [0, 1, 2, 3, 4, 5, 6, 7, 9, 11],
         }
         for row_number, (item_index, item) in enumerate(rows, 7):
             _headers, values = _form_row(form, item, payload, item_index)
             values = [values[index] for index in selected_indices[form]]
             if form == "表E":
-                values[:3] = [("—", None)] * 3
+                values[2:5] = [("—", None)] * 3
                 values[-1] = (str(values[-1][0]) + "；未提供高程基准，高程栏留空，原观测值见冻结明细。", None)
             for column, (value, fact_path) in enumerate(values, 1):
                 _put(

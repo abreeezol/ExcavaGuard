@@ -59,10 +59,14 @@ description: "将结构化事实、证据和受约束分析渲染为监测日报
    `监测日报_<报告日期>_草稿_附表及清单.md`。
 7. Excel 只生成载荷中实际出现的附表 A～F；未提供巡视记录时不生成表 G，
    并在封面、待复核和来源说明中明确记录，禁止写成“巡视正常”。
-8. 将 `measurement_semantics`、`source_flags` 和
+8. 附表逐测点备注优先写入 `items[].evidence.standard` 与 `clause` 对应的规范编号
+   和条文号；来源与预处理标记集中保留在封面及追溯说明中，不得用来源标记替代规范依据。
+9. 附表 C～F 的逐测点行以“监测日期、孔号(点号)”开头，并分别绑定
+   `items[].timestamp` 与 `items[].point_id`；字段缺失时显示 `—`，不得从名称猜测。
+10. 将 `measurement_semantics`、`source_flags` 和
    `source_metadata.daily_aggregation` 原样纳入来源说明，不把时间平移、
    插值、重采样或末值保持描述为原始同步实测。
-9. 标记为草稿并交给 `validate-report`，校验通过前不得作为正式报告交付。
+11. 标记为草稿并交给 `validate-report`，校验通过前不得作为正式报告交付。
 
 ## 当前实现
 
@@ -74,7 +78,7 @@ description: "将结构化事实、证据和受约束分析渲染为监测日报
 - 产出结构化草稿、三件套文件和 Markdown 预览；事实字段与 Excel 单元格均带
   SHA-256 绑定，证据引用携带稳定 ID。
 - 载荷未提供可唯一识别单位时显示 `—` 并加入复核缺口，不从监测项名称猜测单位。
-- 当前批准模板为 `deep-pit-monitoring-report/service-v3`。直接复用团队
+- 当前批准模板为 `deep-pit-monitoring-report/service-v4`。直接复用团队
   `appendix_forms.py` 的表头、列和页脚；日报正文分工况、分析及建议、待复核、
   RAG 规范原文、人工签署五节，两份 Markdown 分别对应封面和其余工作表。
 - 表 E 未提供高程基准时高程栏留空，原观测值保留在来源说明；裂缝长度与宽度分列、

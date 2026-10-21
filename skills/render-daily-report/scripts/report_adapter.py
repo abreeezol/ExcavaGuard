@@ -20,7 +20,7 @@ sys.path.insert(0, str(DEEP_REPORT_SCRIPTS))
 
 from render_report import DEFAULT_FORM_MAP  # noqa: E402
 
-TEMPLATE_VERSION = "deep-pit-monitoring-report/service-v3"
+TEMPLATE_VERSION = "deep-pit-monitoring-report/service-v4"
 ITEM_FACT_FIELDS = (
     "point_id",
     "point_name",
@@ -228,6 +228,34 @@ def _form_analysis(items: list[dict[str, Any]]) -> list[str]:
     return result
 
 
+def _standard_basis_summary(items: list[dict[str, Any]]) -> str:
+    bases: list[str] = []
+    for item in items:
+        evidence = item.get("evidence") if isinstance(item.get("evidence"), dict) else {}
+        effective = item.get("effective_standard") if isinstance(item.get("effective_standard"), dict) else {}
+        standard = (
+            evidence.get("standard")
+            or effective.get("source_label")
+            or effective.get("source_id")
+        )
+        clause = evidence.get("clause")
+        parts = [
+            str(value).strip()
+            for value in (standard, clause)
+            if value not in (None, "") and str(value).strip()
+        ]
+        if len(parts) == 2 and parts[1] in parts[0]:
+            parts.pop()
+        basis = " ".join(parts)
+        if basis and basis not in bases:
+            bases.append(basis)
+    if not bases:
+        return "规范依据：未匹配到可唯一展示的适用规范，相关条目已进入待复核。"
+    shown = "、".join(bases[:6])
+    suffix = f"等 {len(bases)} 项" if len(bases) > 6 else ""
+    return f"规范依据：{shown}{suffix}；具体来源与适用条件见第四节及附表备注。"
+
+
 def _review_items(report: dict[str, Any]) -> list[str]:
     """提取逐测点待复核摘要，不依赖独立 sheet。"""
     items = report["sections"]["monitoring_results"]["items"]
@@ -260,10 +288,8 @@ def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
 
     # --- 第一节：工况描述 ---
     condition_text = narrative.get("work_condition", {}).get("text") or sections["work_condition_analysis"]["work_condition"]
-    source_flags = sorted({str(f) for item in items for f in (item.get("source_flags") or []) if str(f).strip()})
     condition_lines = [condition_text]
-    if source_flags:
-        condition_lines.append("数据来源标记：" + "、".join(source_flags) + "。时间平移/插值/末值保持数据不代表原始同步实测。")
+    condition_lines.append(_standard_basis_summary(items))
     project = sections["project"]
     condition_lines.append(
         f"工程名称：{_display(project.get('name'))}｜监测单位：{_display(project.get('monitoring_unit'))}｜"

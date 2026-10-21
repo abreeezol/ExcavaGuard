@@ -15,6 +15,8 @@ import {
 } from "@/contracts/agent-runtime";
 import { callSkillScript } from "@/server/skills/python-bridge";
 
+const REPORT_SCRIPT_TIMEOUT_MS = 120_000;
+
 const auditCheckSchema = z.strictObject({
   name: z.string().trim().min(1),
   valid: z.boolean(),
@@ -99,7 +101,7 @@ export async function validateReport(
     .string()
     .trim()
     .min(1)
-    .parse(request.templateVersion ?? "deep-pit-monitoring-report/service-v3");
+    .parse(request.templateVersion ?? "deep-pit-monitoring-report/service-v4");
 
   if (!sameRef(draft.source_refs.engine, engineSnapshot.ref)) {
     throw new Error("报告草稿引用的引擎事实快照与审计输入不一致。");
@@ -134,7 +136,7 @@ export async function validateReport(
         : null,
     template_version: templateVersion,
     prohibited_phrases: request.prohibitedPhrases,
-  });
+  }, { timeoutMs: REPORT_SCRIPT_TIMEOUT_MS });
   const result = validatorResultSchema.parse(envelope.result);
   const issues = result.issues.map((item, index) => ({
     issue_id: `audit-${version}-${index + 1}`,
