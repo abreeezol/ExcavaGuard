@@ -61,14 +61,31 @@ const PYTHON_CANDIDATES = [
   ),
 ];
 
-const TIMEOUT_MS = Number(process.env.EXCAVAGUARD_BRIDGE_TIMEOUT_MS ?? 30_000);
+const DEFAULT_TIMEOUT_MS = Number(process.env.EXCAVAGUARD_BRIDGE_TIMEOUT_MS ?? 30_000);
+
+type CallSkillScriptOptions = {
+  timeoutMs?: number;
+};
 
 /** 引擎脚本位置：`<repo>/skills/<skill>/scripts/<file>`（远程 README 规定的位置）。 */
 export function skillScriptPath(skill: string, file: string): string {
   return resolve(process.cwd(), "skills", skill, "scripts", file);
 }
 
-function spawnOnce(bin: string, script: string, request: unknown): Promise<SkillEnvelope> {
+function resolveTimeoutMs(options?: CallSkillScriptOptions): number {
+  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new EngineUnavailableError(`引擎调用超时配置不合法：${timeoutMs}`);
+  }
+  return timeoutMs;
+}
+
+function spawnOnce(
+  bin: string,
+  script: string,
+  request: unknown,
+  timeoutMs: number,
+): Promise<SkillEnvelope> {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(bin, [script], {
       stdio: ["pipe", "pipe", "pipe"],
@@ -84,8 +101,8 @@ function spawnOnce(bin: string, script: string, request: unknown): Promise<Skill
       if (settled) return;
       settled = true;
       child.kill("SIGKILL");
-      rejectPromise(new EngineUnavailableError(`引擎调用超时（${TIMEOUT_MS} ms）。`));
-    }, TIMEOUT_MS);
+      rejectPromise(new EngineUnavailableError(`引擎调用超时（${timeoutMs} ms）。`));
+    }, timeoutMs);
 
     child.stdout.setEncoding("utf-8");
     child.stderr.setEncoding("utf-8");
@@ -139,6 +156,7 @@ export async function callSkillScript(
   skill: string,
   file: string,
   request: unknown,
+  options?: CallSkillScriptOptions,
 ): Promise<SkillEnvelope> {
   const script = skillScriptPath(skill, file);
   if (!existsSync(script)) {
@@ -149,9 +167,10 @@ export async function callSkillScript(
   }
 
   let lastError: unknown = null;
+  const timeoutMs = resolveTimeoutMs(options);
   for (const bin of PYTHON_CANDIDATES) {
     try {
-      return await spawnOnce(bin, script, request);
+      return await spawnOnce(bin, script, request, timeoutMs);
     } catch (error) {
       if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
         lastError = error;

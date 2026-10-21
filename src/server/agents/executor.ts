@@ -31,7 +31,7 @@ import { EngineError } from "@/server/skills/python-bridge";
 import { renderDailyReport } from "@/server/skills/render-daily-report/runner";
 import { validateReport } from "@/server/skills/validate-report/runner";
 
-const DEFAULT_TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 300_000;
 const DEFAULT_MAX_REVISION_ROUNDS = 2;
 const DEFAULT_MAX_EXECUTION_STEPS = 8;
 class CheckpointError extends Error {}

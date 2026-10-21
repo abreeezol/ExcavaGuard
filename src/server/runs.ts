@@ -19,7 +19,7 @@ import {
 } from "@/server/storage/report-files";
 import { EngineError } from "@/server/skills/python-bridge";
 
-const LEASE_MS = 180_000;
+const LEASE_MS = 420_000;
 
 function agentResult(
   execution: AgentRunExecutionResult,

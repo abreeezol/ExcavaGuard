@@ -17,6 +17,8 @@ import {
 } from "@/contracts/agent-runtime";
 import { callSkillScript } from "@/server/skills/python-bridge";
 
+const REPORT_SCRIPT_TIMEOUT_MS = 120_000;
+
 const rendererResultSchema = z.strictObject({
   report_payload: z.unknown(),
   fact_bindings: z.array(factBindingSchema),
@@ -89,7 +91,7 @@ export async function renderDailyReport(
     .string()
     .trim()
     .min(1)
-    .parse(request.templateVersion ?? "deep-pit-monitoring-report/service-v3");
+    .parse(request.templateVersion ?? "deep-pit-monitoring-report/service-v4");
   const artifactId = randomUUID();
   const artifactOutputDir = resolve(
     process.cwd(),
@@ -110,6 +112,7 @@ export async function renderDailyReport(
         artifact_id: artifactId,
         artifact_output_dir: artifactOutputDir,
       },
+      { timeoutMs: REPORT_SCRIPT_TIMEOUT_MS },
     );
     const result = rendererResultSchema.parse(envelope.result);
     const sourceRefs = {
