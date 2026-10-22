@@ -29,6 +29,7 @@ if [[ -z "${EXCAVAGUARD_ENV_PASSPHRASE:-}" ]]; then
   read -r -s -p "Passphrase for .env.local.enc: " EXCAVAGUARD_ENV_PASSPHRASE
   echo
 fi
+export EXCAVAGUARD_ENV_PASSPHRASE
 
 TMP_FILE="$(mktemp "${OUTPUT_FILE}.tmp.XXXXXX")"
 cleanup() {

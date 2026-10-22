@@ -24,6 +24,34 @@ ExcavaGuard 是面向基坑监测工程师的 AI 监测日报助手。系统读�
 
 已在 macOS arm64、Node.js `26.3.1`、npm `11.16.0` 下验证。`.nvmrc` 固定本次验证的 Node 版本；使用 nvm 时先执行 `nvm use`。
 
+### 快速演示
+
+Release 包含加密的 `.env.local.enc` 和启动脚本。若演示机器已有 Node.js、npm、Python
+和 openssl，可在项目根目录直接执行：
+
+```bash
+chmod +x scripts/demo-start.sh
+./scripts/demo-start.sh
+```
+
+脚本会提示输入解密口令，生成本机 `.env.local`，执行 `npm ci`，补齐 Python 报告导出所需的
+`openpyxl`，然后启动 `npm run dev`。如果目标机器已有 `.env.local`，脚本默认不覆盖；
+确需覆盖时使用：
+
+```bash
+./scripts/demo-start.sh --force-env
+```
+
+只准备环境、不启动服务：
+
+```bash
+./scripts/demo-start.sh --no-start
+```
+
+脚本不会安装全局系统工具。若提示缺少 `node` / `npm` / `python` / `openssl`，需要先在机器上安装对应工具。
+
+### 手动启动
+
 ```bash
 npm ci
 npm run dev
@@ -163,6 +191,15 @@ var/runs/                          # 切换前的本地运行修订（gitignore�
 ```bash
 cp .env.example .env.local
 ```
+
+路演 Demo 版本可使用加密配置包恢复在线环境：
+
+```bash
+scripts/decrypt-env-local.sh
+```
+
+脚本会从 `.env.local.enc` 解密生成 `.env.local`，口令不在仓库或 Release 中。生成后的
+`.env.local` 仍是本机私有文件，不应提交。
 
 | 服务 | 环境变量 | 当前行为 |
 | --- | --- | --- |
