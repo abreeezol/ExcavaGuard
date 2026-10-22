@@ -44,6 +44,7 @@ const describeWithExcel = EXCEL_PYTHON ? describe : describe.skip;
 const uploadRoot = mkdtempSync(join(tmpdir(), "excavaguard-wide-e2e-"));
 process.env.EXCAVAGUARD_UPLOAD_ROOT = uploadRoot;
 process.env.EXCAVAGUARD_RUN_ROOT = join(uploadRoot, "runs");
+const finalWorkbookName = "监测数据整合_7天_10分钟输入.xlsx";
 
 type Json = Record<string, unknown>;
 
@@ -76,12 +77,12 @@ describeWithExcel("最终混合宽表上传与分析", () => {
     "识别 85 通道并按报告日聚合，累计量不按窗口首值重新归零",
     async () => {
       const workbook = readFileSync(
-        join(process.cwd(), "final_test", "监测数据整合_7天_10分钟.xlsx"),
+        join(process.cwd(), "final_test", finalWorkbookName),
       );
       const form = new FormData();
       form.set(
         "file",
-        new File([workbook], "监测数据整合_7天_10分钟.xlsx", {
+        new File([workbook], finalWorkbookName, {
           type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }),
       );

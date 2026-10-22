@@ -12,7 +12,7 @@ liveDescribe("真实 LLM + RAG + 85 通道日报交付验收", () => {
     const python = resolve(".venv/bin/python");
     if (existsSync(python)) process.env.EXCAVAGUARD_PYTHON = python;
     const engine = await runJudgement({
-      filePath: resolve("final_test/监测数据整合_7天_10分钟.xlsx"),
+      filePath: resolve("final_test/监测数据整合_7天_10分钟输入.xlsx"),
       reportDate: "2026-10-08",
       context: { safety_level: "一级", support_type: "地下连续墙", excavation_depth_m: 20 },
       project: { name: "最终宽表 AI 日报验收" },
