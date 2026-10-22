@@ -287,6 +287,49 @@ describe("实际模型接口编排与失败保护（模拟响应）", () => {
     expect(result.terminalAction.reason_code).toBe("AUDIT_PASSED");
   });
 
+  it("语义审计模型瞬时失败会重试，且不把完整草稿对象传给审计模型", async () => {
+    const dependencies = aiDependencies();
+    const model = dependencies.model;
+    let auditAttempts = 0;
+    dependencies.model = async (request) => {
+      if (request.role === "audit") {
+        auditAttempts += 1;
+        const context = request.context as {
+          draft: { markdown: string; artifacts?: unknown };
+          evidence: { evidence?: Array<{ text: string }> };
+        };
+        expect(context.draft.artifacts).toBeUndefined();
+        expect(context.draft.markdown.length).toBeLessThanOrEqual(24_020);
+        expect(context.evidence.evidence ?? []).toSatisfy((items: Array<{ text: string }>) =>
+          items.every((item) => item.text.length <= 820),
+        );
+        if (auditAttempts === 1) throw new Error("transient audit model failure");
+      }
+      return model(request);
+    };
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
+    expect(auditAttempts).toBe(2);
+    expect(result.terminalAction.reason_code).toBe("AUDIT_PASSED");
+  });
+
+  it("语义审计模型连续失败时不阻断已通过的确定性审计和人工复核", async () => {
+    const dependencies = aiDependencies();
+    const model = dependencies.model;
+    dependencies.model = async (request) => {
+      if (request.role === "audit") throw new Error("audit model unavailable");
+      return model(request);
+    };
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
+    expect(result.terminalAction.reason_code).toBe("AUDIT_PASSED");
+    expect(result.state.audit_result?.valid).toBe(true);
+    expect(result.state.audit_result?.issues).toEqual([]);
+    expect(result.state.audit_result?.checks.at(-1)).toMatchObject({
+      name: "independent-llm-semantic-audit",
+      valid: true,
+    });
+    expect(result.state.audit_result?.checks.at(-1)?.details).toContain("LLM 语义审查暂不可用");
+  });
+
   it("语义审计问题反馈给下一次写作，两轮仍不通过时保留阻断", async () => {
     const dependencies = aiDependencies();
     const model = dependencies.model;

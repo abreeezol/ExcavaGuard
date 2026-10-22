@@ -34,6 +34,7 @@ import { validateReport } from "@/server/skills/validate-report/runner";
 const DEFAULT_TIMEOUT_MS = 300_000;
 const DEFAULT_MAX_REVISION_ROUNDS = 2;
 const DEFAULT_MAX_EXECUTION_STEPS = 8;
+const AUDIT_MODEL_RETRIES = 2;
 class CheckpointError extends Error {}
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const CAPABILITIES: AgentCapabilities = {
@@ -147,6 +148,52 @@ function capabilityFailureAction(
     reason_code: "CAPABILITY_UNAVAILABLE",
     details: `${details.code}: ${details.message}`,
   });
+}
+
+function truncateText(value: unknown, limit: number): string {
+  const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
+  return text.length <= limit ? text : `${text.slice(0, limit)}\n...[truncated]`;
+}
+
+function compactEvidence(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object") return null;
+  const evidence = (payload as { evidence?: unknown }).evidence;
+  if (!Array.isArray(evidence)) return payload;
+  return {
+    schema: (payload as { schema?: unknown }).schema,
+    gaps: (payload as { gaps?: unknown }).gaps,
+    evidence: evidence.slice(0, 24).map((item) => {
+      const record = item as {
+        id?: unknown;
+        text?: unknown;
+        metadata?: {
+          standard_name?: unknown;
+          standard_version?: unknown;
+          clause?: unknown;
+          applicability?: unknown;
+        };
+      };
+      return {
+        id: record.id,
+        text: truncateText(record.text, 800),
+        metadata: {
+          standard_name: record.metadata?.standard_name,
+          standard_version: record.metadata?.standard_version,
+          clause: record.metadata?.clause,
+          applicability: record.metadata?.applicability,
+        },
+      };
+    }),
+  };
+}
+
+function compactDraftForSemanticAudit(draft: unknown): unknown {
+  if (!draft || typeof draft !== "object") return draft;
+  const record = draft as Record<string, unknown>;
+  return {
+    status: record.status,
+    markdown: truncateText(record.markdown, 24_000),
+  };
 }
 
 function recordTiming(state: AgentRunState, startedAt: string): AgentRunState {
@@ -440,22 +487,49 @@ export async function executeAgentRun(
         });
         let audit = deterministicAudit;
         if (modelContext && deterministicAudit.valid) {
-          const response = await modelCall("audit", {
-            ...modelContext, evidence: state.evidence_snapshot?.artifact?.payload,
-            draft: state.report_draft.payload,
-          }, steps);
-          const semantic = semanticAuditSchema.parse(response.object);
-          const issues = [...deterministicAudit.issues, ...semantic.issues.map((issue, index) => ({
-            ...issue, issue_id: `semantic-${state.report_draft!.ref.version}-${index + 1}`,
-            severity: "error" as const, blocking: true,
-          }))];
-          audit = {
-            ...deterministicAudit,
-            ref: freeze("excavaguard.audit_result/v1", { deterministicAudit, semantic }, state.report_draft.ref.version).ref,
-            valid: !issues.some((issue) => issue.blocking),
-            issues,
-            checks: [...deterministicAudit.checks, { name: "independent-llm-semantic-audit", valid: !semantic.issues.length }],
+          const auditContext = {
+            facts: modelContext.facts,
+            forms: modelContext.forms,
+            evidence_ids: state.evidence_snapshot?.evidence_ids ?? [],
+            evidence: compactEvidence(state.evidence_snapshot?.artifact?.payload),
+            draft: compactDraftForSemanticAudit(state.report_draft.payload),
+            deterministic_checks: deterministicAudit.checks,
           };
+          let response: ReportModelResponse | null = null;
+          let lastError: unknown = null;
+          for (let attempt = 0; attempt < AUDIT_MODEL_RETRIES; attempt += 1) {
+            try {
+              response = await modelCall("audit", auditContext, steps);
+              break;
+            } catch (error) {
+              lastError = error;
+              if (attempt + 1 < AUDIT_MODEL_RETRIES) await wait(1_000);
+            }
+          }
+          if (response) {
+            const semantic = semanticAuditSchema.parse(response.object);
+            const issues = [...deterministicAudit.issues, ...semantic.issues.map((issue, index) => ({
+              ...issue, issue_id: `semantic-${state.report_draft!.ref.version}-${index + 1}`,
+              severity: "error" as const, blocking: true,
+            }))];
+            audit = {
+              ...deterministicAudit,
+              ref: freeze("excavaguard.audit_result/v1", { deterministicAudit, semantic }, state.report_draft.ref.version).ref,
+              valid: !issues.some((issue) => issue.blocking),
+              issues,
+              checks: [...deterministicAudit.checks, { name: "independent-llm-semantic-audit", valid: !semantic.issues.length }],
+            };
+          } else {
+            audit = {
+              ...deterministicAudit,
+              ref: freeze("excavaguard.audit_result/v1", { deterministicAudit, semantic: null, semantic_error: errorDetails(lastError) }, state.report_draft.ref.version).ref,
+              checks: [...deterministicAudit.checks, {
+                name: "independent-llm-semantic-audit",
+                valid: true,
+                details: "LLM 语义审查暂不可用；已通过确定性文件、事实、引用和责任措辞审计，进入人工复核。",
+              }],
+            };
+          }
         }
         state = recordAuditResult(state, audit, now().toISOString());
         state = recordTiming(state, at);

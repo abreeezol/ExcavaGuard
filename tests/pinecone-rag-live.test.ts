@@ -22,7 +22,7 @@ liveDescribe("85 通道 AI 报告链：真实 Pinecone + 模拟模型 + 真实 P
         }),
     );
     const engine = await runJudgement({
-      filePath: resolve("final_test/监测数据整合_7天_10分钟.xlsx"),
+      filePath: resolve("final_test/监测数据整合_7天_10分钟输入.xlsx"),
       reportDate: "2026-10-08",
       context: { safety_level: "一级", support_type: "地下连续墙", excavation_depth_m: 20 },
       project: { name: "AI链路验收（模型响应模拟）" },

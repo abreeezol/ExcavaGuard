@@ -22,6 +22,30 @@ type SupabaseRunRow = {
   created_at: string;
 };
 
+type SupabaseRunSummaryRow = {
+  run_id: string;
+  revision: number;
+  project_id: string;
+  row_created_at: string;
+  owner_id: string | null;
+  record_created_at: string | null;
+  record_updated_at: string | null;
+  execution_status: string | null;
+  error: unknown;
+  report_date: string | null;
+  project_name: string | null;
+  agent_status: string | null;
+  decision: string | null;
+  parent_run_id: string | null;
+};
+
+const runExecutionStatusSchema = persistedRunSchema.shape.execution_status;
+const runErrorSchema = persistedRunSchema.shape.error;
+const reviewDecisionSchema = z.enum(["accepted", "needs_changes", "rejected"]);
+const RUN_HISTORY_LIMIT = 100;
+const RUN_HISTORY_PAGE_SIZE = 200;
+const RUN_HISTORY_MAX_PAGES = 40;
+
 function root(): string {
   getStorageProvider();
   const custom = process.env.EXCAVAGUARD_RUN_ROOT?.trim();
@@ -143,6 +167,81 @@ async function allSupabaseRuns(access: LocalAccess): Promise<PersistedRun[]> {
   return [...latestByRun.values()];
 }
 
+function supabaseSummary(row: SupabaseRunSummaryRow, access: LocalAccess): RunSummary | null {
+  if (row.project_id !== access.project_id) return null;
+  if (row.owner_id !== access.owner_id) return null;
+  const executionStatus = runExecutionStatusSchema.safeParse(row.execution_status);
+  const error = runErrorSchema.safeParse(row.error);
+  let decision: z.infer<typeof reviewDecisionSchema> | null = null;
+  if (row.decision !== null) {
+    const parsedDecision = reviewDecisionSchema.safeParse(row.decision);
+    if (!parsedDecision.success) {
+      throw new AppError(500, "STORAGE_ERROR", "Supabase 运行历史摘要字段不合法。");
+    }
+    decision = parsedDecision.data;
+  }
+  if (!executionStatus.success || !error.success) {
+    throw new AppError(500, "STORAGE_ERROR", "Supabase 运行历史摘要字段不合法。");
+  }
+  return {
+    run_id: row.run_id,
+    revision: row.revision,
+    created_at: row.record_created_at ?? row.row_created_at,
+    updated_at: row.record_updated_at ?? row.row_created_at,
+    execution_status: executionStatus.data,
+    error: error.data,
+    report_date: row.report_date ?? "",
+    project_name: row.project_name?.trim() || "未提供工程名称",
+    agent_status: row.agent_status,
+    decision,
+    parent_run_id: row.parent_run_id,
+  };
+}
+
+async function listSupabaseRuns(access: LocalAccess): Promise<RunSummary[]> {
+  const { client } = supabaseContext();
+  const latestByRun = new Map<string, RunSummary>();
+  for (
+    let page = 0;
+    page < RUN_HISTORY_MAX_PAGES && latestByRun.size < RUN_HISTORY_LIMIT;
+    page += 1
+  ) {
+    const from = page * RUN_HISTORY_PAGE_SIZE;
+    const { data, error } = await client
+      .from("excavaguard_run_revisions")
+      .select(`
+        run_id,
+        revision,
+        project_id,
+        row_created_at:created_at,
+        owner_id:record->>owner_id,
+        record_created_at:record->>created_at,
+        record_updated_at:record->>updated_at,
+        execution_status:record->>execution_status,
+        error:record->error,
+        report_date:record->request->>report_date,
+        project_name:record->request->project->>name,
+        agent_status:record->result->agent_run->state->run->>status,
+        decision:record->review->>decision,
+        parent_run_id:record->request->>parent_run_id
+      `)
+      .eq("project_id", access.project_id)
+      .order("created_at", { ascending: false })
+      .range(from, from + RUN_HISTORY_PAGE_SIZE - 1);
+    if (error) throw supabaseStorageError("Supabase 运行历史读取失败", error);
+    const rows = (data ?? []) as SupabaseRunSummaryRow[];
+    for (const row of rows) {
+      if (latestByRun.has(row.run_id)) continue;
+      const summary = supabaseSummary(row, access);
+      if (summary) latestByRun.set(row.run_id, summary);
+    }
+    if (rows.length < RUN_HISTORY_PAGE_SIZE) break;
+  }
+  return [...latestByRun.values()]
+    .sort((left, right) => right.created_at.localeCompare(left.created_at))
+    .slice(0, RUN_HISTORY_LIMIT);
+}
+
 export async function readRun(runId: string, access: LocalAccess): Promise<PersistedRun> {
   if (getStorageProvider() === "supabase") {
     return readSupabaseRun(runId, access);
@@ -193,6 +292,9 @@ export async function saveRun(
 }
 
 export async function listRuns(access: LocalAccess): Promise<RunSummary[]> {
+  if (getStorageProvider() === "supabase") {
+    return listSupabaseRuns(access);
+  }
   const records = await allRuns(access);
   return records.sort((left, right) => right.created_at.localeCompare(left.created_at))
     .slice(0, 100).map((record) => ({
