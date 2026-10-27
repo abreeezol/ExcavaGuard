@@ -140,7 +140,7 @@ export const persistedRunSchema = z.strictObject({
   schema: z.literal("excavaguard.persisted_run/v1"),
   run_id: z.uuid(),
   revision: z.number().int().positive(),
-  owner_id: z.literal("local-operator"),
+  owner_id: z.union([z.literal("local-operator"), z.uuid()]),
   project_id: z.uuid(),
   created_at: z.iso.datetime(),
   updated_at: z.iso.datetime(),
@@ -154,7 +154,7 @@ export const persistedRunSchema = z.strictObject({
     reason: reviewRequestSchema.shape.reason,
     draft_ref: artifactRefSchema,
     submitted_at: z.iso.datetime(),
-    owner_id: z.literal("local-operator"),
+    owner_id: z.union([z.literal("local-operator"), z.uuid()]),
   }).nullable(),
 }).superRefine((value, context) => {
   if (value.project_id !== value.request.project_id ||

@@ -7,7 +7,7 @@ import {
   saveFile,
 } from "@/server/storage/monitoring-file-store";
 import type { ReadReport } from "@/contracts/monitoring-files";
-import { requireAccess } from "@/server/access";
+import { requireAccess, requireProjectAction } from "@/server/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   let access;
   try {
-    access = requireAccess(request);
+    access = requireProjectAction(request, "write");
   } catch (error) {
     return apiErrorFromException(error);
   }

@@ -2,7 +2,7 @@ import { apiError, apiErrorFromException, apiOk } from "@/server/api/respond";
 import { userStandardPayloadSchema } from "@/contracts/monitoring-files";
 import { checkStandardStrictness } from "@/server/skills/evaluate-thresholds/runner";
 import { listFiles, saveFile } from "@/server/storage/monitoring-file-store";
-import { requireAccess } from "@/server/access";
+import { requireAccess, requireProjectAction } from "@/server/access";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -67,7 +67,7 @@ function safeJson(text: string): unknown {
 export async function POST(request: Request) {
   let access;
   try {
-    access = requireAccess(request);
+    access = requireProjectAction(request, "standards");
   } catch (error) {
     return apiErrorFromException(error);
   }

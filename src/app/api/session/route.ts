@@ -18,11 +18,11 @@ export async function POST(request: Request) {
     if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json") {
       return apiError(415, "UNSUPPORTED_MEDIA_TYPE", "请使用 application/json。");
     }
-    const parsed = z.strictObject({ password: z.string().min(1).max(1024) })
+    const parsed = z.strictObject({ password: z.string().min(1).max(1024), username: z.string().trim().max(80).optional() })
       .safeParse(await request.json().catch(() => null));
     if (!parsed.success) return apiError(400, "INVALID_REQUEST", "请输入访问密码。");
     const response = apiOk({ authenticated: true });
-    response.headers.set("Set-Cookie", loginCookie(request, parsed.data.password));
+    response.headers.set("Set-Cookie", loginCookie(request, parsed.data.password, parsed.data.username));
     return response;
   } catch (error) {
     return apiErrorFromException(error);

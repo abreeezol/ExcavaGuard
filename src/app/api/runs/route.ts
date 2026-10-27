@@ -1,6 +1,6 @@
 import { apiError, apiErrorFromException, apiOk } from "@/server/api/respond";
 import { createRunRequestSchema } from "@/contracts/runs";
-import { requireAccess } from "@/server/access";
+import { requireAccess, requireProjectAction, accessStatus } from "@/server/access";
 import { createRun, runView } from "@/server/runs";
 import { listRuns } from "@/server/storage/run-store";
 
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 /** 默认只分析；报告链显式开启。输入、结果、Agent 检查点和失败均落盘。 */
 export async function POST(request: Request) {
   try {
-    requireAccess(request);
+    requireProjectAction(request, "write");
   } catch (error) {
     return apiErrorFromException(error);
   }
@@ -42,7 +42,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const access = requireAccess(request, parsed.data.project_id);
+    const access = requireProjectAction(request, "write", parsed.data.project_id);
+    const project = accessStatus(request).projects?.find(p => p.id === access.project_id);
+    if (access.role && project) parsed.data.project = { ...parsed.data.project, name: project.name };
     return apiOk(runView(await createRun(parsed.data, access)));
   } catch (error) {
     return apiErrorFromException(error);

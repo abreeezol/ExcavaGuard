@@ -9,7 +9,7 @@ ExcavaGuard 是面向基坑监测工程师的 AI 监测日报助手。系统读�
 
 ## 初版提交状态
 
-当前版本可以作为**单操作者、单项目、云端存储的初版工作台**提交：
+当前版本已支持**独立账号、授权项目切换和项目内协作**，兼容原共享密码模式：
 
 - 可在本地启动 Next.js 工作台，进入 `/workbench` 完成上传、分析、报告生成、审计、下载和人工复核。
 - 确定性主链已接通：「阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对」。
@@ -18,7 +18,19 @@ ExcavaGuard 是面向基坑监测工程师的 AI 监测日报助手。系统读�
 - Supabase 应用 Provider 已接通：新上传文件、运行 revision 和三件套报告进入 Supabase 私有存储与元数据表。
 - 全栈检查和真实 Supabase 纵向验收已通过，见下方“开发检查”。
 
-当前仍不是正式生产多用户系统：没有 Supabase Auth、多用户项目权限、正式签发归档、部署和 CI。
+已实现本地账号目录及服务端项目成员权限，尚未接入 Supabase Auth / 企业 SSO、正式签发归档和部署 CI。账号目录与项目规范专库需单独持久化。
+
+## 登录与项目切换
+
+工作流：登录 → 选择获授权工程 → 自动加载该工程的监测文件、阈值文件、补充规范和历史报告 → 上传、生成和下载均绑定当前工程。系统管理员可在页面创建工程；成员授权由本机管理工具设置。
+
+首次启用独立账号（仓库根目录、Node 24）：
+
+```bash
+node --env-file-if-exists=.env.local tools/access/manage.mjs init --username admin --name 管理员
+```
+
+初始密码写入本机 `var/access/credentials/admin.txt`（0600，不进入Git），读取后登录；未执行初始化时仍沿用原访问配置。初始化保留原工程UUID和数据，并把原工程授权交给首个管理员。成员创建、角色分配与验收见 [登录与项目授权切换](方案与迭代note/20_登录与项目授权切换验收.md)。
 
 ## 多规范检索与引用
 
@@ -30,7 +42,7 @@ AI报告逐本查询已配置目录中的29个规范编号，再对实际测项�
 
 工作台已支持日报、连续7天周报、完整自然月报、自定义起止日期（含首尾，最多366天）。上传含历史的数据后选择周期并分析；系统保留必要历史，输出阶段风险、逐日明细、缺测和待核事项。周期附表为最严重原观测，并非期末值。
 
-AI 模式下，同点同测项至少两天预警将追加跨规范检索；只提供现有知识库内补充候选及来源，未命中仍需人工查证，不能当作实时全网规范更新核验。模板模式不调用 RAG。
+AI 模式下，同点同测项至少两天预警将追加跨规范检索；只提供现有知识库内补充候选及来源，未命中仍需人工查证，不能当作实时全网规范更新核验。模板模式不调用公共 RAG，但可检索本工程补充规范。
 
 API 及测试说明见 [多周期报告使用与验收](方案与迭代note/14_多周期报告使用与验收.md)。
 
@@ -183,7 +195,7 @@ cp .env.example .env.local
 | **确定性引擎** | `EXCAVAGUARD_PYTHON`、`EXCAVAGUARD_BRIDGE_TIMEOUT_MS` | 指定 Python 解释器与调用超时；不配则优先仓库 `.venv`，再尝试 PATH 上的 `python3`、`python` |
 | **文件存储** | `EXCAVAGUARD_UPLOAD_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | `local` 或 `supabase`；当前本机已显式切至 Supabase |
 | **运行存储** | `EXCAVAGUARD_RUN_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | `supabase` 时写入 `excavaguard_run_revisions`；`local` 时写入 `<仓库>/var/runs/<run_id>/<revision>.json` |
-| **访问控制** | `EXCAVAGUARD_ACCESS_PASSWORD`、`EXCAVAGUARD_SESSION_SECRET`、`EXCAVAGUARD_PROJECT_ID` | 单操作者单项目；开发期无密码只允许本机；生产期必须配置密码和签名密钥 |
+| **访问控制** | `EXCAVAGUARD_ACCESS_FILE`、`EXCAVAGUARD_ACCESS_PASSWORD`、`EXCAVAGUARD_SESSION_SECRET`、`EXCAVAGUARD_PROJECT_ID` | 独立账号及获授权项目选择；兼容共享密码，项目ID只用于默认工程初始化；开发无密码仅本机 |
 | LLM | `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` | AI 日报模式必填；创建 OpenAI 兼容 Chat 适配器，不默认指定供应商或模型 |
 | Supabase 公共连接 | `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 项目可达性已验证；publishable key 只具备 RLS 允许的低权限 |
 | Supabase 服务端 | `SUPABASE_SECRET_KEY`、`SUPABASE_STORAGE_BUCKET` | 新式 secret key 仅供受保护服务端；上传、运行 revision 和报告 Provider 已接通 |
@@ -196,8 +208,8 @@ cp .env.example .env.local
 
 客户端按需创建，不在页面渲染和构建时读取密钥或发送请求。配置缺失或格式不合法会抛出 `IntegrationConfigError`，错误不携带原始配置值。目标 Pinecone 索引已完成连接、配置、导入和查询验收；完整配置仍不代表 Supervisor 主链路已经接通。
 
-Supabase 管理客户端会绕过 RLS，云端接入仍需用户身份、项目成员权限和文件归属设计。
-当前访问边界只是单操作者单项目，不代表已实现 Supabase Auth 或多用户 ACL。
+Supabase 管理客户端会绕过 RLS，因此业务 API 在访问存储前验证登录身份、当前项目和成员角色。
+授权来源为服务端私有账号目录，不依赖 Supabase Auth；浏览器不能直接修改成员授权。
 不要将任何密钥改为 `NEXT_PUBLIC_*`，也不要提交 `.env.local`。
 
 Supabase 基础设施准备：
@@ -256,7 +268,9 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
   时继续执行报告、审计和人工复核交接。
 - `GET /api/report-artifacts/<draft_id>/<file_name>`：只读下载 Excel 或 Markdown
   草稿产物；必须绑定当前项目、当前已审计草稿，重新验证文件大小和 SHA-256。
-- `GET/POST/DELETE /api/session`：访问状态、密码登录、退出，使用 HttpOnly 会话。
+- `GET/POST/DELETE /api/session`：访问状态、独立账号或兼容密码登录、退出，使用 HttpOnly 会话。
+- `GET/POST /api/projects`：获授权工程列表；系统管理员创建工程。
+- `POST /api/projects/select`：选择获授权工程，更新服务端签名会话。
 - `GET /api/runs` / `GET /api/runs/<run_id>`：最近 100 次摘要 / 完整请求与结果。
 - `POST /api/runs/<run_id>/review`：`expected_revision`、完整 `draft_ref`、
   `decision`（accepted / needs_changes / rejected）、必填 `reason`。
@@ -294,8 +308,9 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
 报告链。页面「运行历史」打开已保存结果，「加载输入并新建关联运行」恢复原工程条件和
 文件引用；修正后新建 `parent_run_id` 关联运行，原记录和复核理由保留。
 
-本地启动绑定 localhost。可选密码至少 12 字符、签名密钥至少 32 字符；生产未配置
-时业务 API 返回 `ACCESS_NOT_CONFIGURED`。会话 8 小时过期；更换密码或项目使旧会话失效。
+本地启动默认绑定 localhost。独立账号由管理员创建并授权；未启用独立账号时兼容共享密码
+（至少12字符）及签名密钥（至少32字符），生产缺少访问配置时拒绝业务请求。
+会话8小时过期；改密或停用账号使原会话失效，撤销成员授权在下一请求生效。切换项目更新签名会话，旧标签页携带不同工程标识时拒绝请求。
 历史无项目字段的上传文件只归入固定默认项目，切换配置不会自动转移文件。
 `local` 存储模式下需要一起备份运行目录、上传目录和报告目录；不要直接清理有引用的文件。
 若本地上传索引写入锁因进程崩溃遗留，先停止全部服务并确认没有写入，再清理
@@ -319,8 +334,7 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
 
 ### 初版暂不包含
 
-- **多用户身份与权限**：当前只有单操作者密码会话和单项目隔离，未实现用户注册、
-  项目成员权限或 Supabase Auth。
+- **企业身份接入**：已有管理员配置的独立账号与项目角色，尚无自助注册、Supabase Auth、企业 SSO 或分布式账号目录。
 - **既有本地资产迁移**：Supabase Provider 已用于新上传、运行 revision 和三件套；
   `var/` 中已有本地测试历史保留，未自动复制或删除。
 - **正式签发与归档**：接受/退回/拒绝和本地复核记录已接通，仍没有正式签发或工程档案系统。
@@ -355,7 +369,7 @@ npm start           # 运行已经构建的应用
 
 ## 初版后打磨方向
 
-1. **账号与权限**：接入 Supabase Auth 或等价身份系统，建立项目成员、角色、文件、运行记录和报告下载的权限隔离。
+1. **企业身份与部署**：在现有独立账号和项目权限基础上，接入企业 SSO / Supabase Auth，完善多实例授权目录和部署。
 2. **真实模型与引用质量评测**：配置实际 LLM 后运行 `npm run ai:test`，并围绕正式工程场景评估
    日报正文质量、RAG 引用准确率、无命中弃权和审计问题召回。
 3. **部署与 CI**：补齐生产环境变量、构建发布、数据库迁移执行方式、自动化检查和回滚说明。

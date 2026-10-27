@@ -23,9 +23,11 @@ export function decisionLabel(value: ReviewRequest["decision"]): string {
 }
 
 export function RunDelivery({
-  record, disabled, onReview, onResume, onDownload, onLoadInputs,
+  record, disabled, onReview, onResume, onDownload, onLoadInputs, canReviewRole = true, canWrite = true,
 }: {
   record: PersistedRun;
+  canReviewRole?: boolean;
+  canWrite?: boolean;
   disabled: boolean;
   onReview: (decision: ReviewRequest["decision"], reason: string) => void;
   onResume: () => void;
@@ -52,7 +54,7 @@ export function RunDelivery({
   const reportPayload = state?.report_draft?.payload;
   const markdown = reportPayload && typeof reportPayload === "object" && "markdown" in reportPayload
     && typeof reportPayload.markdown === "string" ? reportPayload.markdown : null;
-  const canReview = record.execution_status === "completed" &&
+  const canReview = canReviewRole && record.execution_status === "completed" &&
     state?.run.status === "awaiting_human_review" && state.audit_result?.valid &&
     !record.review && state.human_review.decision === null;
 
@@ -70,7 +72,7 @@ export function RunDelivery({
       {record.error && <div className="wb-alert wb-alert-error" role="alert">{record.error.code}：{record.error.message}</div>}
       <div className="wb-actions">
         <button className="wb-btn wb-btn-sm" disabled={disabled} onClick={onLoadInputs}>加载输入并新建关联运行</button>
-        {state && record.execution_status !== "completed" && !record.review && (
+        {canWrite && state && record.execution_status !== "completed" && !record.review && (
           <button className="wb-btn wb-btn-sm" disabled={disabled} onClick={onResume}>从检查点续跑</button>
         )}
       </div>

@@ -1,5 +1,5 @@
 import { resumeRequestSchema } from "@/contracts/runs";
-import { requireAccess } from "@/server/access";
+import { requireProjectAction } from "@/server/access";
 import { apiError, apiErrorFromException, apiOk } from "@/server/api/respond";
 import { resumeRun, runView } from "@/server/runs";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, context: { params: Promise<{ runId: string }> }) {
   try {
-    const access = requireAccess(request);
+    const access = requireProjectAction(request, "write");
     if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json") {
       return apiError(415, "UNSUPPORTED_MEDIA_TYPE", "请使用 application/json。");
     }

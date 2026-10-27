@@ -99,7 +99,7 @@ async function readSupabaseRun(runId: string, access: LocalAccess): Promise<Pers
   if (error) throw supabaseStorageError("Supabase 运行记录读取失败", error);
   if (!data) throw new AppError(404, "RUN_NOT_FOUND", "运行记录不存在。");
   const record = parseSupabaseRun(data as SupabaseRunRow);
-  if (record.owner_id !== access.owner_id) {
+  if (!access.role && record.owner_id !== access.owner_id) {
     throw new AppError(404, "RUN_NOT_FOUND", "运行记录不存在。");
   }
   return record;
@@ -159,7 +159,7 @@ async function allSupabaseRuns(access: LocalAccess): Promise<PersistedRun[]> {
     for (const row of rows) {
       if (!latestByRun.has(row.run_id)) {
         const record = parseSupabaseRun(row);
-        if (record.owner_id === access.owner_id) latestByRun.set(row.run_id, record);
+        if (access.role || record.owner_id === access.owner_id) latestByRun.set(row.run_id, record);
       }
     }
     if (rows.length < pageSize) break;
@@ -169,7 +169,7 @@ async function allSupabaseRuns(access: LocalAccess): Promise<PersistedRun[]> {
 
 function supabaseSummary(row: SupabaseRunSummaryRow, access: LocalAccess): RunSummary | null {
   if (row.project_id !== access.project_id) return null;
-  if (row.owner_id !== access.owner_id) return null;
+  if (!access.role && row.owner_id !== access.owner_id) return null;
   const executionStatus = runExecutionStatusSchema.safeParse(row.execution_status);
   const error = runErrorSchema.safeParse(row.error);
   let decision: z.infer<typeof reviewDecisionSchema> | null = null;
@@ -259,7 +259,7 @@ export async function readRun(runId: string, access: LocalAccess): Promise<Persi
   if (record.run_id !== runId || record.revision !== latest) {
     throw new AppError(500, "STORAGE_ERROR", "运行记录版本不一致。");
   }
-  if (record.project_id !== access.project_id || record.owner_id !== access.owner_id) {
+  if (record.project_id !== access.project_id || (!access.role && record.owner_id !== access.owner_id)) {
     throw new AppError(404, "RUN_NOT_FOUND", "运行记录不存在。");
   }
   return record;
@@ -271,8 +271,13 @@ export async function saveRun(
   expectedRevision: number,
   access: LocalAccess,
 ): Promise<PersistedRun> {
-  if (next.project_id !== access.project_id || next.owner_id !== access.owner_id) {
+  if (next.project_id !== access.project_id || (!access.role && next.owner_id !== access.owner_id) ||
+      (expectedRevision === 0 && next.owner_id !== access.owner_id)) {
     throw new AppError(403, "FORBIDDEN", "无权写入该项目。");
+  }
+  if (expectedRevision > 0) {
+    const previous = await readRun(next.run_id, access);
+    if (previous.owner_id !== next.owner_id) throw new AppError(403, "FORBIDDEN", "不可更改运行创建者。");
   }
   if (getStorageProvider() === "supabase") {
     return saveSupabaseRun(next, expectedRevision);

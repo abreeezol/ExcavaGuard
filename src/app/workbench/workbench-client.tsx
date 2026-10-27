@@ -1,7 +1,7 @@
 "use client";
 import { ProjectStandards } from "./project-standards";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -182,9 +182,14 @@ async function readError(response: Response): Promise<string> {
 
 // --- 主组件 ---------------------------------------------------------------
 
-export function WorkbenchClient() {
-  const [session, setSession] = useState<AccessStatus | null>(null);
-  const [password, setPassword] = useState("");
+export function ProjectWorkbench({ session, onBusyChange }: {
+  session: AccessStatus & { project_id: string }; onBusyChange: (busy: boolean) => void;
+}) {
+  const project = session.projects?.find(p => p.id === session.project_id);
+  const canWrite = project?.role !== "viewer";
+  const canReview = !project || ["admin", "reviewer"].includes(project.role);
+  const [files, setFiles] = useState<StoredFile[]>([]);
+  const [standardFiles, setStandardFiles] = useState<StoredFile[]>([]);
   const [history, setHistory] = useState<RunSummary[]>([]);
   const [generateReport, setGenerateReport] = useState(true);
   const [reportMode, setReportMode] = useState<"ai" | "template">("ai");
@@ -196,7 +201,7 @@ export function WorkbenchClient() {
   const [supportType, setSupportType] = useState("地下连续墙");
   const [depthInput, setDepthInput] = useState("20");
   const [postSlabFrom, setPostSlabFrom] = useState("");
-  const [projectName, setProjectName] = useState("示例基坑工程");
+  const [projectName, setProjectName] = useState(project?.name || "示例基坑工程");
   const [reportDate, setReportDate] = useState("2026-08-07");
   const [reportKind, setReportKind] = useState<ReportKind>("daily");
   const [periodStart, setPeriodStart] = useState("2026-08-01");
@@ -215,30 +220,27 @@ export function WorkbenchClient() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const apiFetch = useCallback((url: string, init?: RequestInit) => {
+    const headers = new Headers(init?.headers);
+    headers.set("X-Excavaguard-Project", session.project_id);
+    return fetch(url, { ...init, headers });
+  }, [session.project_id]);
+  useEffect(() => { onBusyChange(busy !== null); }, [busy, onBusyChange]);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch("/api/session");
-        if (!response.ok) throw new Error(await readError(response));
-        const status = await response.json() as AccessStatus;
-        if (cancelled) return;
-        setSession(status);
-        if (status.authenticated) {
-          const response = await fetch("/api/runs");
-          if (!response.ok) throw new Error(await readError(response));
-          const body = await response.json() as { runs: RunSummary[] };
-          if (!cancelled) setHistory(body.runs);
-        }
-      } catch (caught) {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : "初始化失败。");
-      }
+        const responses = await Promise.all([apiFetch("/api/runs"), apiFetch("/api/monitoring-files"), apiFetch("/api/standards")]);
+        for (const response of responses) if (!response.ok) throw new Error(await readError(response));
+        const [runs, monitoringFiles, standards] = await Promise.all(responses.map(response => response.json()));
+        if (!cancelled) { setHistory(runs.runs); setFiles(monitoringFiles.files); setStandardFiles(standards.files); }
+      } catch (caught) { if (!cancelled) setError(caught instanceof Error ? caught.message : "加载项目失败。"); }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [apiFetch]);
 
   async function refreshHistory() {
-    const response = await fetch("/api/runs");
+    const response = await apiFetch("/api/runs");
     if (!response.ok) throw new Error(await readError(response));
     setHistory((await response.json() as { runs: RunSummary[] }).runs);
   }
@@ -268,7 +270,7 @@ export function WorkbenchClient() {
   }
 
   async function openRun(runId: string) {
-    const response = await fetch(`/api/runs/${runId}`);
+    const response = await apiFetch(`/api/runs/${runId}`);
     if (!response.ok) throw new Error(await readError(response));
     setResult(await response.json() as RunResponse);
   }
@@ -276,7 +278,7 @@ export function WorkbenchClient() {
   async function loadInputs() {
     const record = result?.record;
     if (!record) return;
-    const response = await fetch("/api/monitoring-files");
+    const response = await apiFetch("/api/monitoring-files");
     if (!response.ok) throw new Error(await readError(response));
     const files = (await response.json() as { files: StoredFile[] }).files;
     const file = files.find((file) => file.file_id === record.request.monitoring_file_id);
@@ -287,7 +289,7 @@ export function WorkbenchClient() {
     setSupportType(input.context.support_type);
     setDepthInput(input.context.excavation_depth_m?.toString() ?? "");
     setPostSlabFrom(input.context.post_slab_from ?? "");
-    setProjectName(input.project?.name ?? "");
+    setProjectName(project?.name ?? input.project?.name ?? "");
     setReportDate(input.report_date);
     setReportKind(input.report_period?.type ?? "daily");
     setPeriodStart(input.report_period?.start_date ?? input.report_date);
@@ -306,7 +308,7 @@ export function WorkbenchClient() {
     const record = result?.record;
     const draft = record?.result?.agent_run?.state.report_draft;
     if (!record || !draft) return;
-    const response = await fetch(`/api/runs/${record.run_id}/review`, {
+    const response = await apiFetch(`/api/runs/${record.run_id}/review`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ expected_revision: record.revision, draft_ref: draft.ref, decision, reason }),
     });
@@ -320,7 +322,7 @@ export function WorkbenchClient() {
   }
 
   async function download(url: string, fileName: string) {
-    const response = await fetch(url);
+    const response = await apiFetch(url);
     if (!response.ok) throw new Error(await readError(response));
     const blobUrl = URL.createObjectURL(await response.blob());
     const anchor = document.createElement("a");
@@ -344,13 +346,14 @@ export function WorkbenchClient() {
     try {
       const form = new FormData();
       form.set("file", file);
-      const response = await fetch("/api/monitoring-files", { method: "POST", body: form });
+      const response = await apiFetch("/api/monitoring-files", { method: "POST", body: form });
       if (!response.ok) {
         setError(await readError(response));
         return;
       }
       const body = (await response.json()) as { file: StoredFile; read_report: ReadReport | null };
       setMonitoring({ file: body.file, read_report: body.read_report });
+      setFiles(old => [body.file, ...old.filter(f => f.file_id !== body.file.file_id)]);
       if (body.read_report?.ok === false) {
         setNotice("文件已保存，但缺少必填列，运行分析会被拒绝。请对照下方提示修改后重新上传。");
       }
@@ -378,7 +381,7 @@ export function WorkbenchClient() {
     }
     if (!begin("standard")) return;
     try {
-      const response = await fetch("/api/standards", {
+      const response = await apiFetch("/api/standards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -396,6 +399,7 @@ export function WorkbenchClient() {
         report: string;
       };
       setStandard(body);
+      setStandardFiles(old => [body.file, ...old.filter(f => f.file_id !== body.file.file_id)]);
       setSelectedStandardId(body.file.file_id);
       setNotice(
         body.strictness.has_looser
@@ -431,7 +435,7 @@ export function WorkbenchClient() {
     }
     if (!begin("run")) return;
     try {
-      const response = await fetch("/api/runs", {
+      const response = await apiFetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -472,41 +476,8 @@ export function WorkbenchClient() {
   const byLevel = payload?.summary?.by_risk_level ?? {};
   const maxLevelCount = Math.max(1, ...Object.values(byLevel));
 
-  if (!session || !session.authenticated) {
-    return (
-      <section className="wb-card">
-        <h2>{session ? "登录工作台" : "正在检查访问状态…"}</h2>
-        {error && <div className="wb-alert wb-alert-error" role="alert">{error}</div>}
-        {session && <form onSubmit={(event) => {
-          event.preventDefault();
-          void perform("login", async () => {
-            const response = await fetch("/api/session", {
-              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }),
-            });
-            if (!response.ok) throw new Error(await readError(response));
-            setPassword("");
-            setSession({ ...session, authenticated: true });
-            await refreshHistory();
-          });
-        }}>
-          <Field label="访问密码"><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field>
-          <button className="wb-btn" disabled={busy !== null || !password}>登录</button>
-        </form>}
-      </section>
-    );
-  }
-
   return (
     <>
-      {session.mode === "password" && <div className="wb-actions">
-        <button className="wb-btn wb-btn-sm" disabled={busy !== null} onClick={() => void perform("logout", async () => {
-          const response = await fetch("/api/session", { method: "DELETE" });
-          if (!response.ok) throw new Error(await readError(response));
-          setSession({ ...session, authenticated: false });
-          setResult(null);
-          setHistory([]);
-        })}>退出登录</button>
-      </div>}
       <div className="wb-steps">
         <span className={monitoring ? "done" : ""}>① 工程条件</span>
         <span className={monitoring ? "done" : ""}>② 上传监测数据</span>
@@ -547,7 +518,7 @@ export function WorkbenchClient() {
               {history.length === 0 && <p className="wb-hint">暂无运行记录。</p>}
             </div>
           </section>
-          <fieldset className="wb-inputs" disabled={busy !== null}>
+          <fieldset className="wb-inputs" disabled={busy !== null || !canWrite}>
           <section className="wb-card">
             <div className="wb-card-head">
               <span className="wb-step">1</span>
@@ -596,8 +567,8 @@ export function WorkbenchClient() {
               </Field>
             </div>
             <div className="wb-row">
-              <Field label="工程名称（可选）">
-                <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
+              <Field label="工程名称（由当前工程确定）">
+                <input value={projectName} readOnly />
               </Field>
               {reportKind !== "custom" && <Field label={reportKind === "monthly" ? "所属月份（选择任一天）" : reportKind === "weekly" ? "周报结束日期（含当日共7天）" : "报告日期"}>
                 <input
@@ -637,6 +608,15 @@ export function WorkbenchClient() {
                 下载示例数据
               </a>
             </div>
+            <Field label="选择本工程已上传的监测数据">
+              <select value={monitoring?.file.file_id ?? ""} onChange={event => {
+                const file = files.find(f => f.file_id === event.target.value);
+                setMonitoring(file ? { file, read_report: null } : null); setResult(null); setParentRunId(null);
+              }}>
+                <option value="">请选择，或上传新文件</option>
+                {files.map(file => <option key={file.file_id} value={file.file_id}>{file.original_name} · {file.created_at.slice(0, 10)}</option>)}
+              </select>
+            </Field>
             <div className="wb-drop">
               <input
                 id="wb-file"
@@ -697,7 +677,7 @@ export function WorkbenchClient() {
             )}
           </section>
 
-          {session?.authenticated && <ProjectStandards projectId={session.project_id} disabled={busy !== null}
+          {session?.authenticated && <ProjectStandards projectId={session.project_id} disabled={busy !== null || !canWrite}
             onBusyChange={active => { operation.current = active; setBusy(active ? "project-standard" : null); }} />}
           <section className="wb-card">
             <div className="wb-card-head">
@@ -708,6 +688,12 @@ export function WorkbenchClient() {
               不上传时使用默认规范库，<strong>不作任何特殊处理</strong>。上传后按字段级覆盖默认值，
               系统会逐项比较严格程度，凡是<strong>比默认更宽松</strong>的都会列出差异与默认值的规范条文依据。
             </p>
+            <Field label="选择本工程已有阈值文件">
+              <select value={selectedStandardId ?? ""} onChange={event => { setSelectedStandardId(event.target.value || null); setStandard(null); }}>
+                <option value="">使用默认阈值库</option>
+                {standardFiles.map(file => <option key={file.file_id} value={file.file_id}>{file.original_name}</option>)}
+              </select>
+            </Field>
             <Field label="用户规范 JSON">
               <textarea
                 value={standardText}
@@ -847,12 +833,12 @@ export function WorkbenchClient() {
 
         {/* ---------------- 右列：结果 ---------------- */}
         <div className="wb-col">
-          {result?.record && <RunDelivery key={result.record.run_id} record={result.record} disabled={busy !== null}
+          {result?.record && <RunDelivery key={result.record.run_id} record={result.record} disabled={busy !== null} canReviewRole={canReview} canWrite={canWrite}
             onReview={(decision, reason) => void perform("review", () => review(decision, reason))}
             onDownload={(url, fileName) => void perform("download", () => download(url, fileName))}
             onLoadInputs={() => void perform("inputs", loadInputs)}
             onResume={() => void perform("resume", async () => {
-              const response = await fetch(`/api/runs/${result.record.run_id}/resume`, {
+              const response = await apiFetch(`/api/runs/${result.record.run_id}/resume`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ expected_revision: result.record.revision }),
               });

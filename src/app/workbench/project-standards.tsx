@@ -11,12 +11,16 @@ async function body(response: Response) {
 export function ProjectStandards({ projectId, disabled, onBusyChange }: {
   projectId: string; disabled: boolean; onBusyChange: (busy: boolean) => void;
 }) {
+  const apiFetch = (url: string, init?: RequestInit) => {
+    const headers = new Headers(init?.headers); headers.set("X-Excavaguard-Project", projectId);
+    return fetch(url, { ...init, headers });
+  };
   const [documents, setDocuments] = useState<ProjectStandardDocument[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/project-standards").then(body).then(result => {
+    void fetch("/api/project-standards", { headers: { "X-Excavaguard-Project": projectId } }).then(body).then(result => {
       if (!cancelled) setDocuments(result.documents);
     }).catch(error => { if (!cancelled) setMessage(String(error.message)); });
     return () => { cancelled = true; };
@@ -27,8 +31,8 @@ export function ProjectStandards({ projectId, disabled, onBusyChange }: {
     try {
       const data = new FormData(form);
       data.set("confirmed", "true");
-      const result = await body(await fetch("/api/project-standards", { method: "POST", body: data }));
-      setDocuments((await body(await fetch("/api/project-standards"))).documents);
+      const result = await body(await apiFetch("/api/project-standards", { method: "POST", body: data }));
+      setDocuments((await body(await apiFetch("/api/project-standards"))).documents);
       setMessage(`已入库：${result.document.chunk_count}条切片、${result.document.page_count}页。后续新建报告自动检索启用的项目规范。`);
       form.reset();
     } catch (error) { setMessage(error instanceof Error ? error.message : "上传失败。"); }
@@ -38,9 +42,9 @@ export function ProjectStandards({ projectId, disabled, onBusyChange }: {
   async function toggle(document: ProjectStandardDocument) {
     setBusy(true); onBusyChange(true); setMessage("");
     try {
-      await body(await fetch("/api/project-standards", { method: "PATCH", headers: { "Content-Type": "application/json" },
+      await body(await apiFetch("/api/project-standards", { method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ document_id: document.document_id, active: !document.active }) }));
-      setDocuments((await body(await fetch("/api/project-standards"))).documents);
+      setDocuments((await body(await apiFetch("/api/project-standards"))).documents);
       setMessage("已更新，影响之后新建的报告；历史报告使用原冻结版本。");
     } catch (error) { setMessage(error instanceof Error ? error.message : "更新失败。"); }
     finally { setBusy(false); onBusyChange(false); }
@@ -49,7 +53,7 @@ export function ProjectStandards({ projectId, disabled, onBusyChange }: {
   return <section className="wb-card" aria-label="项目补充规范">
     <div className="wb-card-head"><h2>项目补充规范（全文检索）</h2></div>
     <p className="wb-hint">上传本工程适用的地方标准、行业标准或专项要求。仅当前工程使用，独立入库；日报、周期报告及附表会保留检索依据。同编号重传后，新文件替换当前启用版本。数值阈值变更请使用下方“用户规范 JSON”。</p>
-    <p className="wb-hint">当前工程标识：{projectId}。隔离依据为工程标识；修改工程名称不会切换工程。</p>
+    <p className="wb-hint">当前工程标识：{projectId}。切换工程请使用工作台上方的项目选择器。</p>
     <form onSubmit={event => { event.preventDefault(); void upload(event.currentTarget); }}>
       <fieldset disabled={disabled || busy} style={{ border: 0, padding: 0 }}>
         <label className="wb-field">规范名称<input name="standard_name" required maxLength={200} placeholder="城市地下工程施工与运行监测技术规程" /></label>

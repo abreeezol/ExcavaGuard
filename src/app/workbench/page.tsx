@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { WorkspaceSidebar } from "@/components/workspace-sidebar";
-import { WorkbenchClient } from "./workbench-client";
+import { WorkbenchClient } from "./workbench-session";
 
 export const metadata: Metadata = {
   title: "可视化测试工作台 · ExcavaGuard",
