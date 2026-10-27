@@ -19,7 +19,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from report_adapter import canonical_json, cover_blocks, value_hash
+from report_adapter import canonical_json, cover_blocks, value_hash, _unit_from_checks
 from evidence_labels import clean_name, citation_label, engine_basis, paragraph_text, form_evidence, source_location, project_form_candidates
 from appendix_forms import APPENDIX_FORMS
 
@@ -647,6 +647,16 @@ def _evidence_sheets(report: dict[str, Any]) -> OrderedDict:
 def _period_sheets(payload: dict[str, Any]) -> OrderedDict:
     period = payload["period"]
     sheets = OrderedDict()
+    from period_reports import day_of
+    rows_by_day = {}
+    def observation_preview(item):
+        value = item.get("current")
+        # JSON round-trips through JS turn 5.0 into 5; keep displayed facts stable.
+        if isinstance(value, float) and value.is_integer():
+            value = int(value)
+        return f"{_display(item.get('point_id'))}｜{_display(item.get('metric_name'))}｜观测值 {_display(value)} {_display(_unit_from_checks(item.get('checks')))}｜{_display(item.get('risk_level'))}"
+    for index, item in enumerate(period["daily_items"]):
+        rows_by_day.setdefault(day_of(item["timestamp"]), []).append((index + 3, item))
     tables = [
         ("周期统计", "channels", [
             ("测点", "point_id"), ("测项", "metric_name"), ("观测天数", "observed_days"),
@@ -657,24 +667,44 @@ def _period_sheets(payload: dict[str, Any]) -> OrderedDict:
         ("每日变化", "daily_summaries", [
             ("日期", "date"), ("观测条数", "observation_count"), ("预警及以上条数", "warning_count"),
             ("未知条数", "unknown_count"), ("最严重已知等级", "worst_known_risk"),
-            ("整日缺测", "missing"), ("每日事实hash", "content_hash"),
+            ("整日缺测", "missing"), ("当日观测数据摘要", None), ("当日完整明细", None),
         ]),
         ("周期逐日明细", "daily_items", [
             ("观测时间", "timestamp"), ("测点", "point_id"), ("测项", "metric_name"),
-            ("观测值", "current"), ("累计量", "cumulative"), ("变化速率", "rate"),
+            ("观测值", "current"), ("单位", None), ("基准值", "baseline"),
+            ("上次观测值", "previous"), ("本次变化量", "single_change"),
+            ("累计量", "cumulative"), ("变化速率", "rate"),
             ("风险等级", "risk_level"), ("复核原因", "abstain_reasons"), ("数据来源", "data_origin"),
+            ("量值语义", "measurement_semantics"), ("原文件定位及预处理", "source_metadata"),
         ]),
     ]
     for name, key, columns in tables:
         sheet = _new_sheet(header_row=2)
         _merge(sheet, 1, 1, len(columns), f"{period['label']}：{period['start_date']} 至 {period['end_date']}；缺测/未知不等于正常。", style="note")
+        if key in ("daily_summaries", "daily_items"):
+            sheet["cells"][(1, 1)]["value"] += " 观测值来自冻结明细（已归一化，宽表为每日末值），不等于全部原始采样；摘要最多5条，点击完整明细查看当天全部记录。单位无法唯一确认时显示—。"
         for col, (label, _field) in enumerate(columns, 1):
             _put(sheet, 2, col, label, style="header")
         if key in ("channels", "daily_items"):
             _put(sheet, 2, len(columns) + 1, "数值判据对应规范", style="header")
         for index, entry in enumerate(period[key]):
             for col, (_label, field) in enumerate(columns, 1):
-                _put_fact(sheet, payload, index + 3, col, f"period.{key}.{index}.{field}")
+                if field is not None:
+                    _put_fact(sheet, payload, index + 3, col, f"period.{key}.{index}.{field}")
+                elif key == "daily_items":
+                    _put(sheet, index + 3, col, _unit_from_checks(entry.get("checks")))
+            if key == "daily_summaries":
+                observations = rows_by_day.get(entry["date"], [])
+                preview = [observation_preview(item) for _, item in observations[:5]]
+                if len(observations) > 5:
+                    preview.append(f"另有{len(observations) - 5}条，见当日完整明细。")
+                _put(sheet, index + 3, 7, "\n".join(preview) if preview else "当日无监测记录（缺测）")
+                if observations:
+                    first = observations[0][0]
+                    _put(sheet, index + 3, 8, f"查看{len(observations)}条观测（明细第{first}行起）")
+                    sheet["cells"][(index + 3, 8)]["hyperlink"] = f"#'周期逐日明细'!A{first}"
+                else:
+                    _put(sheet, index + 3, 8, "无对应观测")
             if key in ("channels", "daily_items"):
                 source = entry if key == "daily_items" else next((item for item in payload["items"]
                     if item["point_id"] == entry["point_id"] and item["metric_key"] == entry["metric_key"]), {})
@@ -758,6 +788,9 @@ def _write_workbook(path: Path, model: dict[str, Any]) -> None:
             elif isinstance(cell_spec["value"], float):
                 cell.number_format = "0.######"
             _apply_style(cell, cell_spec["style"])
+            if cell_spec.get("hyperlink"):
+                cell.hyperlink = cell_spec["hyperlink"]
+                cell.font = Font(name="宋体", size=10, color="0563C1", underline="single")
             if cell_spec["style"] == "risk":
                 fill = RISK_FILLS.get(str(cell_spec["value"]))
                 if fill:
@@ -795,6 +828,13 @@ def _write_workbook(path: Path, model: dict[str, Any]) -> None:
                 min(140, 18 * (1 + len(text) // max(10, int(width / 2)))),
             )
         worksheet.sheet_view.showGridLines = False
+        if sheet_name == "每日变化":
+            worksheet.column_dimensions["G"].width = 72
+            worksheet.column_dimensions["H"].width = 36
+            for row in range(3, spec["data_end_row"] + 1):
+                lines = str(spec["cells"][(row, 7)]["value"]).splitlines()
+                worksheet.row_dimensions[row].height = min(360, max(36,
+                    18 * sum(max(1, math.ceil(len(line) / 36)) for line in lines)))
         worksheet.freeze_panes = (
             f"A{spec['header_row'] + 1}" if spec.get("header_row") else "A4"
         )
@@ -1158,6 +1198,12 @@ def audit_report_artifacts(
                                 actual=actual_value,
                             )
                         )
+                    expected_link = spec["cells"].get(location, {}).get("hyperlink")
+                    actual_link = worksheet.cell(*location).hyperlink
+                    if expected_link != (actual_link.target if actual_link else None):
+                        issues.append(_audit_issue("WORKBOOK_LINK_MISMATCH",
+                            f"artifacts.workbook.{sheet_name}!{get_column_letter(location[1])}{location[0]}",
+                            "明细跳转与冻结观测位置不一致。"))
             workbook.close()
 
     cover_path = files.get("cover_markdown")

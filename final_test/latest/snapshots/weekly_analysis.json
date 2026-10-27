@@ -1,0 +1,110 @@
+{
+  "schema": "excavaguard.report_narrative/v1",
+  "narrative": {
+    "work_condition": {
+      "text": "本报告为{{fact:period.label}}，周期为{{fact:period.start_date}}至{{fact:period.end_date}}，覆盖{{fact:period.calendar_days}}个日历日，实际观测{{fact:period.observed_days}}日，缺测日期为{{fact:period.missing_dates}}。本期数据来源为模拟数据（{{fact:context.simulated_records}}条），真实记录{{fact:context.real_records}}条；模拟数据仅用于验证流程健壮性，不替代真实数据。工程开挖阶段、开挖深度、安全等级及支护型式均未提供，无法据此判断工况背景。",
+      "evidence_ids": []
+    },
+    "analysis": [
+      {
+        "text": "本期共{{fact:summary.total}}个测点通道，风险等级为{{fact:summary.overall_risk_level}}，问题类别为{{fact:summary.by_problem_category.变形过大}}。重点测项为{{fact:items.0.metric_name}}，测点{{fact:items.0.point_id}}本期最严重原观测风险为{{fact:items.0.risk_level}}，当前值{{fact:items.0.current}}、累计值{{fact:items.0.cumulative}}、单次变化{{fact:items.0.single_change}}、速率{{fact:items.0.rate}}，利用率{{fact:items.0.utilization}}，无弃权原因。",
+        "evidence_ids": [
+          "248798e308d583f90fd48d1395cc9538",
+          "2bc2278210c725b8e0c7a95411abad09"
+        ]
+      },
+      {
+        "text": "周期事实显示该通道观测{{fact:period.channels.0.observed_days}}日、预警{{fact:period.channels.0.warning_days}}日，最长连续预警{{fact:period.channels.0.max_consecutive_warning_days}}日，首末观测值由{{fact:period.channels.0.first_current}}变化至{{fact:period.channels.0.last_current}}，未知{{fact:period.channels.0.unknown_days}}日、缺测日期为{{fact:period.channels.0.missing_dates}}。周期报告采用每通道周期最严重原观测，非期末值，逐日明细见附表。",
+        "evidence_ids": [
+          "3ea67f23a3e8ac9963cec640c84e70ff",
+          "e7af7b0b15f6a4ae2ccef3501851666d"
+        ]
+      },
+      {
+        "text": "规范比较提示：{{fact:context.effective_standard_origin}}中，监测预警值应由基坑工程设计方确定，且监测数据接近或超过预警值时应加密监测并迅速报告；不同规范对同一测项的要求存在差异，须结合工程条件由工程师核查适用性，规范检索不改变已冻结的数值判据。",
+        "evidence_ids": [
+          "248798e308d583f90fd48d1395cc9538",
+          "5dbacf516143644dcf91c06f79b7ecfe",
+          "2bc2278210c725b8e0c7a95411abad09"
+        ]
+      },
+      {
+        "text": "对连续多日预警的位移通道，补充检索仅获得知识库内候选条文，涉及监测频率加密、复测与现场复核、异常处置等方向，但均为候选，需工程师确认适用性；不得据此认定已满足或新增强制要求。",
+        "evidence_ids": [
+          "3ea67f23a3e8ac9963cec640c84e70ff",
+          "2c5e48b564925ac05a805dbc3b29cdb1"
+        ]
+      }
+    ],
+    "recommendations": [
+      {
+        "text": "建议由工程师对{{fact:items.0.point_id}}的{{fact:items.0.metric_name}}危险报警进行现场复核，核对测点保护状态、观测方法与基准点稳定性，并按设计方确认的预警值复核当前判据适用性；本报告不自动发布预警。",
+        "evidence_ids": [
+          "248798e308d583f90fd48d1395cc9538",
+          "74caa1d321897cef277f22278c271d1c"
+        ]
+      },
+      {
+        "text": "鉴于该通道连续{{fact:period.channels.0.max_consecutive_warning_days}}日处于预警状态，建议按规范方向加密监测频率并连续观测至数值稳定，同时核查是否存在超挖、坡顶超载或降排水异常等工况因素，相关原因仅为待核实假设。",
+        "evidence_ids": [
+          "3ea67f23a3e8ac9963cec640c84e70ff",
+          "2bc2278210c725b8e0c7a95411abad09"
+        ]
+      },
+      {
+        "text": "建议补充工程开挖阶段、开挖深度、安全等级、支护型式及设计预警值等资料，由工程师确认后据以判断报警的工程含义与处置等级；在资料补齐前不将未知视为安全。",
+        "evidence_ids": [
+          "74caa1d321897cef277f22278c271d1c",
+          "0daebbcb9d835e0415c4cda5adff1199"
+        ]
+      },
+      {
+        "text": "建议对补充检索获得的候选条文由工程师逐条核对原文与适用条件，确认是否需调整监测方案或处置措施；检索结果不替代冻结判据，也不代表全网最新法规已核验。",
+        "evidence_ids": [
+          "2c5e48b564925ac05a805dbc3b29cdb1",
+          "3ea67f23a3e8ac9963cec640c84e70ff"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "text": "本期数据为模拟数据（{{fact:context.simulated_records}}条），真实记录{{fact:context.real_records}}条，统计与真实数据分开；模拟结果不能替代真实监测结论。",
+        "evidence_ids": []
+      },
+      {
+        "text": "工程开挖阶段、开挖深度、安全等级、支护型式、监测单位及天气、施工日志、仪器与巡视记录均未提供，无法判断异常趋势的工程背景；未知不等于安全。",
+        "evidence_ids": []
+      },
+      {
+        "text": "规范检索仅覆盖已配置知识库，{{fact:context.effective_standard_origin}}中部分规范未获得适用候选，不能认定不存在额外要求；条文适用性须工程师确认。",
+        "evidence_ids": []
+      },
+      {
+        "text": "周期报告采用每通道周期最严重原观测，非期末值；缺测与未知已单独披露，不代表正常。",
+        "evidence_ids": [
+          "e7af7b0b15f6a4ae2ccef3501851666d"
+        ]
+      }
+    ],
+    "appendix_analysis": [
+      {
+        "form": "A",
+        "analysis": {
+          "text": "附表A列示{{fact:items.0.point_id}}的{{fact:items.0.metric_name}}，风险等级{{fact:items.0.risk_level}}，当前值{{fact:items.0.current}}、累计值{{fact:items.0.cumulative}}、单次变化{{fact:items.0.single_change}}、速率{{fact:items.0.rate}}，利用率{{fact:items.0.utilization}}，属{{fact:items.0.problem_category}}。",
+          "evidence_ids": [
+            "248798e308d583f90fd48d1395cc9538"
+          ]
+        },
+        "recommendation": {
+          "text": "建议工程师现场复核该测点并核对设计预警值，按确认后的判据决定加密监测与处置措施，本报告不自动发布预警。",
+          "evidence_ids": [
+            "248798e308d583f90fd48d1395cc9538",
+            "3ea67f23a3e8ac9963cec640c84e70ff"
+          ]
+        }
+      }
+    ]
+  },
+  "draft_version": 1,
+  "model": "deepseek-chat"
+}

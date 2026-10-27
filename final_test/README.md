@@ -1,5 +1,7 @@
 # 最终输入与交付验收说明
 
+> **最新版入口（2026-10-27）：** [合成测试数据与可读周报展示](latest/README.md)。新样例集中在 `latest/inputs`、`latest/snapshots`、`latest/reports/weekly` 和 `latest/validation`；下方原有文件保留作为历史输入与格式参考。
+
 ## 当前输入的实测结构
 
 `监测数据整合_7天_10分钟输入.xlsx` 包含：

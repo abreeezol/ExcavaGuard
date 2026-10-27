@@ -1,0 +1,72 @@
+{
+  "schema": "excavaguard.published_sample_audit/v1",
+  "checked_on": "2026-10-27",
+  "data_origin": "entirely_handwritten_simulated",
+  "report_period": {
+    "type": "weekly",
+    "start_date": "2026-10-02",
+    "end_date": "2026-10-08"
+  },
+  "input_record_count": 8,
+  "report_observation_count": 7,
+  "recomputed_payload_matches_frozen_payload": true,
+  "file_audit": {
+    "valid": true,
+    "checks": [
+      {
+        "name": "input-contract",
+        "valid": true,
+        "details": "冻结日报载荷契约校验。"
+      },
+      {
+        "name": "required-sections",
+        "valid": true,
+        "details": "日报必填章节检查。"
+      },
+      {
+        "name": "deterministic-render",
+        "valid": true,
+        "details": "使用相同事实、证据和分析重新渲染后应逐字段一致。"
+      },
+      {
+        "name": "fact-bindings",
+        "valid": true,
+        "details": "事实路径、值和 SHA-256 绑定检查。"
+      },
+      {
+        "name": "citations",
+        "valid": true,
+        "details": "引用必须对应当前证据快照中的稳定 evidence ID。"
+      },
+      {
+        "name": "responsibility-boundary",
+        "valid": true,
+        "details": "自动签发、自动发布和确定性归因措辞检查。"
+      },
+      {
+        "name": "review-required",
+        "valid": true,
+        "details": "报告必须标记为草稿并要求工程师复核。"
+      },
+      {
+        "name": "exported-artifacts",
+        "valid": true,
+        "details": "固定三件套、受控路径、文件哈希和字节数检查。"
+      },
+      {
+        "name": "workbook-cell-bindings",
+        "valid": true,
+        "details": "Excel 工作表、单元格值与冻结事实绑定检查。"
+      },
+      {
+        "name": "markdown-correspondence",
+        "valid": true,
+        "details": "封面及附表 Markdown 与结构化报告/Excel 模型对应检查。"
+      }
+    ],
+    "issues": []
+  },
+  "external_models_called_for_this_reexport": false,
+  "semantic_audit_scope": "既有模型正文来自历史真实模型验收；本次仅重渲染并进行确定性文件审计。",
+  "comparison_normalization": "standards_sources[].path使用仓库相对路径，数值事实与每日hash保持不变"
+}

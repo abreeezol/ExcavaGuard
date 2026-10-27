@@ -1,0 +1,7 @@
+{
+  "standard_name": "软件测试补充监测要求（非真实规范）",
+  "standard_version": "TEST/T999-2026",
+  "region": "测试地区",
+  "applicability": "仅合成软件验收，不用于实际工程",
+  "confirmed": true
+}

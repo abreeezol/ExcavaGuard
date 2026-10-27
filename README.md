@@ -386,3 +386,9 @@ npm start           # 运行已经构建的应用
 工作台新增“项目补充规范（全文检索）”：上传可搜索PDF或UTF-8文本，确认地区、效力与本工程范围后启用。仅当前项目参与报告检索；独立SQLite库与公共知识库隔离，日报、分类表与核查表保留具名依据。数值阈值继续使用原JSON入口。
 
 [使用方法、存储位置和验收记录](方案与迭代note/18_项目补充规范上传与隔离验收.md)。回归命令：`npm run test:project-standards`。
+
+## 最新进展与可复现周报样例
+
+- [update.md：当前功能、验证结果和剩余任务](update.md)。
+- [final_test/latest：合成测试输入、冻结快照、可读周报三件套及验收记录](final_test/latest/README.md)。
+- 离线复现：`.venv/bin/python tools/test/verify-weekly-sample.py`，不调用外部模型或检索服务。

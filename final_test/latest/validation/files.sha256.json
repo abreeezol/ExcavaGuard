@@ -1,0 +1,66 @@
+{
+  "schema": "excavaguard.sample_files/v1",
+  "base_directory": "final_test/latest",
+  "files": [
+    {
+      "path": "README.md",
+      "size_bytes": 3315,
+      "sha256": "4c5dda668455f2d756c2c703a5d1c62ac174591c4fb28df41fc8b97564f963ee"
+    },
+    {
+      "path": "inputs/project_standard_metadata.json",
+      "size_bytes": 234,
+      "sha256": "7b21b7be812d572d25312db57dbc524cc15fbc8e0f5cf61afc3a1cede6d34d5e"
+    },
+    {
+      "path": "inputs/project_standard_simulated.txt",
+      "size_bytes": 300,
+      "sha256": "5f210bdb892e0a36c9bfa13d59184ba98c73f3b46e3629a439086281e2d7534d"
+    },
+    {
+      "path": "inputs/weekly_engine_request.json",
+      "size_bytes": 2105,
+      "sha256": "07f2b447d374bfb0e4c163bc047e54049dc8b5f126b197da1fc142b4cdbb46db"
+    },
+    {
+      "path": "inputs/weekly_simulated.csv",
+      "size_bytes": 654,
+      "sha256": "e7fef8287d28ca26f4fdd7348ad64141da24126687d1743600afcfb433453875"
+    },
+    {
+      "path": "reports/weekly/监测周报_2026-10-02_2026-10-08_草稿.xlsx",
+      "size_bytes": 104401,
+      "sha256": "5f36c0e86800166e99513114dfe64a5c72c0352df34606b6d2e30e8e09a7e2bc"
+    },
+    {
+      "path": "reports/weekly/监测周报_2026-10-02_2026-10-08_草稿_封面.md",
+      "size_bytes": 72377,
+      "sha256": "312a876a82e37d39fd8972415e65aa15bd57e45521ebc50688d81c9d2222e39c"
+    },
+    {
+      "path": "reports/weekly/监测周报_2026-10-02_2026-10-08_草稿_附表及清单.md",
+      "size_bytes": 156186,
+      "sha256": "86b6da947fb1669d8ee44ef135568c27c8b0e2b347d79d6ae9682b3442826389"
+    },
+    {
+      "path": "snapshots/weekly_analysis.json",
+      "size_bytes": 6759,
+      "sha256": "7cccfef6f98a5ae80103494da7c58338a72ea3550a02a17cfd2df658322b2284"
+    },
+    {
+      "path": "snapshots/weekly_engine_payload.json",
+      "size_bytes": 26870,
+      "sha256": "1b9d034fea0e581235515b50f147e23ad2f50a16d6cf269be792543c65efb2b3"
+    },
+    {
+      "path": "snapshots/weekly_evidence.json",
+      "size_bytes": 153781,
+      "sha256": "61637552b896d21ded39faf781259edec518868f374efbd2fdce882e7be7c089"
+    },
+    {
+      "path": "validation/weekly_audit.json",
+      "size_bytes": 2292,
+      "sha256": "489a2d514abd3fc843b211984fa4614b73139d4222e598ea467bf7ec7a0c578d"
+    }
+  ]
+}

@@ -112,6 +112,51 @@ class PeriodArtifactTests(unittest.TestCase):
         self.assertEqual(process.returncode,0,process.stdout+process.stderr)
         return json.loads(process.stdout)['result']
 
+    def test_readable_daily_data_missing_days_and_tampered_links(self):
+        rows = [{**records()[0], 'point_id': f'W-{i:02d}', 'timestamp': f'2026-10-0{day}', 'value': value}
+                for i in range(1, 7) for day, value in [(1, 0), (2, i * 5)]]
+        p = payload(rows=rows)
+        uid = str(uuid4()); folder = ROOT/'var/report-artifacts'/uid
+        try:
+            rendered = self.call('render-daily-report', 'render_daily_report.py', {
+                'daily_report_input': p, 'artifact_id': uid, 'artifact_output_dir': str(folder)})
+            book = next(a for a in rendered['artifacts'] if a['kind'] == 'workbook')
+            import openpyxl
+            path = ROOT/book['relative_path']; wb = openpyxl.load_workbook(path)
+            summary = wb['每日变化']; detail = wb['周期逐日明细']
+            self.assertNotIn('每日事实hash', [c.value for c in summary[2]])
+            self.assertIn('W-01', summary['G3'].value)
+            self.assertIn('观测值 5', summary['G3'].value)
+            self.assertIn('另有1条', summary['G3'].value)
+            self.assertNotIn(p['period']['daily_summaries'][0]['content_hash'], summary['G3'].value)
+            self.assertEqual(summary['H3'].hyperlink.target, "#'周期逐日明细'!A3")
+            self.assertEqual(detail['B3'].value, 'W-01')
+            self.assertEqual(detail['D3'].value, 5)
+            self.assertEqual(detail['E3'].value, '—')  # frozen input has no explicit unit; never infer
+            self.assertEqual(detail.max_row, 8)  # all six observations, not just preview
+            self.assertIn('当日无监测记录', summary['G4'].value)
+            self.assertIsNone(summary['H4'].hyperlink)
+            self.assertIn('不等于全部原始采样', summary['A1'].value)
+            original_preview = summary['G3'].value
+            wb.close()
+            audit_req = {'daily_report_input': p, 'report_payload': rendered['report_payload'],
+                         'template_version': rendered['template_version'],
+                         **{k: rendered[k] for k in ('fact_bindings', 'artifacts', 'artifact_bindings', 'citations')}}
+            self.assertTrue(self.call('validate-report', 'validate_report.py', audit_req)['valid'])
+            for change, expected in [('preview', 'WORKBOOK_CELL_MISMATCH'), ('link', 'WORKBOOK_LINK_MISMATCH')]:
+                wb = openpyxl.load_workbook(path)
+                wb['每日变化']['G3'] = '伪造观测值' if change == 'preview' else original_preview
+                if change == 'link': wb['每日变化']['H3'].hyperlink = "#'周期逐日明细'!A99"
+                wb.save(path); wb.close()
+                book['sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+                book['size_bytes'] = path.stat().st_size
+                audit = self.call('validate-report', 'validate_report.py', audit_req)
+                self.assertFalse(audit['valid'])
+                self.assertTrue(any(i['code'] == expected for i in audit['issues']), audit['issues'])
+            self.assertEqual(validate_period_payload(p), [])  # backend hashes remain intact
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+
     def test_render_audit_and_changed_statistic(self):
         p=payload(); uid=str(uuid4()); folder=ROOT/'var/report-artifacts'/uid
         try:
