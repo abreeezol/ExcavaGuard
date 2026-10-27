@@ -18,6 +18,7 @@ import {
   verifyReportFiles,
 } from "@/server/storage/report-files";
 import { EngineError } from "@/server/skills/python-bridge";
+import { selectProjectStandards } from "@/server/evidence/project-standard-library";
 
 const LEASE_MS = 420_000;
 
@@ -70,6 +71,7 @@ async function executeSaved(record: PersistedRun, access: LocalAccess, resume = 
     const result = current.result;
     const execution = await executeAgentRun({
       enginePayload: result.payload,
+      projectStandards: { project_id: access.project_id, documents: result.project_standards ?? [] },
       runId: current.run_id,
       reportMode: current.request.options?.report_mode ?? "ai",
       initialState: resume ? result.agent_run?.state : undefined,
@@ -119,6 +121,8 @@ async function saveFailure(record: PersistedRun, access: LocalAccess, error: unk
 }
 
 export async function createRun(input: CreateRunRequest, access: LocalAccess): Promise<PersistedRun> {
+  if (input.project_id !== access.project_id) throw new AppError(403, "FORBIDDEN", "无权访问该项目。");
+  const projectStandards = await selectProjectStandards(access.project_id, input.project_standard_ids);
   await requireFile(input.monitoring_file_id, "monitoring", access);
   if (input.standards_file_id) {
     await requireFile(input.standards_file_id, "standard", access);
@@ -135,7 +139,7 @@ export async function createRun(input: CreateRunRequest, access: LocalAccess): P
     updated_at: at,
     execution_status: "running",
     lease_until: new Date(Date.now() + LEASE_MS).toISOString(),
-    request: input,
+    request: { ...input, project_standard_ids: projectStandards.map(d => d.document_id) },
     result: null,
     error: null,
     review: null,
@@ -163,6 +167,7 @@ export async function createRun(input: CreateRunRequest, access: LocalAccess): P
     current = await saveRun({
       ...current,
       result: {
+        project_standards: projectStandards,
         run_id: current.run_id, created_at: at, project_id: input.project_id,
         monitoring_file_id: input.monitoring_file_id,
         standards_file_id: input.standards_file_id ?? null,

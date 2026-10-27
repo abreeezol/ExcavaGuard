@@ -51,7 +51,11 @@ async function readLocalReportFile(artifact: ReportArtifact): Promise<Buffer> {
   );
   let bytes: Buffer;
   try {
-    if (await realpath(path) !== path) throw new Error("symlink");
+    // Mapped Windows drives / a symlinked workspace can name the same root.
+    // Canonicalize that root, while still rejecting links beneath it.
+    const canonicalRoot = await realpath(process.cwd());
+    const expectedPath = resolve(canonicalRoot, "var", "report-artifacts", draftIdOf(artifact), artifact.file_name);
+    if (await realpath(path) !== expectedPath) throw new Error("symlink");
     bytes = await readFile(path);
   } catch {
     throw new AppError(404, "FILE_NOT_FOUND", "报告产物不存在、路径不一致或不可读取。");

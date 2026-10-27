@@ -281,9 +281,24 @@ describe("实际模型接口编排与失败保护（模拟响应）", () => {
     expect(dependencies.calls.map((call) => call.role)).toEqual(["supervisor", "report-delivery", "audit"]);
     expect(result.state.limits.model_calls_used).toBe(3);
     expect(result.state.evidence_snapshot).toMatchObject({ status: "insufficient", evidence_ids: [] });
-    expect(result.state.evidence_snapshot?.gaps.length).toBe(2);
+    expect(result.state.evidence_snapshot?.gaps.length).toBe(29);
     expect(result.state.audit_result?.checks.at(-1)?.name).toBe("independent-llm-semantic-audit");
     expect(result.state.engine_snapshot.payload).toEqual(AI_INPUT);
+    expect(result.terminalAction.reason_code).toBe("AUDIT_PASSED");
+  });
+
+  it("模型只选择少数主题时由程序补齐全部实际测项，不能缩小规范检索", async () => {
+    const dependencies = aiDependencies();
+    const original = dependencies.model;
+    dependencies.model = async request => {
+      const response = await original(request);
+      if (request.role === "supervisor") {
+        response.object = { focus_indices: [0], evidence_topics: [(request.context as { evidence_topics: string[] }).evidence_topics[0]] };
+      }
+      return response;
+    };
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
+    expect((result.state.plan_snapshot?.payload as { evidence_topics: string[] }).evidence_topics).toHaveLength(2);
     expect(result.terminalAction.reason_code).toBe("AUDIT_PASSED");
   });
 

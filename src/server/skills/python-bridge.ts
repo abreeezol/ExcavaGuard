@@ -53,8 +53,9 @@ const PYTHON_CANDIDATES = [
     [
       process.env.EXCAVAGUARD_PYTHON,
       process.env.PYTHON,
-      resolve(process.cwd(), ".venv", "bin", "python"),
-      resolve(process.cwd(), ".venv", "Scripts", "python.exe"),
+      // Runtime executables are not deployment assets (venv symlinks leave the repo).
+      resolve(/* turbopackIgnore: true */ process.cwd(), ".venv", "bin", "python"),
+      resolve(/* turbopackIgnore: true */ process.cwd(), ".venv", "Scripts", "python.exe"),
       "python3",
       "python",
     ].filter((value): value is string => Boolean(value && value.trim())),
@@ -87,7 +88,7 @@ function spawnOnce(
   timeoutMs: number,
 ): Promise<SkillEnvelope> {
   return new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(bin, [script], {
+    const child = spawn(/* turbopackIgnore: true */ bin, [script], {
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, PYTHONIOENCODING: "utf-8" },
       windowsHide: true,

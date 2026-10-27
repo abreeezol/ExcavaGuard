@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { projectStandardDocumentSchema } from "@/contracts/project-standards";
 import { reportPeriodSchema, type ReportPeriod } from "@/contracts/report-period";
 import {
   agentRunStateSchema,
@@ -46,6 +47,8 @@ export const createRunRequestSchema = z.strictObject({
   context: projectContextSchema,
   /** 用户上传规范文件；未提供时使用默认规范库，且**不作任何特殊处理**。 */
   standards_file_id: z.uuid().nullable().optional(),
+  /** Omit: all enabled standards in this project; []: explicitly none. Frozen at run creation. */
+  project_standard_ids: z.array(z.uuid()).max(50).optional(),
   project: z
     .looseObject({
       name: z.string().trim().min(1),
@@ -81,6 +84,7 @@ export type CreateRunRequest = z.infer<typeof createRunRequestSchema>;
  * 审计、人工复核状态与已通过审计的下载清单。
  */
 export const runResultSchema = z.looseObject({
+  project_standards: z.array(projectStandardDocumentSchema).optional(),
   run_id: z.uuid(),
   created_at: z.iso.datetime(),
   project_id: z.uuid(),

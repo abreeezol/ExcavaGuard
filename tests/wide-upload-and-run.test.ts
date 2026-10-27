@@ -64,7 +64,7 @@ describeWithExcel("最终混合宽表上传与分析", () => {
     ({ GET: artifactGET } = await import(
       "@/app/api/report-artifacts/[draftId]/[fileName]/route"
     ));
-  });
+  }, 45_000);
 
   afterAll(() => {
     rmSync(uploadRoot, { recursive: true, force: true });

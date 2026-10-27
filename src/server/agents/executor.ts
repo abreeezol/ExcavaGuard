@@ -18,7 +18,7 @@ import {
   recordReportDraft,
 } from "@/server/agents/supervisor";
 import {
-  buildReportModelContext, invokeReportModel, validateNarrativeGrounding,
+  buildReportModelContext, invokeReportModel, validateNarrativeGrounding, ReportModelError,
   type ReportModelRequest, type ReportModelResponse,
 } from "@/server/agents/report-model";
 import { reportNarrativeSchema, reportPlanSchema, semanticAuditSchema, type ReportMode } from "@/contracts/ai-report";
@@ -27,7 +27,12 @@ import { retrieveStandardEvidence } from "@/server/skills/retrieve-standard-evid
 import type { StandardEvidence } from "@/contracts/standard-evidence";
 import { createStandardEvidenceRetriever } from "@/server/evidence/factory";
 import type { StandardEvidenceRetriever } from "@/server/evidence/retriever";
+import type { ProjectStandardDocument } from "@/contracts/project-standards";
+import { CombinedStandardRetriever, ProjectStandardRetriever, withProjectCatalog } from "@/server/evidence/project-standard-library";
+import { readStandardCatalog } from "@/server/evidence/standard-catalog";
+import { validateProjectStandardReferences } from "@/server/agents/project-standard-review";
 import { EngineError } from "@/server/skills/python-bridge";
+import { reviewAllStandards, retainDiverseEvidence, type StandardQueryReview } from "@/server/agents/standard-review";
 import { reviewRecurringWarnings } from "@/server/agents/period-evidence";
 import { renderDailyReport } from "@/server/skills/render-daily-report/runner";
 import { validateReport } from "@/server/skills/validate-report/runner";
@@ -52,6 +57,7 @@ const CAPABILITIES: AgentCapabilities = {
 };
 
 type ExecuteAgentRunInput = {
+  projectStandards?: { project_id: string; documents: ProjectStandardDocument[] };
   enginePayload: unknown;
   evidenceSnapshot?: SupportingSnapshot | null;
   analysisSnapshot?: SupportingSnapshot | null;
@@ -121,6 +127,7 @@ function engineSnapshot(payload: unknown): ArtifactEnvelope {
 }
 
 function errorDetails(error: unknown): { code: string; message: string } {
+  if (error instanceof ReportModelError) return { code: error.code, message: error.message };
   if (error instanceof EngineError) {
     return { code: error.engineCode, message: error.message };
   }
@@ -157,16 +164,37 @@ function truncateText(value: unknown, limit: number): string {
   return text.length <= limit ? text : `${text.slice(0, limit)}\n...[truncated]`;
 }
 
-function compactEvidence(payload: unknown): unknown {
+function citedEvidenceIds(draft: unknown): Set<string> | null {
+  const sections = (draft as { sections?: { narrative?: unknown } })?.sections;
+  if (!sections?.narrative) return null;
+  const ids = new Set<string>();
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) value.forEach(visit);
+    else if (value && typeof value === "object") {
+      const object = value as Record<string, unknown>;
+      if (Array.isArray(object.evidence_ids)) object.evidence_ids.forEach(id => { if (typeof id === "string") ids.add(id); });
+      Object.values(object).forEach(visit);
+    }
+  };
+  visit(sections.narrative);
+  return ids;
+}
+
+function compactEvidence(payload: unknown, draft: unknown): unknown {
   if (!payload || typeof payload !== "object") return null;
   const evidence = (payload as { evidence?: unknown }).evidence;
   if (!Array.isArray(evidence)) return payload;
+  const ids = citedEvidenceIds(draft);
+  const coverage = (payload as { coverage?: { catalogue_count?: unknown; queried_count?: unknown; completed?: unknown; notice?: unknown } }).coverage;
   return {
     schema: (payload as { schema?: unknown }).schema,
     gaps: (payload as { gaps?: unknown }).gaps,
     extended_review: (payload as { extended_review?: unknown }).extended_review,
-    // Baseline topics plus up to six expanded queries must all remain auditable.
-    evidence: evidence.map((item) => {
+    coverage: coverage ? { catalogue_count: coverage.catalogue_count, queried_count: coverage.queried_count,
+      completed: coverage.completed, notice: coverage.notice } : undefined,
+    // Every source cited in the prose remains available; uncited OCR tables were
+    // already fully checked by the deterministic artifact auditor.
+    evidence: evidence.filter(item => ids === null || ids.has(String((item as { id?: unknown }).id))).map((item) => {
       const record = item as {
         id?: unknown;
         text?: unknown;
@@ -194,10 +222,11 @@ function compactEvidence(payload: unknown): unknown {
 function compactDraftForSemanticAudit(draft: unknown): unknown {
   if (!draft || typeof draft !== "object") return draft;
   const record = draft as Record<string, unknown>;
-  return {
-    status: record.status,
-    markdown: truncateText(record.markdown, 24_000),
-  };
+  const sections = record.sections as { narrative?: unknown } | undefined;
+  const markdown = typeof record.markdown === "string" ? record.markdown : "";
+  // Review authored prose, not deterministic templates or copied normative tables.
+  const body = sections?.narrative ? JSON.stringify(sections.narrative) : markdown;
+  return { status: record.status, markdown: sections?.narrative ? body : truncateText(body, 24_000) };
 }
 
 function recordTiming(state: AgentRunState, startedAt: string): AgentRunState {
@@ -294,20 +323,29 @@ export async function executeAgentRun(
         }],
       });
       return response;
-    } catch {
-      throw new Error("LLM_REQUEST_FAILED：模型调用失败，保留检查点等待处理。");
+    } catch (error) {
+      const safe = error instanceof ReportModelError ? error : new ReportModelError("LLM_REQUEST_FAILED");
+      state = agentRunStateSchema.parse({ ...state, trace: [...state.trace, {
+        event_id: randomUUID(), agent: role, capability: `llm-${role}`, status: "failed",
+        input_versions: { engine: state.engine_snapshot.ref.content_hash }, output_versions: {},
+        rule_ids: ["MODEL_RESPONSE_REQUIRED"], evidence_ids: [],
+        error: { code: safe.code, message: safe.message }, return_reason: null,
+        started_at: at, finished_at: now().toISOString(),
+      }] });
+      throw safe;
     }
   };
   let modelContext: ReturnType<typeof buildReportModelContext> | null = null;
-  if (reportMode === "ai") {
+  const projectDocuments = input.projectStandards?.documents ?? [];
+  if (reportMode === "ai" || projectDocuments.length) {
     try {
       modelContext = buildReportModelContext(state.engine_snapshot.payload);
-      if (!state.plan_snapshot) {
+      if (reportMode === "ai" && !state.plan_snapshot) {
         const response = await modelCall("supervisor", modelContext, 1);
-        const plan = reportPlanSchema.parse(response.object);
+        const proposedPlan = reportPlanSchema.parse(response.object);
+        const plan = { ...proposedPlan, evidence_topics: modelContext.evidence_topics };
         if (plan.focus_indices.some((i) => i >= modelContext!.items.length) ||
-            plan.evidence_topics.some((topic) => !modelContext!.evidence_topics.includes(topic)) ||
-            modelContext.evidence_topics.some((topic) => !plan.evidence_topics.includes(topic))) {
+            proposedPlan.evidence_topics.some((topic) => !modelContext!.evidence_topics.includes(topic))) {
           throw new Error("INVALID_PLAN：规划未覆盖实际测项，或引用未知测项。");
         }
         state = agentRunStateSchema.parse({
@@ -316,69 +354,64 @@ export async function executeAgentRun(
         await checkpoint(1);
       }
       if (!state.evidence_snapshot || state.evidence_snapshot.status === "unavailable") {
-        const plan = reportPlanSchema.parse(state.plan_snapshot!.payload);
+        const plan = reportMode === "ai" ? reportPlanSchema.parse(state.plan_snapshot!.payload)
+          : { evidence_topics: modelContext.evidence_topics };
         const evidence = new Map<string, StandardEvidence>();
         const gaps: string[] = [];
-        const queries = [];
-        const sharedRetriever: StandardEvidenceRetriever | null = dependencies.retrieve
-          ? null : createStandardEvidenceRetriever();
-        for (const topic of [...new Set(plan.evidence_topics)]) {
-          const at = now().toISOString();
-          if (Date.parse(state.limits.deadline_at) <= Date.parse(at)) {
-            throw new Error("DEADLINE_EXCEEDED：规范检索前运行预算已到。");
-          }
-          let result: Awaited<ReturnType<typeof retrieveStandardEvidence>> | null = null;
-          for (let attempt = 0; attempt < 5; attempt++) {
-            if (attempt > 0) await wait(1_000 * attempt);
-            const request = {
-              query: topic.includes("：")
-                ? `GB 50497-2019 ${topic} 监测方法 精度 布点要求`
-                : "GB 50497-2019 监测预警值应由基坑工程设计方确定",
-              filters: { effective_status: "active", standard_versions: ["GB50497-2019"] },
-              limit: 3,
-            };
-            const signal = AbortSignal.timeout(Math.max(1, Math.min(30_000, Date.parse(state.limits.deadline_at) - now().getTime())));
-            result = dependencies.retrieve
-              ? await dependencies.retrieve(request, { signal })
-              : await retrieveStandardEvidence(request, { signal, retriever: sharedRetriever ?? undefined });
-            if (!(result.status === "abstained" && result.code === "EVIDENCE_UNAVAILABLE")) break;
-          }
-          if (!result) throw new Error("EVIDENCE_UNAVAILABLE：规范检索服务暂不可用，停止 AI 报告交付。");
-          const terms = topic.includes("：") ? topic.split("：")[1].split("、") : [];
-          const accepted = result.status === "success" ? result.evidence.filter((item) =>
-            item.metadata.effective_status === "active" && item.metadata.standard_version === "GB50497-2019" &&
-            item.text.length <= 8000 && /应|宜|不得|必须/.test(item.text) && (
-              terms.length ? terms.some((term) => item.text.includes(term))
-                : /8[.．]0[.．]1/.test(item.metadata.clause) || item.text.includes("设计方")
-            ),
-          ) : [];
-          accepted.forEach((item) => evidence.set(item.id, item));
-          if (!accepted.length) gaps.push(`${topic}：未检索到主题匹配的现行条文，需人工补充核对。`);
-          queries.push({ ...result.trace, topic, accepted_ids: accepted.map((item) => item.id) });
-          state = agentRunStateSchema.parse({
-            ...state, trace: [...state.trace, {
-              event_id: randomUUID(), agent: "supervisor", capability: "retrieve-standard-evidence",
-              status: accepted.length ? "success" : "abstained",
-              input_versions: { query: result.trace.query, filters: JSON.stringify(result.trace.filters) },
-              output_versions: { provider: result.trace.provider, hit_count: String(accepted.length) },
-              rule_ids: ["ACTIVE_VERSION_AND_TOPIC"], evidence_ids: accepted.map((item) => item.id),
-              error: result.status === "abstained" ? { code: result.code, message: result.message } : null,
-              return_reason: accepted.length ? null : gaps.at(-1)!, started_at: at, finished_at: now().toISOString(),
-            }],
-          });
-          await checkpoint(1);
-          if (result.status === "abstained" && result.code === "EVIDENCE_UNAVAILABLE") {
-            throw new Error("EVIDENCE_UNAVAILABLE：规范检索服务暂不可用，停止 AI 报告交付。");
-          }
+        for (const doc of projectDocuments) {
+          if (doc.unindexed_pages.length) gaps.push(`《${doc.standard_name}》${doc.standard_version}：第${doc.unindexed_pages.join("、")}页文字不足未完整入库，须人工核对。`);
         }
+        const queries: StandardQueryReview[] = [];
+        const projectRetriever = projectDocuments.length
+          ? new ProjectStandardRetriever(input.projectStandards!.project_id, projectDocuments) : null;
+        const baseRetriever: StandardEvidenceRetriever | null = reportMode !== "ai" ? null : dependencies.retrieve
+          ? { provider: "local", search: async query => {
+            const result = await dependencies.retrieve!({ query: query.query, filters: query.filters, limit: query.top_k });
+            if (result.status === "abstained" && result.code !== "EVIDENCE_NOT_FOUND") throw new Error(result.code);
+            return result.evidence;
+          } } : createStandardEvidenceRetriever();
+        const sharedRetriever = projectRetriever ? (baseRetriever ? new CombinedStandardRetriever(baseRetriever, projectRetriever) : projectRetriever)
+          : baseRetriever;
+        const standardReview = await reviewAllStandards({
+          topics: plan.evidence_topics, enginePayload: state.engine_snapshot.payload,
+          catalog: withProjectCatalog(reportMode === "ai" ? readStandardCatalog() : [], projectDocuments),
+          search: async (request) => {
+            const remaining = Date.parse(state.limits.deadline_at) - now().getTime();
+            if (remaining <= 0) throw new Error("DEADLINE_EXCEEDED：规范检索预算已到。");
+            const signal = AbortSignal.timeout(Math.max(1, Math.min(30_000, remaining)));
+            return dependencies.retrieve && !projectRetriever ? dependencies.retrieve(request, { signal })
+              : retrieveStandardEvidence(request, { signal, retriever: sharedRetriever ?? undefined });
+          },
+          onQuery: async (query, result) => {
+            const at = now().toISOString();
+            queries.push(query);
+            state = agentRunStateSchema.parse({ ...state, trace: [...state.trace, {
+              event_id: randomUUID(), agent: "supervisor", capability: "retrieve-standard-evidence",
+              status: query.accepted_ids.length ? "success" : "abstained",
+              input_versions: { query: result.trace.query, filters: JSON.stringify(result.trace.filters), scope: query.scope },
+              output_versions: { provider: result.trace.provider, hit_count: String(query.accepted_ids.length),
+                standard_name: query.standard_name ?? "跨规范主题检索", standard_version: query.standard_version ?? "全部现行规范" },
+              rule_ids: ["CATALOGUE_COVERAGE_REQUIRED", "ACTIVE_VERSION_AND_TOPIC"], evidence_ids: query.accepted_ids,
+              error: result.status === "abstained" ? { code: result.code, message: result.message } : null,
+              return_reason: query.accepted_ids.length ? null : "未取得适用候选，不代表该规范无要求；须人工查证。",
+              started_at: at, finished_at: at,
+            }] });
+            if (queries.length % 4 === 0) await checkpoint(1);
+          },
+        });
+        if (reportMode !== "ai") standardReview.coverage.notice = "模板模式仅检索本工程补充规范；共享规范库未进行运行时检索。" + standardReview.coverage.notice;
+        standardReview.evidence.forEach(item => evidence.set(item.id, item));
+        gaps.push(...standardReview.gaps);
+        await checkpoint(1);
         const extended = await reviewRecurringWarnings(state.engine_snapshot.payload, [...evidence.keys()], async (request) => {
           const remaining = Date.parse(state.limits.deadline_at) - now().getTime();
           if (remaining <= 0) throw new Error("DEADLINE_EXCEEDED：追加规范核查预算已到。");
           const signal = AbortSignal.timeout(Math.max(1, Math.min(30_000, remaining)));
-          return dependencies.retrieve ? dependencies.retrieve(request, { signal })
+          return dependencies.retrieve && !projectRetriever ? dependencies.retrieve(request, { signal })
             : retrieveStandardEvidence(request, { signal, retriever: sharedRetriever ?? undefined });
         });
-        extended.evidence.forEach((item) => evidence.set(item.id, item));
+        retainDiverseEvidence([...evidence.values(), ...extended.evidence], 144)
+          .forEach((item) => evidence.set(item.id, item));
         gaps.push(...extended.gaps);
         if (extended.review.triggered) {
           const at = now().toISOString();
@@ -393,6 +426,8 @@ export async function executeAgentRun(
           }] });
         }
         const payload = { schema: "excavaguard.standard_evidence/v1", evidence: [...evidence.values()], queries, gaps,
+          project_standards: projectDocuments,
+          coverage: standardReview.coverage, comparisons: standardReview.comparisons,
           ...(extended.review.triggered ? { extended_review: extended.review } : {}) };
         state = agentRunStateSchema.parse({
           ...state, evidence_snapshot: {
@@ -415,6 +450,7 @@ export async function executeAgentRun(
       return { state, terminalAction, steps: 1 };
     }
   }
+  if (reportMode !== "ai") modelContext = null;
 
   for (let steps = 1; steps <= DEFAULT_MAX_EXECUTION_STEPS; steps += 1) {
     const at = now().toISOString();
@@ -449,6 +485,8 @@ export async function executeAgentRun(
               narrative = reportNarrativeSchema.parse(response.object);
               try {
                 validateNarrativeGrounding(narrative, modelContext.facts, state.evidence_snapshot?.evidence_ids ?? [], modelContext.forms);
+                validateProjectStandardReferences(narrative,
+                  (state.evidence_snapshot?.artifact?.payload as { evidence?: StandardEvidence[] })?.evidence ?? []);
                 break;
               } catch (error) {
                 if (attempt === 1) throw error;
@@ -513,11 +551,26 @@ export async function executeAgentRun(
         });
         let audit = deterministicAudit;
         if (modelContext && deterministicAudit.valid) {
+          const draftSections = (state.report_draft.payload as { sections?: { narrative_facts?: Array<{ path: string }> } }).sections;
+          const referencedFacts = draftSections?.narrative_facts;
+          const factPaths = new Set(referencedFacts?.map(item => item.path) ?? []);
+          const relatedPrefixes = [...new Set([...factPaths].flatMap(path => {
+            const match = path.match(/^(items\.\d+\.|period\.(?:channels|daily_summaries)\.\d+\.)/);
+            return match ? [match[0]] : [];
+          }))];
+          const auditFacts = referencedFacts ? Object.fromEntries(Object.entries(modelContext.facts).filter(([path]) =>
+            /^(project|summary|context|data_quality)\./.test(path) ||
+            /^period\.(?!(?:channels|daily_summaries|daily_items|recurring_warnings)\.)/.test(path) ||
+            factPaths.has(path) || relatedPrefixes.some(prefix => path.startsWith(prefix)))) : modelContext.facts;
+          const engineItems = (state.engine_snapshot.payload as { items?: Array<{ evidence?: unknown }> }).items ?? [];
+          const judgmentSources = [...new Map(engineItems.filter(item => item.evidence).map(item => [JSON.stringify(item.evidence), item.evidence])).values()];
           const auditContext = {
-            facts: modelContext.facts,
+            facts: auditFacts,
+            numeric_judgment_sources: judgmentSources,
+            audit_scope: "仅审查draft中模型撰写段落。facts是已通过确定性核验的正文标量及整体汇总；数值判据来源独立于RAG候选，不要求每项阈值来源在RAG中再次命中。完整表格、统计、引用与文件由确定性审计负责，不自行重新统计。",
             forms: modelContext.forms,
             evidence_ids: state.evidence_snapshot?.evidence_ids ?? [],
-            evidence: compactEvidence(state.evidence_snapshot?.artifact?.payload),
+            evidence: compactEvidence(state.evidence_snapshot?.artifact?.payload, state.report_draft.payload),
             draft: compactDraftForSemanticAudit(state.report_draft.payload),
             deterministic_checks: deterministicAudit.checks,
           };

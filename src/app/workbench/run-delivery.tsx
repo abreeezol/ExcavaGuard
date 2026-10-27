@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download } from "lucide-react";
 import type { PersistedRun, ReviewRequest } from "@/contracts/runs";
+import { evidenceReferences, evidenceSourceLocation, standardCitation, standardName, type StandardCoverage } from "@/contracts/evidence-display";
 import { standardEvidenceSchema } from "@/contracts/standard-evidence";
 
 const DECISIONS = { accepted: "接受草稿", needs_changes: "退回修改", rejected: "拒绝草稿" } as const;
@@ -40,6 +41,8 @@ export function RunDelivery({
   const evidencePayload = state?.evidence_snapshot?.artifact?.payload;
   const extendedReview = evidencePayload && typeof evidencePayload === "object" && "extended_review" in evidencePayload
     ? evidencePayload.extended_review as { status?: string; notice?: string; checks?: Array<{ group: string; additional_evidence_ids: string[] }> } : null;
+  const coverage = evidencePayload && typeof evidencePayload === "object" && "coverage" in evidencePayload
+    ? evidencePayload.coverage as StandardCoverage : null;
   const candidates = evidencePayload && typeof evidencePayload === "object" && "evidence" in evidencePayload
     && Array.isArray(evidencePayload.evidence) ? evidencePayload.evidence : [];
   const evidence = candidates.flatMap((candidate) => {
@@ -99,6 +102,12 @@ export function RunDelivery({
           {state?.evidence_snapshot && (
             <details className="wb-accordion">
               <summary>本次 RAG 规范依据 · {evidence.length} 条</summary>
+              {coverage && <details className="wb-accordion">
+                <summary>规范目录覆盖 · 已查询 {coverage.queried_count}/{coverage.catalogue_count} 本</summary>
+                <p>{coverage.notice}</p>
+                <p>相关候选 {coverage.candidate_count} 条 · 保留 {coverage.retained_count} 条 · 预算截断 {coverage.omitted_count} 条</p>
+                {coverage.standards.map(entry => <p key={entry.standard_version}>《{standardName(entry.standard_name)}》 {entry.standard_version}：{entry.reason}</p>)}
+              </details>}
               {extendedReview && <div className="wb-alert wb-alert-info"><div>
                 <strong>多日预警追加规范核查</strong>
                 <p>{extendedReview.status === "additional_candidates" ? "检索到补充条文候选，须工程师确认适用性。" : "未检索到额外证据，不代表没有新要求，须人工继续查证。"}</p>
@@ -108,8 +117,8 @@ export function RunDelivery({
               {state.evidence_snapshot.gaps.map((gap) => <p className="wb-hint" key={gap}>{gap}</p>)}
               {evidence.map((item) => (
                 <div key={item.id}>
-                  <p>{item.metadata.standard_name} · {item.metadata.standard_version} · {item.metadata.clause}</p>
-                  <p className="wb-hint">{item.provider} · {item.id} · {item.metadata.source_location}</p>
+                  <p>{standardCitation(item.metadata)}</p>
+                  <p className="wb-hint">{item.provider} · {evidenceSourceLocation(item.metadata.source_location)}</p>
                   <pre style={{ whiteSpace: "pre-wrap" }}>{item.text}</pre>
                 </div>
               ))}
@@ -121,7 +130,7 @@ export function RunDelivery({
               <p className="wb-hint">{event.started_at} → {event.finished_at}</p>
               {event.return_reason && <p>{event.return_reason}</p>}
               {event.error && <p role="alert">{event.error.code}：{event.error.message}</p>}
-              <p className="wb-hint">规则：{event.rule_ids.join("、") || "无"}；证据：{event.evidence_ids.join("、") || "无"}</p>
+              <p className="wb-hint">规则：{event.rule_ids.join("、") || "无"}；证据：{evidenceReferences(event.evidence_ids, evidence) || "无"}</p>
               <pre>{JSON.stringify({ 输入版本: event.input_versions, 输出版本: event.output_versions }, null, 2)}</pre>
             </details>
           ))}

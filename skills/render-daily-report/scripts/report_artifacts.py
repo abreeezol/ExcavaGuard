@@ -20,6 +20,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from report_adapter import canonical_json, cover_blocks, value_hash
+from evidence_labels import clean_name, citation_label, engine_basis, paragraph_text, form_evidence, source_location, project_form_candidates
 from appendix_forms import APPENDIX_FORMS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -53,26 +54,7 @@ def _display(value: Any) -> Any:
 
 
 def _standard_basis(item: dict[str, Any]) -> str:
-    evidence = item.get("evidence")
-    evidence = evidence if isinstance(evidence, dict) else {}
-    effective = item.get("effective_standard")
-    effective = effective if isinstance(effective, dict) else {}
-    standard = (
-        evidence.get("standard")
-        or effective.get("source_label")
-        or effective.get("source_id")
-    )
-    clause = evidence.get("clause")
-    parts = [
-        str(value).strip()
-        for value in (standard, clause)
-        if value not in (None, "") and str(value).strip()
-    ]
-    if not parts:
-        return "未匹配适用规范（待复核）"
-    if len(parts) == 2 and parts[1] in parts[0]:
-        parts.pop()
-    return " ".join(parts)
+    return engine_basis(item)
 
 
 def _markdown_cell(value: Any) -> str:
@@ -191,7 +173,7 @@ def _form_row(
         "rule_id": (item.get("rule_id"), f"{prefix}.rule_id"),
     }
     unit = (item.get("unit"), None)
-    note = (_item_note(item), None)
+    note = (_item_note(item) + ("；RAG解释依据：" + item["rag_basis"] if item.get("rag_basis") else ""), None)
     blank = ("—", None)
 
     if form == "表A":
@@ -362,6 +344,7 @@ def _build_form_sheets(
     grouped: dict[str, list[tuple[int, dict[str, Any]]]] = {}
     items = report["sections"]["monitoring_results"]["items"]
     for index, item in enumerate(items):
+        item = {**item, "rag_basis": form_evidence(report, str(item.get("appendix_form") or "")[-1:])}
         form = item.get("appendix_form")
         if form in FORM_TITLES:
             grouped.setdefault(form, []).append((index, item))
@@ -416,9 +399,9 @@ def _build_form_sheets(
         analysis = form_analysis["analysis"]["text"] if form_analysis else "风险与弃权见逐测点备注；请工程师核对实测值与适用判据。"
         recommendation = form_analysis["recommendation"]["text"] if form_analysis else "对未知项补充资料后复核，对超限项核验现场情况；本表为草稿。"
         footer = [
-            f"工况描述：{work_condition}",
-            f"简要分析及判断性结论：{analysis}",
-            f"复核建议：{recommendation}",
+            f"工况描述：{paragraph_text(report, narrative['work_condition']) if narrative else work_condition}",
+            f"简要分析及判断性结论：{paragraph_text(report, form_analysis['analysis']) if form_analysis else analysis}",
+            f"复核建议：{paragraph_text(report, form_analysis['recommendation']) if form_analysis else recommendation}",
             f"工程负责人：＿＿＿＿　监测单位：{_display(project.get('monitoring_unit'))}",
             template["footer_lines"][-1],
         ]
@@ -454,7 +437,6 @@ def _build_alert_sheet(
         units = {str(check.get(key)).strip() for check in checks if isinstance(check, dict)
                  for key in ("unit", "value_unit", "limit_unit") if check.get(key) not in (None, "")}
         unit = next(iter(units)) if len(units) == 1 else "—"
-        evidence = alert.get("evidence") if isinstance(alert.get("evidence"), dict) else {}
         cumulative = alert.get("cumulative")
         alarm_value = alert.get("limit_value") or alert.get("warning_value")
         # 占报警值百分比
@@ -471,7 +453,7 @@ def _build_alert_sheet(
             (ratio_str, None),
             (alert.get("risk_level"), f"{prefix}.risk_level"),
             (alert.get("rate"), f"{prefix}.rate"),
-            (evidence.get("clause") or evidence.get("standard"), None),
+            (_standard_basis(alert), None),
         ]
         for column, (value, fact_path) in enumerate(values, 1):
             _put(sheet, row, column, value,
@@ -581,6 +563,87 @@ def _build_source_sheet(
     return sheet
 
 
+def _evidence_sheets(report: dict[str, Any]) -> OrderedDict:
+    sections = report["sections"]["standard_evidence"]
+    sheets = OrderedDict()
+    evidence = sections.get("items") or []
+    if sections.get("project_standards"):
+        sheet = _new_sheet(header_row=2)
+        headers = ["分类表", "规范名称及条文", "项目补充要求原文", "来源页码", "适用条件", "核验状态"]
+        _merge(sheet, 1, 1, len(headers), "仅当前工程补充要求候选；与默认判据并列核查，尚不代表符合或已执行，冲突及数值变化交工程师确认。", style="note")
+        for col, label in enumerate(headers, 1):
+            _put(sheet, 2, col, label, style="header")
+        row = 3
+        forms = sorted({str(item.get("appendix_form") or "")[-1:] for item in report["sections"]["monitoring_results"]["items"]} - {""})
+        for form in forms:
+            for item in project_form_candidates(report, form):
+                metadata = item["metadata"]
+                values = ["附表" + form, citation_label(metadata), item["text"], source_location(metadata),
+                          metadata["applicability"], "待工程师核验适用性及执行情况；不自动改变风险判据"]
+                for col, value in enumerate(values, 1):
+                    _put(sheet, row, col, value)
+                row += 1
+        for doc in sections["project_standards"]:
+            if not any(item.get("metadata", {}).get("document_id") == doc["document_id"] for item in evidence):
+                _put(sheet, row, 2, f"《{doc['standard_name']}》 {doc['standard_version']}")
+                _put(sheet, row, 6, "未命中相关要求，须人工查证，不能认定无新增要求")
+                row += 1
+        sheet["data_end_row"] = row - 1
+        sheets["项目补充要求核查"] = sheet
+    if evidence:
+        sheet = _new_sheet(header_row=2)
+        headers = ["规范名称", "规范编号", "条文", "来源定位", "适用条件", "效力状态", "引用用途", "条文原文"]
+        _merge(sheet, 1, 1, len(headers), "规范证据索引：名称和条文对应本次冻结候选；适用性须工程师确认，不替代数值判据。", style="note")
+        for col, label in enumerate(headers, 1):
+            _put(sheet, 2, col, label, style="header")
+        for row, item in enumerate(evidence, 3):
+            metadata = item["metadata"]
+            values = [citation_label(metadata).split("》", 1)[0] + "》", metadata["standard_version"], metadata["clause"],
+                      source_location(metadata), metadata.get("applicability") or [], metadata["effective_status"],
+                      "RAG解释候选，须复核适用性", item["text"]]
+            for col, value in enumerate(values, 1):
+                _put(sheet, row, col, value)
+        sheet["data_end_row"] = len(evidence) + 2
+        sheets["规范证据索引"] = sheet
+    comparisons = sections.get("comparisons") or []
+    if comparisons:
+        sheet = _new_sheet(header_row=2)
+        headers = ["测项主题", "规范名称", "规范编号", "条文", "要求原文", "适用条件", "使用边界"]
+        _merge(sheet, 1, 1, len(headers), "按测项对照多规范候选；条文适用条件可能不同，不自动调整冻结阈值和风险。", style="note")
+        for col, label in enumerate(headers, 1):
+            _put(sheet, 2, col, label, style="header")
+        row = 3
+        for comparison in comparisons:
+            candidates = [item for item in evidence if item["id"] in comparison["evidence_ids"]]
+            for item in candidates or [None]:
+                metadata = item["metadata"] if item else {}
+                values = [comparison["topic"], clean_name(metadata.get("standard_name")) or "未取得相关规范候选",
+                          metadata.get("standard_version"), metadata.get("clause"), item["text"] if item else "须人工查证，不能认定无要求",
+                          metadata.get("applicability") or [], comparison["notice"]]
+                for col, value in enumerate(values, 1):
+                    _put(sheet, row, col, value)
+                row += 1
+        sheet["data_end_row"] = row - 1
+        sheets["多规范要求对照"] = sheet
+    coverage = sections.get("coverage")
+    if coverage:
+        sheet = _new_sheet(header_row=2)
+        headers = ["规范名称", "规范编号", "效力状态", "查询结果", "检索说明", "保留候选条文"]
+        _merge(sheet, 1, 1, len(headers), coverage["notice"], style="note")
+        for col, label in enumerate(headers, 1):
+            _put(sheet, 2, col, label, style="header")
+        for row, entry in enumerate(coverage["standards"], 3):
+            candidates = [citation_label(item["metadata"]) for item in evidence if item["id"] in entry["retained_ids"]]
+            statuses = {"matched": "命中相关候选", "no_relevant_hit": "无相关命中，需复核", "skipped_status": "效力待复核，未作为依据", "pending": "未查询", "unavailable": "服务不可用"}
+            values = [clean_name(entry["standard_name"]), entry["standard_version"], entry["effective_status"],
+                      statuses.get(entry["status"], "待复核"), entry["reason"], "；".join(candidates) or "无，不能认定无要求"]
+            for col, value in enumerate(values, 1):
+                _put(sheet, row, col, value)
+        sheet["data_end_row"] = len(coverage["standards"]) + 2
+        sheets["规范检索覆盖"] = sheet
+    return sheets
+
+
 def _period_sheets(payload: dict[str, Any]) -> OrderedDict:
     period = payload["period"]
     sheets = OrderedDict()
@@ -607,9 +670,15 @@ def _period_sheets(payload: dict[str, Any]) -> OrderedDict:
         _merge(sheet, 1, 1, len(columns), f"{period['label']}：{period['start_date']} 至 {period['end_date']}；缺测/未知不等于正常。", style="note")
         for col, (label, _field) in enumerate(columns, 1):
             _put(sheet, 2, col, label, style="header")
-        for index, _entry in enumerate(period[key]):
+        if key in ("channels", "daily_items"):
+            _put(sheet, 2, len(columns) + 1, "数值判据对应规范", style="header")
+        for index, entry in enumerate(period[key]):
             for col, (_label, field) in enumerate(columns, 1):
                 _put_fact(sheet, payload, index + 3, col, f"period.{key}.{index}.{field}")
+            if key in ("channels", "daily_items"):
+                source = entry if key == "daily_items" else next((item for item in payload["items"]
+                    if item["point_id"] == entry["point_id"] and item["metric_key"] == entry["metric_key"]), {})
+                _put(sheet, index + 3, len(columns) + 1, engine_basis(source))
         sheet["data_end_row"] = len(period[key]) + 2
         sheets[name] = sheet
     return sheets
@@ -629,6 +698,7 @@ def build_workbook_model(
     if payload.get("period"):
         sheets.update(_period_sheets(payload))
     sheets["超限测点清单"] = _build_alert_sheet(report, payload)
+    sheets.update(_evidence_sheets(report))
 
     bindings: list[dict[str, str]] = []
     for sheet_name, sheet in sheets.items():

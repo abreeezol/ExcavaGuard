@@ -12,7 +12,8 @@ const sandbox=mkdtempSync(join(tmpdir(),'excavaguard-period-test-'));
 process.env.EXCAVAGUARD_STORAGE_PROVIDER='local';
 process.env.EXCAVAGUARD_UPLOAD_ROOT=join(sandbox,'uploads');
 process.env.EXCAVAGUARD_RUN_ROOT=join(sandbox,'runs');
-process.env.EXCAVAGUARD_PYTHON=process.env.EXCAVAGUARD_PYTHON || (existsSync(resolve('.venv/bin/python')) ? resolve('.venv/bin/python') : existsSync(resolve('.venv/Scripts/python.exe')) ? resolve('.venv/Scripts/python.exe') : 'python');
+const localPythons=process.platform==='win32' ? ['.tools/windows-python/Scripts/python.exe','.venv/Scripts/python.exe'] : ['.venv/bin/python'];
+process.env.EXCAVAGUARD_PYTHON ||= localPythons.map(p=>resolve(p)).find(existsSync) ?? (process.platform==='win32'?'python':'python3');
 const artifacts=[];
 after(()=> { rmSync(sandbox,{recursive:true,force:true}); for(const dir of artifacts) rmSync(dir,{recursive:true,force:true}); });
 const spec={type:'weekly',start_date:'2026-10-02',end_date:'2026-10-08'};
@@ -126,7 +127,7 @@ test('AI chain keeps baseline retrieval, adds multi-day review and audits real p
  const calls=[], searches=[];
  const paragraph=(text='请工程师结合现场工况复核。',ids=[])=>({text,evidence_ids:ids});
  const result=await executeAgentRun({enginePayload:recurringPayload,reportMode:'ai'}, {
-  retrieve:async request=> { searches.push(request);return resultFor(request,request.filters.standard_versions ? [] : [evidence()]); },
+  retrieve:async request=> { searches.push(request);return resultFor(request,request.query.includes('连续多日') ? [evidence()] : []); },
   model:async request=> {
    calls.push(request);
    const ctx=request.context;
@@ -144,7 +145,9 @@ test('AI chain keeps baseline retrieval, adds multi-day review and audits real p
  assert.equal(result.terminalAction.reason_code,'AUDIT_PASSED',JSON.stringify({terminal:result.terminalAction,trace:result.state.trace}));
  assert.deepEqual(calls.map(x=>x.role),['supervisor','report-delivery','audit']);
  assert.ok(searches.some(r=>r.filters.standard_versions?.includes('GB50497-2019')));
- assert.equal(searches.filter(r=>!r.filters.standard_versions).length,1);
+ assert.ok(searches.some(r=>!r.filters.standard_versions && !r.query.includes('连续多日')));
+ assert.equal(searches.filter(r=>r.query.includes('连续多日')).length,1);
+ assert.equal(result.state.evidence_snapshot.artifact.payload.coverage.queried_count,29);
  assert.equal(result.state.evidence_snapshot.artifact.payload.extended_review.status,'additional_candidates');
  assert.ok(calls.find(c=>c.role==='audit').context.evidence.evidence.some(e=>e.id==='SIMULATED-extra'));
  assert.equal(result.state.audit_result.valid,true);
@@ -207,7 +210,7 @@ test('expanded retrieval outage stops real AI orchestration before report render
  const calls=[];
  const result=await executeAgentRun({enginePayload:recurringPayload,reportMode:'ai'}, {
   model:async request=>{calls.push(request.role);return {object:{focus_indices:[0],evidence_topics:request.context.evidence_topics},model:'SIMULATED-offline-test',usage:{input_tokens:1,output_tokens:1}};},
-  retrieve:async request=>request.filters.standard_versions ? resultFor(request) : {...resultFor(request),status:'abstained',code:'EVIDENCE_UNAVAILABLE',message:'SIMULATED outage'},
+  retrieve:async request=>!request.query.includes('连续多日') ? resultFor(request) : {...resultFor(request),status:'abstained',code:'EVIDENCE_UNAVAILABLE',message:'SIMULATED outage'},
  });
  assert.equal(result.terminalAction.type,'wait_for_capability');
  assert.equal(result.state.report_draft,null);

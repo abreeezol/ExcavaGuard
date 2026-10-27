@@ -434,13 +434,13 @@ describeWithPython("报告交付与独立审计 Skill", () => {
     const markdown = readFileSync(
       resolve(process.cwd(), appendices!.relative_path),
       "utf-8",
-    );
+    ).replace(/\r\n/g, "\n");
     const coverMarkdown = String((draft.payload as { markdown: string }).markdown);
     const workCondition = coverMarkdown
       .split("## 一、工况描述\n")[1]
       ?.split("\n## 二、")[0];
     expect(workCondition).toBeDefined();
-    expect(workCondition).toContain("规范依据：GB 50497-2019 表8.0.4");
+    expect(workCondition).toContain("规范依据：《建筑基坑工程监测技术标准》 GB 50497-2019 · 表8.0.4");
     expect(workCondition).not.toContain("数据来源标记");
     const sheets = [
       ["附表C_围护墙内力等监测日报表", 2],
@@ -454,7 +454,7 @@ describeWithPython("报告交付与独立审计 Skill", () => {
         ?.split("\n## ")[0];
       expect(section).toBeDefined();
       expect(section).toContain("| 监测日期 | 孔号(点号) |");
-      expect(section).toContain("规范依据：GB 50497-2019 表8.0.4");
+      expect(section).toContain("规范依据：《建筑基坑工程监测技术标准》 GB 50497-2019 · 表8.0.4");
       expect(section).not.toContain("来源标记：");
       expect(draft.artifact_bindings).toEqual(
         expect.arrayContaining([

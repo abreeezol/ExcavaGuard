@@ -19,8 +19,9 @@ DEEP_REPORT_SCRIPTS = SKILLS_ROOT / "deep-pit-monitoring-report" / "scripts"
 sys.path.insert(0, str(DEEP_REPORT_SCRIPTS))
 
 from render_report import DEFAULT_FORM_MAP  # noqa: E402
+from evidence_labels import clean_name, citation_label, engine_basis, paragraph_text, reference_text, source_location
 
-TEMPLATE_VERSION = "deep-pit-monitoring-report/service-v4"
+TEMPLATE_VERSION = "deep-pit-monitoring-report/service-v5"
 ITEM_FACT_FIELDS = (
     "point_id",
     "point_name",
@@ -229,26 +230,7 @@ def _form_analysis(items: list[dict[str, Any]]) -> list[str]:
 
 
 def _standard_basis_summary(items: list[dict[str, Any]]) -> str:
-    bases: list[str] = []
-    for item in items:
-        evidence = item.get("evidence") if isinstance(item.get("evidence"), dict) else {}
-        effective = item.get("effective_standard") if isinstance(item.get("effective_standard"), dict) else {}
-        standard = (
-            evidence.get("standard")
-            or effective.get("source_label")
-            or effective.get("source_id")
-        )
-        clause = evidence.get("clause")
-        parts = [
-            str(value).strip()
-            for value in (standard, clause)
-            if value not in (None, "") and str(value).strip()
-        ]
-        if len(parts) == 2 and parts[1] in parts[0]:
-            parts.pop()
-        basis = " ".join(parts)
-        if basis and basis not in bases:
-            bases.append(basis)
+    bases = list(dict.fromkeys(engine_basis(item) for item in items))
     if not bases:
         return "规范依据：未匹配到可唯一展示的适用规范，相关条目已进入待复核。"
     shown = "、".join(bases[:6])
@@ -282,12 +264,10 @@ def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
     items = sections["monitoring_results"]["items"]
 
     def lines(field):
-        return [item["text"] + (
-            "\n引用证据：" + "、".join(item["evidence_ids"]) if item["evidence_ids"] else ""
-        ) for item in narrative.get(field, [])]
+        return [paragraph_text(report, item) for item in narrative.get(field, [])]
 
     # --- 第一节：工况描述 ---
-    condition_text = narrative.get("work_condition", {}).get("text") or sections["work_condition_analysis"]["work_condition"]
+    condition_text = paragraph_text(report, narrative["work_condition"]) if narrative else sections["work_condition_analysis"]["work_condition"]
     condition_lines = [condition_text]
     condition_lines.append(_standard_basis_summary(items))
     project = sections["project"]
@@ -344,14 +324,16 @@ def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
     # --- 第四节：规范核对依据（RAG知识库检索）---
     evidence = []
     standard_evidence = sections["standard_evidence"]
+    for doc in standard_evidence.get("project_standards") or []:
+        evidence.append(f"本工程补充规范：《{doc['standard_name']}》 {doc['standard_version']}；适用地区：{doc['region']}；适用范围：{doc['applicability']}。仅当前工程使用。")
     ev_items = standard_evidence.get("items") or []
     # 按 metadata.clause 聚合展示
     for item in ev_items:
         metadata = item.get("metadata") or {}
-        source = f"{metadata.get('standard_name', '')} {metadata.get('standard_version', '')} {metadata.get('clause', '')}".strip()
+        source = citation_label(metadata)
         evidence.append(
-            f"《{source}》（Provider: {item.get('provider', '未提供')}）\n"
-            f"来源：{metadata.get('source_location', '')}\n"
+            f"{source}（检索来源: {item.get('provider', '未提供')}）\n"
+            f"来源：{source_location(metadata)}\n"
             f"原文：\n{item.get('text', '')}"
         )
     gaps = standard_evidence.get("gaps") or []
@@ -363,8 +345,11 @@ def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
     if extended:
         evidence += ["多日预警追加规范核查：" + str(extended.get("status")), str(extended.get("notice", ""))]
         for check in extended.get("checks", []):
-            evidence += [f"{check.get('group')}：新增候选证据ID " + ("、".join(check.get("additional_evidence_ids", [])) or "未发现额外命中，仍需人工核查。")]
-    evidence += ["判定口径：累计量占比 正常<70% 报警值；需关注(黄) 70%~100%；报警(红) ≥100%。"]
+            evidence += [f"{check.get('group')}：补充规范候选 " + (reference_text(report, check.get("additional_evidence_ids", [])) or "未发现额外命中，仍需人工核查。")]
+    coverage = standard_evidence.get("coverage")
+    if coverage:
+        evidence += [f"规范目录覆盖：{coverage['queried_count']} / {coverage['catalogue_count']}；相关候选 {coverage['candidate_count']} 条，保留 {coverage['retained_count']} 条。", coverage["notice"]]
+        evidence += [f"《{clean_name(entry['standard_name'])}》 {entry['standard_version']}：{entry['reason']}" for entry in coverage["standards"]]
     evidence += ["数值与风险判据来自冻结确定性规范库；上述 RAG 为本次检索的条文候选，适用性由工程师复核。"]
 
     # --- 第五节：签署 ---
@@ -422,6 +407,10 @@ def build_report(
 ) -> tuple[dict[str, Any], list[dict[str, str]], list[dict[str, str]], dict[str, Any]]:
     items = [_adapt_item(item) for item in daily_report_input.get("items", [])]
     evidence = _extract_evidence(evidence_payload)
+    for entry in evidence:
+        citation_label(entry.get("metadata") or {})
+    if len({item["id"] for item in evidence}) != len(evidence):
+        raise ValueError("INVALID_EVIDENCE_SOURCE：证据ID重复。")
     analysis = _extract_analysis(analysis_payload)
     project = deepcopy(daily_report_input.get("project") or {})
     summary = deepcopy(daily_report_input.get("summary") or {})
@@ -434,6 +423,8 @@ def build_report(
         ) + [part for item in narrative["appendix_analysis"] for part in (item["analysis"], item["recommendation"])]
         if any(eid not in evidence_ids for part in paragraphs for eid in part["evidence_ids"]):
             raise ValueError("UNGROUNDED_CITATION：引用不存在的证据。")
+    if narrative and any(eid in part["text"] for part in paragraphs for eid in evidence_ids):
+        raise ValueError("UNGROUNDED_CITATION：正文不可显示内部证据ID，应由渲染器解析规范名称。")
     review_gaps: list[str] = []
 
     for field, label in (
@@ -493,8 +484,11 @@ def build_report(
             "data_quality": deepcopy(daily_report_input.get("data_quality") or {}),
             "work_condition_analysis": analysis,
             "standard_evidence": {
+                "project_standards": deepcopy(evidence_payload.get("project_standards") or []) if isinstance(evidence_payload, dict) else [],
                 "items": evidence,
+                "comparisons": deepcopy(evidence_payload.get("comparisons") or []) if isinstance(evidence_payload, dict) else [],
                 "gaps": deepcopy(evidence_payload.get("gaps") or []) if isinstance(evidence_payload, dict) else [],
+                **({"coverage": deepcopy(evidence_payload["coverage"])} if isinstance(evidence_payload, dict) and evidence_payload.get("coverage") else {}),
                 **({"extended_review": deepcopy(evidence_payload["extended_review"])} if isinstance(evidence_payload, dict) and evidence_payload.get("extended_review") else {}),
             },
             "narrative": narrative,

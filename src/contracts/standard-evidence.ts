@@ -27,6 +27,9 @@ export const standardEvidenceMetadataSchema = z.strictObject({
   monitoring_item: labelText.optional(),
   excavation_safety_level: labelText.optional(),
   region: labelText.optional(),
+  project_id: z.uuid().optional(),
+  document_id: z.uuid().optional(),
+  content_sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
 });
 
 export const standardEvidenceCandidateSchema = z.strictObject({
@@ -38,7 +41,7 @@ export const standardEvidenceCandidateSchema = z.strictObject({
 });
 
 export const standardEvidenceSchema = standardEvidenceCandidateSchema.extend({
-  provider: z.enum(["pinecone", "local"]),
+  provider: z.enum(["pinecone", "local", "project"]),
 });
 
 export type StandardEvidenceQuery = z.input<typeof standardEvidenceQuerySchema>;

@@ -1,4 +1,5 @@
 "use client";
+import { ProjectStandards } from "./project-standards";
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -696,10 +697,12 @@ export function WorkbenchClient() {
             )}
           </section>
 
+          {session?.authenticated && <ProjectStandards projectId={session.project_id} disabled={busy !== null}
+            onBusyChange={active => { operation.current = active; setBusy(active ? "project-standard" : null); }} />}
           <section className="wb-card">
             <div className="wb-card-head">
               <span className="wb-step">3</span>
-              <h2>用户规范（可选）</h2>
+              <h2>用户规范 JSON（数值阈值，可选）</h2>
             </div>
             <p className="wb-hint">
               不上传时使用默认规范库，<strong>不作任何特殊处理</strong>。上传后按字段级覆盖默认值，

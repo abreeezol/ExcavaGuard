@@ -62,6 +62,10 @@ liveDescribe("85 通道 AI 报告链：真实 Pinecone + 模拟模型 + 真实 P
         evidence: StandardEvidence[];
       }).evidence;
       expect(evidence.length).toBeGreaterThan(0);
+      const coverage = (execution.state.evidence_snapshot?.artifact?.payload as { coverage: { queried_count: number; catalogue_count: number } }).coverage;
+      expect(coverage.queried_count).toBe(coverage.catalogue_count);
+      expect(coverage.catalogue_count).toBe(29);
+      expect(new Set(evidence.map(item => item.metadata.standard_version)).size).toBeGreaterThan(1);
       expect(evidence.some((item) => item.metadata.clause === "8.0.1")).toBe(true);
       for (const item of evidence) {
         const original = source.get(item.id)!;
@@ -71,7 +75,7 @@ liveDescribe("85 通道 AI 报告链：真实 Pinecone + 模拟模型 + 真实 P
           "applicability", "effective_status"] as const) {
           expect(item.metadata[field]).toEqual(original[field]);
         }
-        expect(item.metadata.standard_version).toBe("GB50497-2019");
+        expect(item.metadata.standard_version).toBeTruthy();
         expect(item.provider).toBe("pinecone");
         expect(item.metadata.effective_status).toBe("active");
       }
@@ -97,5 +101,5 @@ liveDescribe("85 通道 AI 报告链：真实 Pinecone + 模拟模型 + 真实 P
         rmSync(dirname(resolve(draft.artifacts[0].relative_path)), { recursive: true, force: true });
       }
     }
-  }, 120_000);
+  }, 240_000);
 });
