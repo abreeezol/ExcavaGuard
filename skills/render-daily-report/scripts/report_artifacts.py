@@ -380,7 +380,8 @@ def _build_form_sheets(
             if row == 2:
                 text = f"工程名称：{_display(project.get('name'))}　报表编号：＿＿＿＿（草稿）"
             if row == 5:
-                text = f"本次监测日期：{_display(project.get('report_date'))}　上次监测时间：见冻结记录"
+                text = (f"报告区间：{payload['period']['start_date']} 至 {payload['period']['end_date']}；本表为周期最严重原观测。"
+                        if payload.get("period") else f"本次监测日期：{_display(project.get('report_date'))}　上次监测时间：见冻结记录")
             _merge(sheet, row, 1, len(headers), text, style="title" if row == 1 else "body")
         for column, header in enumerate(headers, 1):
             _put(sheet, 6, column, header, style="header")
@@ -580,13 +581,53 @@ def _build_source_sheet(
     return sheet
 
 
+def _period_sheets(payload: dict[str, Any]) -> OrderedDict:
+    period = payload["period"]
+    sheets = OrderedDict()
+    tables = [
+        ("周期统计", "channels", [
+            ("测点", "point_id"), ("测项", "metric_name"), ("观测天数", "observed_days"),
+            ("预警及以上天数", "warning_days"), ("最长连续预警天数", "max_consecutive_warning_days"),
+            ("未知天数", "unknown_days"), ("缺测日期", "missing_dates"),
+            ("最严重已知等级", "worst_known_risk"), ("首个观测值", "first_current"), ("最后观测值", "last_current"),
+        ]),
+        ("每日变化", "daily_summaries", [
+            ("日期", "date"), ("观测条数", "observation_count"), ("预警及以上条数", "warning_count"),
+            ("未知条数", "unknown_count"), ("最严重已知等级", "worst_known_risk"),
+            ("整日缺测", "missing"), ("每日事实hash", "content_hash"),
+        ]),
+        ("周期逐日明细", "daily_items", [
+            ("观测时间", "timestamp"), ("测点", "point_id"), ("测项", "metric_name"),
+            ("观测值", "current"), ("累计量", "cumulative"), ("变化速率", "rate"),
+            ("风险等级", "risk_level"), ("复核原因", "abstain_reasons"), ("数据来源", "data_origin"),
+        ]),
+    ]
+    for name, key, columns in tables:
+        sheet = _new_sheet(header_row=2)
+        _merge(sheet, 1, 1, len(columns), f"{period['label']}：{period['start_date']} 至 {period['end_date']}；缺测/未知不等于正常。", style="note")
+        for col, (label, _field) in enumerate(columns, 1):
+            _put(sheet, 2, col, label, style="header")
+        for index, _entry in enumerate(period[key]):
+            for col, (_label, field) in enumerate(columns, 1):
+                _put_fact(sheet, payload, index + 3, col, f"period.{key}.{index}.{field}")
+        sheet["data_end_row"] = len(period[key]) + 2
+        sheets[name] = sheet
+    return sheets
+
+
 def build_workbook_model(
     report: dict[str, Any],
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     sheets: OrderedDict[str, dict[str, Any]] = OrderedDict()
-    sheets["监测日报"] = _build_cover_sheet(report, payload)
-    sheets.update(_build_form_sheets(report, payload))
+    cover_name = report.get("report_label", "监测日报")
+    sheets[cover_name] = _build_cover_sheet(report, payload)
+    forms = _build_form_sheets(report, payload)
+    if payload.get("period"):
+        forms = {name.replace("日报表", "周期表"): sheet for name, sheet in forms.items()}
+    sheets.update(forms)
+    if payload.get("period"):
+        sheets.update(_period_sheets(payload))
     sheets["超限测点清单"] = _build_alert_sheet(report, payload)
 
     bindings: list[dict[str, str]] = []
@@ -605,7 +646,7 @@ def build_workbook_model(
                     "rendered_value_hash": value_hash(cell["value"]),
                 }
             )
-    return {"sheets": sheets, "bindings": bindings}
+    return {"sheets": sheets, "bindings": bindings, "cover_sheet": cover_name}
 
 
 def _apply_style(cell: Any, style: str) -> None:
@@ -698,7 +739,7 @@ def _write_workbook(path: Path, model: dict[str, Any]) -> None:
         worksheet.page_setup.orientation = "landscape"
         worksheet.page_setup.fitToWidth = 1
         worksheet.sheet_properties.pageSetUpPr.fitToPage = True
-    workbook.properties.title = "ExcavaGuard 监测日报草稿"
+    workbook.properties.title = "ExcavaGuard " + workbook.sheetnames[0] + "草稿"
     workbook.properties.creator = "ExcavaGuard"
     temporary = path.with_suffix(path.suffix + ".tmp")
     workbook.save(temporary)
@@ -706,9 +747,10 @@ def _write_workbook(path: Path, model: dict[str, Any]) -> None:
 
 
 def render_appendices_markdown(model: dict[str, Any], report_date: Any) -> str:
-    lines = [f"# 监测日报 · 附表及清单（{_markdown_cell(report_date)}）", ""]
+    label = model.get("cover_sheet", "监测日报")
+    lines = [f"# {label} · 附表及清单（{_markdown_cell(report_date)}）", ""]
     for sheet_name, spec in model["sheets"].items():
-        if sheet_name == "监测日报":
+        if sheet_name == model.get("cover_sheet", "监测日报"):
             continue
         lines.extend([f"## {sheet_name}", ""])
         header_row = spec.get("header_row")
@@ -748,7 +790,9 @@ def _safe_report_date(report: dict[str, Any]) -> str:
 
 
 def _artifact_names(report: dict[str, Any]) -> dict[str, str]:
-    stem = f"监测日报_{_safe_report_date(report)}_草稿"
+    period = report["sections"].get("period")
+    stem = (f"{report.get('report_label', '监测区间报告')}_{period['start_date']}_{period['end_date']}_草稿"
+            if period else f"监测日报_{_safe_report_date(report)}_草稿")
     return {
         "workbook": f"{stem}.xlsx",
         "cover_markdown": f"{stem}_封面.md",

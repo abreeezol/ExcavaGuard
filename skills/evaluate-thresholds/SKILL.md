@@ -63,3 +63,13 @@ description: "按现行规范条文计算累计值、本次变化量、变化速
 
 `确定性计算层/pipeline/`（阶段二 `stage2_deterministic_calc/`、阶段三 `stage3_standard_comparison/`），
 回归测试 `确定性计算层/pipeline/tests/test_pipeline_stages.py`。
+
+## 多周期报告（2026-10-27）
+
+- `options.report_period={type:weekly|monthly|custom,start_date,end_date}` 为可选扩展；不传时保留日报契约及行为。周报连续7天，月报完整自然月，自定义1～366天，均含首尾日；`report_date` 必须等于结束日。
+- 周期模式读取截至结束日的完整已有历史用于基准、前值和趋势计算，不以区间首日重新归零，排除结束日之后的数据；时区为 Asia/Shanghai。
+- 产出独立契约 `excavaguard.period_report_input/v1`，见 `确定性计算层/contracts/period_report_input.schema.json`。`items` 为每通道周期内最严重的一条原观测（不是期末观测）；`period.daily_items` 保留区间全部判定。
+- `period` 包含逐日风险摘要及来源哈希、通道观测/缺测/未知日期、预警及以上天数、最长连续预警天数和重复预警清单；同点同测项至少两个不同日期达到预警及以上才计为多日预警，单日多条不重复计天。
+- 周期统计只由 `pipeline/period_reports.py` 计算。缺测不补值、未知不算正常。空区间、非法区间或明细超过50000条拒绝出报。
+- 宽表仍沿用每日末值口径并保留日内来源统计，不能宣称已检查全部日内峰值。工程条件及阈值按本次输入统一应用；期间变化需分段重算。
+- 本 Skill 不调用 RAG 或改变原风险判据。后续 Supervisor 根据冻结的重复预警事实调用原检索 Skill 扩大查证。

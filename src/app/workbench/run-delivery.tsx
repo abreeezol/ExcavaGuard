@@ -38,6 +38,8 @@ export function RunDelivery({
     event.capability.startsWith("llm-") && event.status === "success",
   ).map((event) => event.output_versions.model).filter(Boolean) ?? [])];
   const evidencePayload = state?.evidence_snapshot?.artifact?.payload;
+  const extendedReview = evidencePayload && typeof evidencePayload === "object" && "extended_review" in evidencePayload
+    ? evidencePayload.extended_review as { status?: string; notice?: string; checks?: Array<{ group: string; additional_evidence_ids: string[] }> } : null;
   const candidates = evidencePayload && typeof evidencePayload === "object" && "evidence" in evidencePayload
     && Array.isArray(evidencePayload.evidence) ? evidencePayload.evidence : [];
   const evidence = candidates.flatMap((candidate) => {
@@ -52,14 +54,14 @@ export function RunDelivery({
     !record.review && state.human_review.decision === null;
 
   return (
-    <section className="wb-card" aria-label="日报交付与运行轨迹">
-      <div className="wb-card-head"><h2>日报交付与运行轨迹</h2></div>
+    <section className="wb-card" aria-label="报告交付与运行轨迹">
+      <div className="wb-card-head"><h2>报告交付与运行轨迹</h2></div>
       <div className="wb-meta">
         <span className="wb-chip">运行 {record.run_id.slice(0, 8)} · 修订 {record.revision}</span>
         <span className="wb-chip">{executionLabel(record.execution_status)}</span>
         {state && <span className="wb-chip">{record.review ? decisionLabel(record.review.decision) : executionLabel(state.run.status)}</span>}
         {state && <span className="wb-chip">自动修订 {state.run.revision_count}/{state.limits.max_revision_rounds}</span>}
-        {state && <span className="wb-chip">{state.report_mode === "ai" ? "AI 日报" : "确定性模板"} · 模型调用 {state.limits.model_calls_used}/{state.limits.max_model_calls}</span>}
+        {state && <span className="wb-chip">{state.report_mode === "ai" ? "AI 报告" : "确定性模板"} · 模型调用 {state.limits.model_calls_used}/{state.limits.max_model_calls}</span>}
         {models.map((model) => <span className="wb-chip" key={model}>{model}</span>)}
       </div>
       {record.error && <div className="wb-alert wb-alert-error" role="alert">{record.error.code}：{record.error.message}</div>}
@@ -90,13 +92,19 @@ export function RunDelivery({
           ))}
           {markdown && (
             <details className="wb-accordion">
-              <summary>监测日报正文预览{state?.audit_result?.valid ? "（审计通过，待工程师复核）" : "（未通过审计）"}</summary>
+              <summary>监测报告正文预览{state?.audit_result?.valid ? "（审计通过，待工程师复核）" : "（未通过审计）"}</summary>
               <pre style={{ whiteSpace: "pre-wrap" }}>{markdown}</pre>
             </details>
           )}
           {state?.evidence_snapshot && (
             <details className="wb-accordion">
               <summary>本次 RAG 规范依据 · {evidence.length} 条</summary>
+              {extendedReview && <div className="wb-alert wb-alert-info"><div>
+                <strong>多日预警追加规范核查</strong>
+                <p>{extendedReview.status === "additional_candidates" ? "检索到补充条文候选，须工程师确认适用性。" : "未检索到额外证据，不代表没有新要求，须人工继续查证。"}</p>
+                <p>{extendedReview.notice}</p>
+                {extendedReview.checks?.map((check) => <p key={check.group}>{check.group} · 新增候选 {check.additional_evidence_ids.length} 条</p>)}
+              </div></div>}
               {state.evidence_snapshot.gaps.map((gap) => <p className="wb-hint" key={gap}>{gap}</p>)}
               {evidence.map((item) => (
                 <div key={item.id}>

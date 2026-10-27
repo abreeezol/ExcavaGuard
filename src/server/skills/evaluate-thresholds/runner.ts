@@ -1,5 +1,6 @@
 import "server-only";
 import type { StrictnessReport } from "@/contracts/monitoring-files";
+import type { ReportPeriod } from "@/contracts/report-period";
 import type { ProjectContextInput } from "@/contracts/runs";
 import { callSkillScript, type SkillEnvelope } from "@/server/skills/python-bridge";
 
@@ -21,6 +22,7 @@ export type JudgementRequest = {
   context: ProjectContextInput;
   standardsDir?: string | null;
   reportDate?: string | null;
+  reportPeriod?: ReportPeriod;
   project?: Record<string, unknown> | null;
   expectedIntervalDays?: number | null;
   valueRange?: [number | null, number | null] | null;
@@ -31,6 +33,7 @@ export async function runJudgement(request: JudgementRequest): Promise<SkillEnve
   if (request.filePath) options.file_path = request.filePath;
   if (request.standardsDir) options.standards_dir = request.standardsDir;
   if (request.reportDate) options.report_date = request.reportDate;
+  if (request.reportPeriod) options.report_period = request.reportPeriod;
   if (request.project) options.project = request.project;
   if (request.expectedIntervalDays != null) {
     options.expected_interval_days = request.expectedIntervalDays;

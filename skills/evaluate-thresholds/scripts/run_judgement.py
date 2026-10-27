@@ -25,6 +25,7 @@ stdin （JSON）：
         "expected_interval_days": 1.0,
         "value_range": [null, null],
         "report_date": "2026-08-07",
+        "report_period": null,                 # 可选 {type:weekly|monthly|custom,start_date,end_date}
         "project": {"name": "××基坑工程"},
         "points_meta": {"WTHD-01": {"point_name": "墙顶水平位移 1 号点"}},
         "standards_dir": null,                 # 指定用户规范目录时传入
@@ -44,7 +45,7 @@ stdout（JSON）：
       "schema": "excavaguard.skill_result/v1",
       "skill": "evaluate-thresholds",
       "ok": true,
-      "result": { ... excavaguard.daily_report_input/v1 ... },
+      "result": { ... daily_report_input/v1 或 period_report_input/v1 ... },
       "trace": { "elapsed_ms": 12, "records": 7, "engine_dir": "..." }
     }
 
@@ -108,6 +109,8 @@ def main() -> int:
         return _fail("INVALID_INPUT", "请求体必须是 JSON 对象。", 2)
 
     opts = req.get("options") or {}
+    if not isinstance(opts, dict):
+        return _fail("INVALID_INPUT", "options必须是对象。", 2)
     engine = _engine_dir()
     if not (engine / "pipeline").is_dir():
         return _fail("ENGINE_NOT_FOUND", f"引擎目录不存在或不完整：{engine}", 3)
@@ -120,6 +123,16 @@ def main() -> int:
     ):
         if str(p) not in sys.path:
             sys.path.insert(0, str(p))
+
+    period = opts.get("report_period")
+    if period is not None:
+        try:
+            from period_reports import validate_period
+            validate_period(period)
+            if opts.get("report_date") and opts["report_date"] != period["end_date"]:
+                raise ValueError("周期report_date必须等于end_date。")
+        except (ValueError, TypeError, KeyError) as exc:
+            return _fail("INVALID_INPUT", str(exc), 2)
 
     # --- 记录来源：内联 records 或由引擎读取文件 ---
     records = req.get("records")
@@ -148,17 +161,33 @@ def main() -> int:
         if not records:
             return _fail("DATA_QUALITY", "文件没有可用的数据行。", 2)
         source_record_count = len(records)
+        if period is not None:
+            try:
+                from period_reports import cutoff_records
+                records = cutoff_records(records, period["end_date"])
+            except (ValueError, TypeError) as exc:
+                return _fail("DATA_QUALITY", str(exc), 2)
         if read_report.get("layout") == "wide":
             try:
                 from file_reader import aggregate_daily_records
 
                 records, aggregation_report = aggregate_daily_records(
                     records,
-                    report_date=opts.get("report_date"),
+                    # Missing end-date observations are disclosed by the period payload.
+                    report_date=None if period is not None else opts.get("report_date"),
                 )
             except ValueError as exc:
                 return _fail("DATA_QUALITY", str(exc), 2)
             read_report["daily_aggregation"] = aggregation_report
+
+    if period is not None:
+        try:
+            from period_reports import cutoff_records
+            records = cutoff_records(records, period["end_date"])
+            if not records:
+                return _fail("DATA_QUALITY", "区间结束日之前没有可用记录。", 2)
+        except (ValueError, TypeError) as exc:
+            return _fail("DATA_QUALITY", str(exc), 2)
 
     ctx_raw = req.get("context")
     if not isinstance(ctx_raw, dict):
@@ -202,13 +231,20 @@ def main() -> int:
             registry=registry,
         )
 
-        payload = build_daily_report_input(
-            result,
-            project=opts.get("project"),
-            points_meta=opts.get("points_meta"),
-            report_date=opts.get("report_date"),
-            item_date=opts.get("report_date") if aggregation_report else None,
-        )
+        if period is not None:
+            from period_reports import build_period_report_input
+            try:
+                payload = build_period_report_input(result, period, project=opts.get("project"), points_meta=opts.get("points_meta"))
+            except (ValueError, TypeError) as exc:
+                return _fail("DATA_QUALITY", str(exc), 2)
+        else:
+            payload = build_daily_report_input(
+                result,
+                project=opts.get("project"),
+                points_meta=opts.get("points_meta"),
+                report_date=opts.get("report_date"),
+                item_date=opts.get("report_date") if aggregation_report else None,
+            )
 
         elapsed = round((time.perf_counter() - t0) * 1000, 1)
         print(json.dumps(

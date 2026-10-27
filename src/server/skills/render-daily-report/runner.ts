@@ -76,12 +76,10 @@ export async function renderDailyReport(
   request: RenderDailyReportRequest,
 ): Promise<RenderDailyReportResult> {
   const engineSnapshot = artifactEnvelopeSchema.parse(request.engineSnapshot);
-  if (
-    engineSnapshot.ref.schema !== "excavaguard.daily_report_input/v1" ||
-    (engineSnapshot.payload as { schema?: unknown })?.schema !==
-      "excavaguard.daily_report_input/v1"
-  ) {
-    throw new Error("报告渲染只接受 excavaguard.daily_report_input/v1 引擎快照。");
+  const acceptedSchemas = ["excavaguard.daily_report_input/v1", "excavaguard.period_report_input/v1"];
+  if (!acceptedSchemas.includes(engineSnapshot.ref.schema) ||
+      (engineSnapshot.payload as { schema?: unknown })?.schema !== engineSnapshot.ref.schema) {
+    throw new Error("报告渲染只接受冻结日报或周期报告引擎快照。");
   }
 
   const evidenceSnapshot = parseSupportingSnapshot(request.evidenceSnapshot);

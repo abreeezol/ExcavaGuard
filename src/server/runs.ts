@@ -153,6 +153,7 @@ export async function createRun(input: CreateRunRequest, access: LocalAccess): P
       standardsDir: standardFile ? dirname(standardFile.path) : null,
       context: input.context,
       reportDate: input.report_date,
+      reportPeriod: input.report_period,
       project: input.project ?? null,
       expectedIntervalDays: input.options?.expected_interval_days ?? null,
       valueRange: input.options?.value_range ?? null,

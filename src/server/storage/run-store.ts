@@ -305,6 +305,7 @@ export async function listRuns(access: LocalAccess): Promise<RunSummary[]> {
       execution_status: record.execution_status,
       error: record.error,
       report_date: record.request.report_date,
+      ...(record.request.report_period ? { report_period: record.request.report_period } : {}),
       project_name: record.request.project?.name ?? "未提供工程名称",
       agent_status: record.result?.agent_run?.state.run.status ?? null,
       decision: record.review?.decision ?? null,

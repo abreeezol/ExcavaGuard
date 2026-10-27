@@ -139,7 +139,7 @@ def _narrative(payload: Any, engine: dict[str, Any], forms: list[str]) -> tuple[
 
     def resolve(path):
         parts = path.split(".")
-        allowed = ("project", "summary", "context", "data_quality", "standard_override_warnings")
+        allowed = ("project", "summary", "context", "data_quality", "standard_override_warnings", "period")
         if parts[0] not in allowed and not (
             len(parts) >= 3 and parts[0] == "items" and parts[1].isdigit()
             and parts[2] in {
@@ -291,6 +291,10 @@ def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
     condition_lines = [condition_text]
     condition_lines.append(_standard_basis_summary(items))
     project = sections["project"]
+    period = sections.get("period")
+    if period:
+        condition_lines += [f"报告区间：{period['start_date']} 至 {period['end_date']}（含首尾日，{period['timezone']}）。",
+                            "附表展示每通道周期最严重原观测，保留其实际日期，不代表期末值。"]
     condition_lines.append(
         f"工程名称：{_display(project.get('name'))}｜监测单位：{_display(project.get('monitoring_unit'))}｜"
         f"安全等级：{_display(project.get('safety_level'))}｜"
@@ -301,7 +305,7 @@ def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
     by_level = summary.get("by_risk_level") or {}
     overall = _display(summary.get("overall_risk_level"))
     analysis = [
-        f"本期综合判定：{overall}。当日判定条目共 {_display(summary.get('total'))} 条。",
+        f"本期综合判定：{overall}。{'周期代表通道' if period else '当日判定条目'}共 {_display(summary.get('total'))} 条。",
         "风险分布：" + "；".join(f"{key}={value}" for key, value in by_level.items()),
         "分析范围：" + ("正文来自冻结模型分析，独立审计结果见运行记录。" if narrative else "确定性模板，未调用报告 LLM。"),
         "",
@@ -311,6 +315,12 @@ def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
         analysis += ["复核建议："] + lines("recommendations")
     else:
         analysis += ["请工程师对报警及以上项核验实测值、判据和现场工况；未知项应先补齐判定资料。"]
+    if period:
+        analysis += [f"区间日历天数：{period['calendar_days']}；有观测日期：{period['observed_days']}；"
+                     f"明细观测：{period['observation_count']}；预警及以上点日：{period['warning_point_days']}。",
+                     "缺测日期：" + ("、".join(period['missing_dates']) or "无整日缺测；逐通道缺口见周期统计。"),
+                     f"未知观测：{period['unknown_observation_count']}；未知与缺测不能解释为安全。",
+                     "每日变化、各通道覆盖及多日预警详见周期统计和逐日明细。"]
     abs_codes = summary.get("abstain") or {}
     if abs_codes:
         analysis.append("弃权统计：" + "；".join(f"{code}: {count} 条" for code, count in abs_codes.items()))
@@ -349,6 +359,11 @@ def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
         evidence += ["检索缺口："] + [str(g) for g in gaps]
     if not evidence:
         evidence = ["未附加本次 RAG 规范条文；不得补造规范性解释。"]
+    extended = standard_evidence.get("extended_review")
+    if extended:
+        evidence += ["多日预警追加规范核查：" + str(extended.get("status")), str(extended.get("notice", ""))]
+        for check in extended.get("checks", []):
+            evidence += [f"{check.get('group')}：新增候选证据ID " + ("、".join(check.get("additional_evidence_ids", [])) or "未发现额外命中，仍需人工核查。")]
     evidence += ["判定口径：累计量占比 正常<70% 报警值；需关注(黄) 70%~100%；报警(红) ≥100%。"]
     evidence += ["数值与风险判据来自冻结确定性规范库；上述 RAG 为本次检索的条文候选，适用性由工程师复核。"]
 
@@ -454,14 +469,22 @@ def build_report(
             + "。"
         )
 
+    period = deepcopy(daily_report_input.get("period"))
+    report_label = period["label"] if period else "监测日报"
+    if period:
+        review_gaps.append(daily_report_input.get("note", ""))
+        if period["missing_dates"]:
+            review_gaps.append("报告区间存在整日缺测，不得推定缺测日期正常。")
     report = {
         "schema": "excavaguard.report_payload/v1",
         "template_version": template_version,
         "status": "draft",
-        "title": f"{project.get('name') or '待填写工程'}监测日报（草稿）",
+        "title": f"{project.get('name') or '待填写工程'}{report_label}（草稿）",
+        "report_label": report_label,
         "sections": {
             "project": project,
             "summary": summary,
+            **({"period": period} if period else {}),
             "monitoring_results": {"items": items},
             "alerts": {"items": deepcopy(daily_report_input.get("alerts") or [])},
             "review_queue": {
@@ -472,6 +495,7 @@ def build_report(
             "standard_evidence": {
                 "items": evidence,
                 "gaps": deepcopy(evidence_payload.get("gaps") or []) if isinstance(evidence_payload, dict) else [],
+                **({"extended_review": deepcopy(evidence_payload["extended_review"])} if isinstance(evidence_payload, dict) and evidence_payload.get("extended_review") else {}),
             },
             "narrative": narrative,
             "narrative_facts": [{"path": path, "value": value} for path, value in narrative_facts.items()],
@@ -526,6 +550,8 @@ def build_report(
             daily_report_input.get("disclaimer") or "",
         ),
     ]
+    if period:
+        bindings.append(_binding("fact-period", "sections.period", "period", period))
     for index, source_item in enumerate(daily_report_input.get("items") or []):
         for field in ITEM_FACT_FIELDS:
             bindings.append(

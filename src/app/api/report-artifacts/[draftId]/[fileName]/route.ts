@@ -13,7 +13,7 @@ const paramsSchema = z.strictObject({
     .string()
     .trim()
     .regex(
-      /^监测日报_(?:\d{4}-\d{2}-\d{2}|date-pending)_草稿(?:_封面|_附表及清单)?\.(?:xlsx|md)$/,
+      /^(?:监测日报_(?:\d{4}-\d{2}-\d{2}|date-pending)|监测(?:周报|月报|区间报告)_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2})_草稿(?:_封面|_附表及清单)?\.(?:xlsx|md)$/,
     ),
 });
 

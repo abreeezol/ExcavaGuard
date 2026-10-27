@@ -351,7 +351,7 @@ Skill 之间只传递结构化数据，不把自然语言摘要作为下游计�
 - **上传文件的落盘名一律由 `file_id` 生成**，不使用用户提供的文件名（防路径穿越）；
   原始文件名只作元数据展示。存储 provider 未真正实现时**必须显式报错**，
   不得提供"看起来能跑"的空壳。
-- 确定性计算层**只产出结构化载荷**（`excavaguard.daily_report_input/v1`），
+- 确定性计算层**只产出结构化载荷**（日报 `excavaguard.daily_report_input/v1` 或周期 `excavaguard.period_report_input/v1`），
   不生成日报正文与版式文件、不撰写结论与建议措辞；日报由后续独立 Agent 负责。
   载荷中 `risk_level = "未知"` 表示弃权，**不是"安全"**，必须转人工复核，禁止渲染为正常项。
 - **引擎判定逻辑不得用 TypeScript 重写**。判定已有 242 项回归测试覆盖，
@@ -474,3 +474,10 @@ sqlite3 data/chroma_db/chroma.sqlite3 "SELECT COUNT(*) FROM embeddings;"        
 - 错误、弃权和人工确认路径均有定义；
 - 相关方案文档和 `memory.md` 已按需更新；
 - 最终回复准确说明已完成内容、未完成内容和验证结果。
+
+## 多周期报告维护约束（2026-10-27）
+
+- 日报请求保持兼容；周报、自然月、自定义使用独立 `period_report_input/v1`，不得修改冻结日报 schema。
+- 统计由 Python `pipeline/period_reports.py` 生成并重建校验；保留区间前历史，排除未来记录，最严重原观测与期末值不得混称。未知、缺测与日内峰值限制必须披露。
+- 多日预警按同点同测项不同日期去重，至少两日触发 AI 模式追加规范检索；只扩展当前知识库内的现行候选，不自动改变阈值，不声称全网最新法规已核实。
+- 测试：`npm run test:period`（Node24 或支持 registerHooks 的版本，Python 需 openpyxl）及 `python -B 确定性计算层/pipeline/tests/test_period_reports.py`。具体环境与本次结果见 `方案与迭代note/14_多周期报告使用与验收.md`。

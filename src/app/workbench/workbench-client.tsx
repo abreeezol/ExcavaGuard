@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   Upload,
 } from "lucide-react";
+import { presetReportPeriod, reportPeriodSchema, type ReportKind } from "@/contracts/report-period";
 import type { ReadReport, StoredFile, StrictnessReport } from "@/contracts/monitoring-files";
 import type { AccessStatus } from "@/contracts/access";
 import type { CreateRunRequest, PersistedRun, ReviewRequest, RunSummary } from "@/contracts/runs";
@@ -64,6 +65,13 @@ type PayloadItem = {
 
 type Payload = {
   schema?: string;
+  period?: {
+    label: string; start_date: string; end_date: string; calendar_days: number; observed_days: number;
+    channel_count: number; observation_count: number; warning_point_days: number; unknown_observation_count: number;
+    missing_dates: string[];
+    recurring_warnings: Array<{ point_id: string; metric_name: string; warning_days: number; max_consecutive_warning_days: number }>;
+    daily_summaries: Array<{ date: string; observation_count: number; warning_count: number; unknown_count: number; worst_known_risk: string; missing: boolean }>;
+  };
   context?: Record<string, unknown>;
   standards_sources?: Array<Record<string, unknown>>;
   data_quality?: { issue_count?: number; by_code?: Record<string, number>; blocked_records?: number };
@@ -189,6 +197,9 @@ export function WorkbenchClient() {
   const [postSlabFrom, setPostSlabFrom] = useState("");
   const [projectName, setProjectName] = useState("示例基坑工程");
   const [reportDate, setReportDate] = useState("2026-08-07");
+  const [reportKind, setReportKind] = useState<ReportKind>("daily");
+  const [periodStart, setPeriodStart] = useState("2026-08-01");
+  const [periodEnd, setPeriodEnd] = useState("2026-08-07");
 
   const [monitoring, setMonitoring] = useState<{ file: StoredFile; read_report: ReadReport | null } | null>(null);
   const [standard, setStandard] = useState<{
@@ -277,6 +288,9 @@ export function WorkbenchClient() {
     setPostSlabFrom(input.context.post_slab_from ?? "");
     setProjectName(input.project?.name ?? "");
     setReportDate(input.report_date);
+    setReportKind(input.report_period?.type ?? "daily");
+    setPeriodStart(input.report_period?.start_date ?? input.report_date);
+    setPeriodEnd(input.report_period?.end_date ?? input.report_date);
     setGenerateReport(input.options?.generate_report ?? true);
     setReportMode(input.options?.report_mode ?? "ai");
     setSelectedStandardId(input.standards_file_id ?? null);
@@ -405,6 +419,15 @@ export function WorkbenchClient() {
       setError("基坑设计深度需为 0~200 之间的数字，或留空表示暂未提供。");
       return;
     }
+    let reportPeriod;
+    try {
+      reportPeriod = reportKind === "daily" ? undefined : reportKind === "custom"
+        ? reportPeriodSchema.parse({ type: "custom", start_date: periodStart, end_date: periodEnd })
+        : presetReportPeriod(reportKind, reportDate);
+    } catch {
+      setError("请检查报告起止日期：起始日不得晚于结束日，区间最多366天。");
+      return;
+    }
     if (!begin("run")) return;
     try {
       const response = await fetch("/api/runs", {
@@ -415,7 +438,8 @@ export function WorkbenchClient() {
           parent_run_id: parentRunId ?? undefined,
           monitoring_file_id: monitoring.file.file_id,
           standards_file_id: selectedStandardId,
-          report_date: reportDate,
+          report_date: reportPeriod?.end_date ?? reportDate,
+          report_period: reportPeriod,
           context: {
             ...rerunInput?.context,
             safety_level: safetyLevel,
@@ -516,7 +540,7 @@ export function WorkbenchClient() {
             <div className="wb-history">
               {history.map((run) => <button className="wb-history-item" key={run.run_id}
                 disabled={busy !== null} onClick={() => void perform("history", () => openRun(run.run_id))}>
-                <strong>{run.project_name} · {run.report_date}</strong>
+                <strong>{run.project_name} · {run.report_period ? `${run.report_period.start_date} 至 ${run.report_period.end_date}` : run.report_date}</strong>
                 <span>{run.run_id.slice(0, 8)} · {run.decision ? decisionLabel(run.decision) : executionLabel(run.execution_status)}</span>
               </button>)}
               {history.length === 0 && <p className="wb-hint">暂无运行记录。</p>}
@@ -574,14 +598,25 @@ export function WorkbenchClient() {
               <Field label="工程名称（可选）">
                 <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
               </Field>
-              <Field label="报告日期">
+              {reportKind !== "custom" && <Field label={reportKind === "monthly" ? "所属月份（选择任一天）" : reportKind === "weekly" ? "周报结束日期（含当日共7天）" : "报告日期"}>
                 <input
                   type="date"
                   value={reportDate}
                   onChange={(event) => setReportDate(event.target.value)}
                 />
-              </Field>
+              </Field>}
             </div>
+            <Field label="报告周期">
+              <select value={reportKind} onChange={(event) => setReportKind(event.target.value as ReportKind)}>
+                <option value="daily">日报</option><option value="weekly">周报（连续7天）</option>
+                <option value="monthly">月报（自然月）</option><option value="custom">自定义区间</option>
+              </select>
+            </Field>
+            {reportKind === "custom" && <div className="wb-row">
+              <Field label="区间开始日期"><input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></Field>
+              <Field label="区间结束日期"><input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} /></Field>
+            </div>}
+            {reportKind !== "daily" && <p className="wb-hint">区间含首尾日，最多366天；保留必要历史计算，缺测不补值。月报覆盖所选日期所在完整自然月。多日预警将触发AI模式的追加规范核查。</p>}
             {!depthValid && <p className="wb-hint">基坑设计深度需为 0~200 之间的数字。</p>}
           </section>
 
@@ -837,6 +872,19 @@ export function WorkbenchClient() {
 
           {result && payload && (
             <>
+              {payload.period && <section className="wb-card" aria-label="周期报告汇总">
+                <div className="wb-card-head"><h2>{payload.period.label} · 阶段风险与覆盖</h2></div>
+                <p>{payload.period.start_date} 至 {payload.period.end_date}（含首尾日）</p>
+                <p>日历 {payload.period.calendar_days} 天 · 有观测 {payload.period.observed_days} 天 · {payload.period.channel_count} 通道 · 预警及以上 {payload.period.warning_point_days} 点日 · 未知 {payload.period.unknown_observation_count} 条</p>
+                <p className="wb-hint">附表为周期最严重原观测，不是期末值。未知、缺测不代表正常；宽表按每日末值，日内极值仍需结合原数据复核。</p>
+                {payload.period.missing_dates.length > 0 && <p className="wb-hint">整日缺测：{payload.period.missing_dates.join("、")}</p>}
+                {payload.period.recurring_warnings.map((item) => <p key={`${item.point_id}:${item.metric_name}`}>
+                  {item.point_id} · {item.metric_name}：预警及以上 {item.warning_days} 天，最长连续 {item.max_consecutive_warning_days} 天。
+                </p>)}
+                <details className="wb-accordion"><summary>每日风险变化与缺口</summary>
+                  {payload.period.daily_summaries.map((day) => <p key={day.date}>{day.date}：{day.missing ? "缺测，不能判为正常" : `${day.observation_count}条观测，预警及以上${day.warning_count}条，未知${day.unknown_count}条，最严重已知等级${day.worst_known_risk}`}</p>)}
+                </details>
+              </section>}
               <section className="wb-card">
                 <div className="wb-card-head">
                   <h2>总览</h2>

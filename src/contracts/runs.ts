@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { reportPeriodSchema, type ReportPeriod } from "@/contracts/report-period";
 import {
   agentRunStateSchema,
   artifactRefSchema,
@@ -13,7 +14,7 @@ import {
  *   （可选）上传用户规范 → `standards_file_id`
  *   提供工程条件 → `context`
  *   → 确定性计算层（阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对）
- *   → 日报接口载荷 `excavaguard.daily_report_input/v1`
+ *   → 日报或周期接口载荷 `daily_report_input/v1` / `period_report_input/v1`
  */
 
 /**
@@ -41,6 +42,7 @@ export const createRunRequestSchema = z.strictObject({
   parent_run_id: z.uuid().optional(),
   monitoring_file_id: z.uuid(),
   report_date: z.iso.date(),
+  report_period: reportPeriodSchema.optional(),
   context: projectContextSchema,
   /** 用户上传规范文件；未提供时使用默认规范库，且**不作任何特殊处理**。 */
   standards_file_id: z.uuid().nullable().optional(),
@@ -65,12 +67,16 @@ export const createRunRequestSchema = z.strictObject({
       report_mode: z.enum(["ai", "template"]).optional(),
     })
     .optional(),
+}).superRefine((value, ctx) => {
+  if (value.report_period && value.report_date !== value.report_period.end_date) {
+    ctx.addIssue({ code: "custom", path: ["report_date"], message: "周期报告日期必须等于区间结束日。" });
+  }
 });
 
 export type CreateRunRequest = z.infer<typeof createRunRequestSchema>;
 
 /**
- * 运行结果。`payload` 是引擎产出的日报接口载荷（`excavaguard.daily_report_input/v1`），
+ * 运行结果。`payload` 是引擎产出的日报或周期接口载荷（独立 v1 schema），
  * 默认仅交付结构化载荷；显式开启 `generate_report` 时，`agent_run` 携带报告、
  * 审计、人工复核状态与已通过审计的下载清单。
  */
@@ -170,4 +176,5 @@ export type RunSummary = Pick<PersistedRun,
   agent_status: string | null;
   decision: ReviewRequest["decision"] | null;
   parent_run_id: string | null;
+  report_period?: ReportPeriod;
 };

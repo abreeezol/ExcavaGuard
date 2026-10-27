@@ -28,6 +28,7 @@ import type { StandardEvidence } from "@/contracts/standard-evidence";
 import { createStandardEvidenceRetriever } from "@/server/evidence/factory";
 import type { StandardEvidenceRetriever } from "@/server/evidence/retriever";
 import { EngineError } from "@/server/skills/python-bridge";
+import { reviewRecurringWarnings } from "@/server/agents/period-evidence";
 import { renderDailyReport } from "@/server/skills/render-daily-report/runner";
 import { validateReport } from "@/server/skills/validate-report/runner";
 
@@ -100,17 +101,18 @@ function engineSnapshot(payload: unknown): ArtifactEnvelope {
   if (
     !payload ||
     typeof payload !== "object" ||
-    (payload as { schema?: unknown }).schema !==
-      "excavaguard.daily_report_input/v1"
+    !["excavaguard.daily_report_input/v1", "excavaguard.period_report_input/v1"].includes(
+      String((payload as { schema?: unknown }).schema),
+    )
   ) {
     throw new Error(
-      "Agent 执行器只接受 excavaguard.daily_report_input/v1 引擎载荷。",
+      "Agent 执行器只接受日报或多周期报告 v1 引擎载荷。",
     );
   }
   return {
     ref: {
       artifact_id: randomUUID(),
-      schema: "excavaguard.daily_report_input/v1",
+      schema: String((payload as { schema: string }).schema),
       version: 1,
       content_hash: contentHash(payload),
     },
@@ -162,7 +164,9 @@ function compactEvidence(payload: unknown): unknown {
   return {
     schema: (payload as { schema?: unknown }).schema,
     gaps: (payload as { gaps?: unknown }).gaps,
-    evidence: evidence.slice(0, 24).map((item) => {
+    extended_review: (payload as { extended_review?: unknown }).extended_review,
+    // Baseline topics plus up to six expanded queries must all remain auditable.
+    evidence: evidence.map((item) => {
       const record = item as {
         id?: unknown;
         text?: unknown;
@@ -367,7 +371,29 @@ export async function executeAgentRun(
             throw new Error("EVIDENCE_UNAVAILABLE：规范检索服务暂不可用，停止 AI 报告交付。");
           }
         }
-        const payload = { schema: "excavaguard.standard_evidence/v1", evidence: [...evidence.values()], queries, gaps };
+        const extended = await reviewRecurringWarnings(state.engine_snapshot.payload, [...evidence.keys()], async (request) => {
+          const remaining = Date.parse(state.limits.deadline_at) - now().getTime();
+          if (remaining <= 0) throw new Error("DEADLINE_EXCEEDED：追加规范核查预算已到。");
+          const signal = AbortSignal.timeout(Math.max(1, Math.min(30_000, remaining)));
+          return dependencies.retrieve ? dependencies.retrieve(request, { signal })
+            : retrieveStandardEvidence(request, { signal, retriever: sharedRetriever ?? undefined });
+        });
+        extended.evidence.forEach((item) => evidence.set(item.id, item));
+        gaps.push(...extended.gaps);
+        if (extended.review.triggered) {
+          const at = now().toISOString();
+          state = agentRunStateSchema.parse({ ...state, trace: [...state.trace, {
+            event_id: randomUUID(), agent: "supervisor", capability: "retrieve-standard-evidence",
+            status: extended.gaps.length ? "abstained" : "success",
+            input_versions: { scope: "multi-day-warning-expanded", query_count: String(extended.review.checks.length) },
+            output_versions: { status: extended.review.status, hit_count: String(extended.evidence.length) },
+            rule_ids: ["MULTI_DAY_WARNING_EXPANDED_SCOPE", "ACTIVE_VERSION_ONLY", "ENGINEER_CONFIRMATION_REQUIRED"],
+            evidence_ids: extended.evidence.map((item) => item.id), error: null,
+            return_reason: extended.review.notice, started_at: at, finished_at: at,
+          }] });
+        }
+        const payload = { schema: "excavaguard.standard_evidence/v1", evidence: [...evidence.values()], queries, gaps,
+          ...(extended.review.triggered ? { extended_review: extended.review } : {}) };
         state = agentRunStateSchema.parse({
           ...state, evidence_snapshot: {
             status: evidence.size ? "ready" : "insufficient", artifact: freeze(payload.schema, payload),

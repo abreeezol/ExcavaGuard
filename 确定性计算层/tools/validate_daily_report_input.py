@@ -35,6 +35,17 @@ def load_schema() -> dict:
 
 def validate(payload: dict) -> list[str]:
     """返回违规描述列表；空列表表示通过。"""
+    if isinstance(payload, dict) and payload.get("schema") == "excavaguard.period_report_input/v1":
+        from period_reports import validate_period_payload
+        problems = validate_period_payload(payload)
+        # Existing fact fields keep their daily contract; period statistics have an independent validator.
+        daily = {k: v for k, v in payload.items() if k != "period"}
+        daily["schema"] = "excavaguard.daily_report_input/v1"
+        daily_problems = validate(daily)
+        if isinstance(payload.get("period"), dict) and isinstance(payload["period"].get("daily_items"), list):
+            daily_details = {**daily, "items": payload["period"]["daily_items"]}
+            daily_problems += validate(daily_details)
+        return problems + daily_problems
     try:
         import jsonschema
     except ModuleNotFoundError:  # 降级为结构性检查，不阻断使用
