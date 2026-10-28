@@ -678,3 +678,9 @@ ExcavaGuard/
 ### 2026-10-27 登录与项目授权功能发布
 
 用户明确要求推送上游。本次发布独立账号、获授权项目选择、工程创建和四类角色、项目内文件与历史共享及服务端权限约束，同时更新项目规范Skill、使用说明、20号验收记录和update.md。保留原有本机启动脚本，不提交var账号目录、密码文件、.env.local或process_file验收截图。沿用本轮已完成验收：全量137通过/6项外部服务跳过，周期13通过，项目规范14通过/2项可选PDF跳过，合成周报离线复现及浏览器7项通过，生产构建完成；现有Next.js安全升级提示已披露。未初始化用户真实账号。
+## 2026-10-28 Next.js 安全补丁升级
+
+- 独立 worktree 分支 `security/next-16.4.3`：Next.js 与 eslint-config-next 从 16.4.0 精确升级至 16.4.3，更新 npm lockfile；显式配置 `experimental.agentUpgrade = "security"`，保留其他配置。
+- 已检查本地与远端分支/提交及 GitHub 开放 PR，未发现等效升级。`gh` 不可用，改用 GitHub API；只读 Git 元数据阻止 fetch，使用 ls-remote 确认远端分支与本地跟踪记录一致。
+- 验证：npm ci 成功，Next.js v16.4.3；清空继承的外部服务配置、指定现有项目 Python 虚拟环境后 npm run check 137 通过、6 项 live 跳过；NODE_ENV=production npm run build 成功；生产服务 health/workbench HTTP 200。
+- 安装过程中修复 npm 可选依赖记录与离线缓存缺失导致的原生包问题；首次构建受环境非标准 NODE_ENV 影响，显式 production 后通过。原工作区未提交改动未纳入本分支；尚未推送或创建 PR。
