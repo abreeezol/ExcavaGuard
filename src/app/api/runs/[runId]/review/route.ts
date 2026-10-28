@@ -13,7 +13,13 @@ export async function POST(request: Request, context: { params: Promise<{ runId:
       return apiError(415, "UNSUPPORTED_MEDIA_TYPE", "请使用 application/json。");
     }
     const input = reviewRequestSchema.safeParse(await request.json().catch(() => null));
-    if (!input.success) return apiError(400, "INVALID_REQUEST", "请提交当前修订号、草稿版本、复核决定和理由。");
+    if (!input.success) {
+      return apiError(
+        400,
+        "INVALID_REQUEST",
+        "请提交当前修订号、草稿版本、复核决定、总评和合法的逐项风险评价。",
+      );
+    }
     const { runId } = await context.params;
     return apiOk(runView(await reviewRun(runId, input.data, access)));
   } catch (error) {

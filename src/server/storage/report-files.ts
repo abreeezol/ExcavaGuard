@@ -194,3 +194,43 @@ export async function persistReportFiles(
     force: true,
   });
 }
+
+/** 删除运行后清理其报告三件套；返回 false 表示历史已删但存在待运维清理的残留。 */
+export async function deleteReportFilesForRun(
+  runId: string,
+  projectId: string,
+  draftIds: Iterable<string>,
+): Promise<boolean> {
+  if (getStorageProvider() === "local") {
+    const results = await Promise.allSettled([...new Set(draftIds)].map((draftId) =>
+      rm(resolve(process.cwd(), "var", "report-artifacts", draftId), {
+        recursive: true,
+        force: true,
+      })
+    ));
+    return results.every((result) => result.status === "fulfilled");
+  }
+
+  const { client, bucket } = supabaseContext();
+  const { data, error: readError } = await client
+    .from("excavaguard_report_artifacts")
+    .select("storage_path")
+    .eq("run_id", runId)
+    .eq("project_id", projectId);
+  if (readError) throw supabaseStorageError("Supabase 报告清理清单读取失败", readError);
+
+  const paths = [...new Set((data ?? []).flatMap((row) =>
+    typeof row.storage_path === "string" && row.storage_path ? [row.storage_path] : []
+  ))];
+  if (paths.length > 0) {
+    const { error: objectError } = await client.storage.from(bucket).remove(paths);
+    if (objectError) throw supabaseStorageError("Supabase 报告对象删除失败", objectError);
+  }
+  const { error: metadataError } = await client
+    .from("excavaguard_report_artifacts")
+    .delete()
+    .eq("run_id", runId)
+    .eq("project_id", projectId);
+  if (metadataError) throw supabaseStorageError("Supabase 报告元数据删除失败", metadataError);
+  return true;
+}

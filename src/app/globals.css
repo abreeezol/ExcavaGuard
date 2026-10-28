@@ -140,8 +140,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 .wb-link:hover { background: #1f5540; }
 
 .wb-grid { display: grid; grid-template-columns: minmax(340px, 400px) 1fr; gap: 22px; align-items: start; }
-.wb-col { display: flex; flex-direction: column; gap: 18px; }
-.wb-card { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 20px 22px; }
+.wb-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.wb-card { border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 20px 22px; min-width: 0; }
 .wb-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .wb-step { display: grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: #eaf0e6; color: #4e6546; font-size: 11px; font-variant-numeric: tabular-nums; }
 .wb-card h2 { font-size: 15px; font-weight: 550; }
@@ -156,6 +156,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 .wb-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 .wb-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 4px; }
+.wb-project-create { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .wb-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid #cfd9ce; border-radius: 5px; background: #fafbf8; color: var(--ink); font-size: 12px; cursor: pointer; }
 .wb-btn:hover:not(:disabled) { border-color: #7a947b; background: #f4f7f1; }
 .wb-btn:disabled { opacity: .55; cursor: not-allowed; }
@@ -228,11 +229,26 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 
 .wb-inputs { display: flex; flex-direction: column; gap: 18px; border: 0; padding: 0; margin: 0; min-width: 0; }
 .wb-history { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow: auto; margin-top: 12px; }
-.wb-history-item { display: flex; flex-direction: column; gap: 5px; text-align: left; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: #fafcf9; font: inherit; font-size: 11px; cursor: pointer; overflow-wrap: anywhere; }
+.wb-history-row { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 8px; }
+.wb-history-item { display: flex; width: 100%; min-width: 0; flex-direction: column; gap: 5px; text-align: left; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: #fafcf9; font: inherit; font-size: 11px; cursor: pointer; overflow-wrap: anywhere; }
 .wb-history-item span { color: var(--muted); }
 .wb-history-item:disabled { opacity: .6; cursor: not-allowed; }
+.wb-history-delete { width: 34px; min-height: 34px; align-self: stretch; justify-content: center; padding: 0; color: #8f2b2b; }
+.wb-history-delete:hover:not(:disabled) { border-color: #c98f8f; background: #fbeaea; }
 .wb-review { margin-top: 20px; padding: 14px; border: 1px solid var(--border); border-radius: 6px; min-width: 0; }
 .wb-review legend { font-size: 12px; color: #3f5a43; }
+.wb-risk-evaluations { display: grid; gap: 10px; margin: 14px 0 18px; }
+.wb-risk-evaluations h3 { font-size: 12px; color: #3f5a43; }
+.wb-risk-navigator { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.wb-risk-navigator .wb-field { min-width: 0; margin-bottom: 0; }
+.wb-risk-navigation { display: flex; gap: 6px; }
+.wb-icon-btn { width: 34px; height: 34px; justify-content: center; padding: 0; }
+.wb-risk-evaluation { padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: #fafcf9; }
+.wb-risk-evaluation > p:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.wb-risk-evaluation .wb-field { margin-top: 10px; }
+.wb-field textarea.wb-evaluation-comment { min-height: 72px; }
+.wb-evaluation-results { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+.wb-evaluation-results p { overflow-wrap: anywhere; }
 .wb-report-toggle { display: flex; gap: 8px; align-items: center; font-size: 12px; margin-bottom: 14px; }
 
 @media (max-width: 1150px) {
@@ -243,6 +259,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
   .wb-row { grid-template-columns: 1fr; }
   .wb-card { padding: 17px 16px; }
   .wb-kpis { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+  .wb-risk-navigator { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

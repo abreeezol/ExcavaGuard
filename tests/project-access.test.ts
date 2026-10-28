@@ -12,10 +12,11 @@ import { GET as filesGET, POST as upload } from "@/app/api/monitoring-files/rout
 import { GET as thresholdsGET } from "@/app/api/standards/route";
 import { GET as normsGET, POST as normsPOST } from "@/app/api/project-standards/route";
 import { GET as runsGET, POST as run } from "@/app/api/runs/route";
-import { GET as runGET } from "@/app/api/runs/[runId]/route";
+import { DELETE as runDELETE, GET as runGET } from "@/app/api/runs/[runId]/route";
 import { POST as review } from "@/app/api/runs/[runId]/review/route";
 import { GET as download } from "@/app/api/report-artifacts/[draftId]/[fileName]/route";
 import { requireAccess } from "@/server/access";
+import { riskEvaluationTargets } from "@/contracts/engineer-evaluation";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -156,7 +157,8 @@ describe("账号登录与获授权项目选择", () => {
     expect((await runsGET(request("/api/runs", cookie))).status).toBe(403);
   });
   it("真实上传→项目规范→报告→同项目复核共享；其他项目不可读或下载", async () => {
-    const engineer = await user("engineer", A), reviewer = await user("reviewer", A), outsider = await user("outsider", B);
+    const admin = await user("admin", A), engineer = await user("engineer", A);
+    const reviewer = await user("reviewer", A), outsider = await user("outsider", B);
     const form = new FormData();
     form.set("file", new File(["point_id,timestamp,metric_key,value,unit,data_origin\nSIMULATED-P,2026-10-01,wall_top_horizontal_displacement,0,mm,simulated\nSIMULATED-P,2026-10-02,wall_top_horizontal_displacement,12,mm,simulated\n"], "synthetic.csv"));
     const uploaded = await upload(new Request(base + "/api/monitoring-files", { method: "POST", headers: { cookie: engineer, "X-Excavaguard-Project": A }, body: form }));
@@ -185,10 +187,40 @@ describe("账号登录与获授权项目选择", () => {
     const params = { params: Promise.resolve({ draftId: draft.ref.artifact_id, fileName: draft.artifacts[0].file_name }) };
     expect((await download(request("/api/report-artifacts/test", reviewer), params)).status).toBe(200);
     expect((await download(request("/api/report-artifacts/test", outsider), params)).status).toBe(404);
-    const accepted = await review(request("/api/runs/test/review", reviewer, { expected_revision: body.record.revision, draft_ref: draft.ref, decision: "accepted", reason: "合成测试复核，不是正式签发。" }), context);
+    const accepted = await review(request("/api/runs/test/review", reviewer, {
+      expected_revision: body.record.revision,
+      draft_ref: draft.ref,
+      decision: "accepted",
+      reason: "合成测试复核，不是正式签发。",
+      evaluations: riskEvaluationTargets(body.payload).map((target) => ({
+        risk_item_index: target.risk_item_index,
+        disposition: "confirmed",
+        comment: "合成测试逐项风险评价。",
+      })),
+    }), context);
     expect(accepted.status).toBe(200);
     const reviewed = (await accepted.json()).record;
     expect(reviewed.review.owner_id).toBe(IDS.reviewer);
     expect(reviewed.owner_id).toBe(IDS.engineer);
+
+    const deleteUrl = `${base}/api/runs/${body.run_id}?expected_revision=${reviewed.revision}`;
+    const deleteContext = { params: Promise.resolve({ runId: body.run_id }) };
+    expect((await runDELETE(new Request(deleteUrl, {
+      method: "DELETE",
+      headers: { cookie: reviewer, "X-Excavaguard-Project": A },
+    }), deleteContext)).status).toBe(403);
+    expect((await runDELETE(new Request(deleteUrl, {
+      method: "DELETE",
+      headers: { cookie: engineer, "X-Excavaguard-Project": A },
+    }), deleteContext)).status).toBe(403);
+    const deleted = await runDELETE(new Request(deleteUrl, {
+      method: "DELETE",
+      headers: { cookie: admin, "X-Excavaguard-Project": A },
+    }), deleteContext);
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted: true, cleanup_complete: true });
+    expect((await runGET(request("/api/runs/" + body.run_id, reviewer), context)).status).toBe(404);
+    expect((await download(request("/api/report-artifacts/test", reviewer), params)).status).toBe(404);
+    expect((await (await runsGET(request("/api/runs", reviewer))).json()).runs).toHaveLength(0);
   });
 });

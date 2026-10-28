@@ -509,10 +509,13 @@ Web 界面需要同步展示 Agent 当前阶段、Skill 调用、证据 ID、退
   显式续跑复用冻结快照，不重算数值、不重置时间/调用/修订预算。活动任务有短期租约，
   租约未到不能重复续跑；预算过期或计算尚未产出快照时需新建运行。
 - `GET /api/runs` 返回摘要；`GET /api/runs/:id` 返回请求与完整结果；
-  `POST /api/runs/:id/review` 接收 expected_revision、完整 draft_ref、decision、reason；
+- `POST /api/runs/:id/review` 接收 expected_revision、完整 draft_ref、decision、reason
+  和逐项风险 evaluations；服务端从冻结 `items` 重建关注及以上风险目标，不信任浏览器
+  回传事实字段。接受前须全部评价且不得存在异议；正常和未知不进入该评价表。
   `POST /api/runs/:id/resume` 接收 expected_revision。
-- 接受只记录草稿复核；退回/拒绝停止自动流程并关闭下载。修正输入后可建立关联的新运行，
-  原运行与理由保留。人工决定追加 Supervisor 轨迹，不能修改源事实或审计结果。
+- 接受只记录草稿复核及逐项工程师评价；退回/拒绝停止自动流程并关闭下载。异议随退回
+  revision 保留，修正输入后可建立关联的新运行。人工决定追加 Supervisor 轨迹，
+  不能修改源事实、风险等级或审计结果。
 - 下载必须找到当前项目的持久化运行、当前通过审计的草稿和清单；读取前后检查文件大小和
   SHA-256，任何不一致拒绝交付，不以 UUID 或路径格式代替访问授权。
 - 访问边界为单操作者单项目：开发期 loopback Host + 同源限制，启动绑定 localhost；

@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { riskEvaluationTargets } from "@/contracts/engineer-evaluation";
 
 async function probeExcelPython(bin: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -276,6 +277,11 @@ describeWithExcel("最终混合宽表上传与分析", () => {
             draft_ref: reportDraft.ref,
             decision: "accepted",
             reason: "自动化验收样例：仅验证复核记录，不代表真实工程签发。",
+            evaluations: riskEvaluationTargets(run.payload).map((target) => ({
+              risk_item_index: target.risk_item_index,
+              disposition: "confirmed",
+              comment: "自动化验收逐项风险评价。",
+            })),
           }),
         },
       ), { params: Promise.resolve({ runId: String(run.run_id) }) });

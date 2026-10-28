@@ -1,5 +1,5 @@
 import "server-only";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { persistedRunSchema, type PersistedRun, type RunSummary } from "@/contracts/runs";
@@ -7,6 +7,7 @@ import type { LocalAccess } from "@/contracts/access";
 import { AppError } from "@/server/api/errors";
 import { atomicJson } from "@/server/storage/atomic";
 import { getStorageProvider } from "@/server/storage/monitoring-file-store";
+import { deleteReportFilesForRun } from "@/server/storage/report-files";
 import {
   ensureSupabaseProject,
   isUniqueViolation,
@@ -71,6 +72,36 @@ async function revisions(runId: string): Promise<number[]> {
   }
 }
 
+function draftIdFromRecord(value: unknown): string | null {
+  const candidate = (value as {
+    result?: {
+      agent_run?: {
+        state?: {
+          report_draft?: { ref?: { artifact_id?: unknown } } | null;
+        };
+      } | null;
+    } | null;
+  } | null)?.result?.agent_run?.state?.report_draft?.ref?.artifact_id;
+  return z.uuid().safeParse(candidate).success ? String(candidate) : null;
+}
+
+async function localDraftIds(runId: string, latest: PersistedRun): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const latestDraftId = draftIdFromRecord(latest);
+  if (latestDraftId) ids.add(latestDraftId);
+  for (const revision of await revisions(runId)) {
+    try {
+      const draftId = draftIdFromRecord(JSON.parse(
+        await readFile(join(runDirectory(runId), `${revision}.json`), "utf8"),
+      ));
+      if (draftId) ids.add(draftId);
+    } catch {
+      // A corrupt obsolete revision must not prevent deleting the visible run.
+    }
+  }
+  return ids;
+}
+
 function parseSupabaseRun(row: SupabaseRunRow): PersistedRun {
   const record = persistedRunSchema.parse(row.record);
   if (
@@ -81,6 +112,21 @@ function parseSupabaseRun(row: SupabaseRunRow): PersistedRun {
     throw new AppError(500, "STORAGE_ERROR", "Supabase 运行记录标识不一致。");
   }
   return record;
+}
+
+function deletionClaim(record: PersistedRun): PersistedRun {
+  const at = new Date().toISOString();
+  return persistedRunSchema.parse({
+    ...record,
+    revision: record.revision + 1,
+    updated_at: at,
+    execution_status: "completed",
+    lease_until: null,
+    error: {
+      code: "RUN_DELETION_CLAIMED",
+      message: "项目管理员正在删除该运行。",
+    },
+  });
 }
 
 async function readSupabaseRun(runId: string, access: LocalAccess): Promise<PersistedRun> {
@@ -263,6 +309,84 @@ export async function readRun(runId: string, access: LocalAccess): Promise<Persi
     throw new AppError(404, "RUN_NOT_FOUND", "运行记录不存在。");
   }
   return record;
+}
+
+export async function deleteRun(
+  runId: string,
+  expectedRevision: number,
+  access: LocalAccess,
+): Promise<{ deleted: true; cleanup_complete: boolean }> {
+  const record = await readRun(runId, access);
+  if (record.revision !== expectedRevision) {
+    throw new AppError(409, "RUN_CONFLICT", "运行已更新，请刷新历史后再删除。");
+  }
+  if (record.execution_status === "running") {
+    throw new AppError(409, "INVALID_TRANSITION", "当前运行仍在执行，不能删除。");
+  }
+
+  let draftIds = new Set<string>();
+  const claim = deletionClaim(record);
+  if (getStorageProvider() === "local") {
+    draftIds = await localDraftIds(runId, record);
+    if ((await revisions(runId))[0] !== expectedRevision) {
+      throw new AppError(409, "RUN_CONFLICT", "运行已更新，请刷新历史后再删除。");
+    }
+    try {
+      await atomicJson(
+        join(runDirectory(runId), `${claim.revision}.json`),
+        claim,
+        true,
+      );
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+        throw new AppError(409, "RUN_CONFLICT", "运行已更新，请刷新历史后再删除。");
+      }
+      throw new AppError(500, "STORAGE_ERROR", "运行删除声明写入失败。");
+    }
+    try {
+      await rm(runDirectory(runId), { recursive: true, force: true });
+    } catch {
+      throw new AppError(500, "STORAGE_ERROR", "运行历史删除失败。");
+    }
+  } else {
+    const { client } = supabaseContext();
+    const { error: claimError } = await client
+      .from("excavaguard_run_revisions")
+      .insert({
+        run_id: runId,
+        revision: claim.revision,
+        project_id: access.project_id,
+        record: claim,
+        created_at: claim.updated_at,
+      });
+    if (claimError && isUniqueViolation(claimError)) {
+      throw new AppError(409, "RUN_CONFLICT", "运行已更新，请刷新历史后再删除。");
+    }
+    if (claimError) throw supabaseStorageError("Supabase 运行删除声明写入失败", claimError);
+
+    const { data, error } = await client
+      .from("excavaguard_run_revisions")
+      .delete()
+      .eq("run_id", runId)
+      .eq("project_id", access.project_id)
+      .select("revision");
+    if (error) throw supabaseStorageError("Supabase 运行历史删除失败", error);
+    if (!(data ?? []).some((row) => row.revision === claim.revision)) {
+      throw new AppError(500, "STORAGE_ERROR", "Supabase 运行删除声明未被清理。");
+    }
+  }
+
+  let cleanupComplete = true;
+  try {
+    cleanupComplete = await deleteReportFilesForRun(
+      runId,
+      access.project_id,
+      draftIds,
+    );
+  } catch {
+    cleanupComplete = false;
+  }
+  return { deleted: true, cleanup_complete: cleanupComplete };
 }
 
 /** 追加修订；相同 expectedRevision 的并发写入只有一次可成功发布。 */

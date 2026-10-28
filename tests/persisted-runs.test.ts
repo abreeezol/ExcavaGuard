@@ -1,12 +1,17 @@
 import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_PROJECT_ID, type LocalAccess } from "@/contracts/access";
 import type { PersistedRun } from "@/contracts/runs";
+import {
+  riskEvaluationTargets,
+  type EngineerRiskEvaluationInput,
+} from "@/contracts/engineer-evaluation";
 import type { ReportDraft, ReportArtifact } from "@/contracts/agent-runtime";
-import { readRun, saveRun, listRuns } from "@/server/storage/run-store";
+import { deleteRun, readRun, saveRun, listRuns } from "@/server/storage/run-store";
 import { executeAgentRun } from "@/server/agents/executor";
 import { reviewRun, resumeRun } from "@/server/runs";
 import { GET as artifactGET } from "@/app/api/report-artifacts/[draftId]/[fileName]/route";
@@ -50,7 +55,10 @@ function emptyRun(): PersistedRun {
 }
 
 /** 存储/复核测试用已审计状态；真实 Excel 审计另由 wide-upload-and-run 验证。 */
-async function auditedRun(valid = true): Promise<PersistedRun> {
+async function auditedRun(
+  valid = true,
+  alerts: Array<Record<string, unknown>> = [],
+): Promise<PersistedRun> {
   const record = emptyRun();
   const artifactId = randomUUID();
   const directory = resolve("var/report-artifacts", artifactId);
@@ -68,7 +76,7 @@ async function auditedRun(valid = true): Promise<PersistedRun> {
       media_type: "application/octet-stream", sha256: hash(bytes), size_bytes: bytes.byteLength, sheets: [],
     });
   }
-  const payload = { schema: "excavaguard.daily_report_input/v1", items: [] };
+  const payload = { schema: "excavaguard.daily_report_input/v1", items: alerts, alerts };
   const execution = await executeAgentRun({ enginePayload: payload, runId: record.run_id, maxRevisionRounds: 0 }, {
     render: async (input) => ({
       draft: {
@@ -100,10 +108,24 @@ async function auditedRun(valid = true): Promise<PersistedRun> {
   return saveRun(record, 0, ACCESS);
 }
 
-function reviewInput(record: PersistedRun, decision: "accepted" | "needs_changes" | "rejected" = "accepted") {
+function reviewInput(
+  record: PersistedRun,
+  decision: "accepted" | "needs_changes" | "rejected" = "accepted",
+  evaluations?: EngineerRiskEvaluationInput[],
+) {
   return {
     expected_revision: record.revision, draft_ref: record.result!.agent_run!.state.report_draft!.ref,
-    decision, reason: "测试草稿复核记录。",
+    decision, reason: "测试草稿复核记录。", evaluations,
+  };
+}
+
+function knownRisk() {
+  return {
+    point_id: "WTHD-01",
+    metric_key: "wall_top_horizontal_displacement",
+    metric_name: "围护墙顶部水平位移",
+    timestamp: "2026-10-14T08:00:00+08:00",
+    risk_level: "报警",
   };
 }
 
@@ -115,6 +137,24 @@ async function download(record: PersistedRun) {
 }
 
 describe("运行持久化与复核", () => {
+  it("逐项评价包含关注至危险报警，排除正常和未知", () => {
+    expect(riskEvaluationTargets({
+      items: [
+        { ...knownRisk(), risk_level: "正常" },
+        { ...knownRisk(), risk_level: "关注" },
+        { ...knownRisk(), risk_level: "预警" },
+        knownRisk(),
+        { ...knownRisk(), risk_level: "危险报警" },
+        { ...knownRisk(), risk_level: "未知" },
+      ],
+    }).map((target) => [target.risk_item_index, target.risk_level])).toEqual([
+      [1, "关注"],
+      [2, "预警"],
+      [3, "报警"],
+      [4, "危险报警"],
+    ]);
+  });
+
   it("从磁盘恢复并保留旧修订；同修订的并发提交只有一个成功", async () => {
     const original = await saveRun(emptyRun(), 0, ACCESS);
     const outcomes = await Promise.allSettled([
@@ -141,6 +181,52 @@ describe("运行持久化与复核", () => {
     await expect(readRun("../other", ACCESS)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   });
 
+  it("按当前修订删除指定运行及报告产物，不影响其他历史", async () => {
+    const retained = await saveRun(emptyRun(), 0, ACCESS);
+    const record = await auditedRun();
+    const draftId = record.result!.agent_run!.state.report_draft!.ref.artifact_id;
+    const artifactDirectory = resolve("var/report-artifacts", draftId);
+    expect(existsSync(artifactDirectory)).toBe(true);
+
+    await expect(deleteRun(record.run_id, record.revision + 1, ACCESS))
+      .rejects.toMatchObject({ code: "RUN_CONFLICT" });
+    expect(await readRun(record.run_id, ACCESS)).toMatchObject({ run_id: record.run_id });
+
+    expect(await deleteRun(record.run_id, record.revision, ACCESS)).toEqual({
+      deleted: true,
+      cleanup_complete: true,
+    });
+    await expect(readRun(record.run_id, ACCESS)).rejects.toMatchObject({ code: "RUN_NOT_FOUND" });
+    expect((await listRuns(ACCESS)).map((run) => run.run_id)).toEqual([retained.run_id]);
+    expect(existsSync(artifactDirectory)).toBe(false);
+    expect((await download(record)).status).toBe(404);
+  });
+
+  it("活动租约中的运行不能删除", async () => {
+    const active = emptyRun();
+    active.execution_status = "running";
+    active.lease_until = new Date(Date.now() + 60_000).toISOString();
+    const record = await saveRun(active, 0, ACCESS);
+    await expect(deleteRun(record.run_id, record.revision, ACCESS))
+      .rejects.toMatchObject({ code: "INVALID_TRANSITION" });
+    expect(await readRun(record.run_id, ACCESS)).toMatchObject({ execution_status: "running" });
+  });
+
+  it("删除与新修订并发时仅一个操作成功", async () => {
+    const record = await saveRun(emptyRun(), 0, ACCESS);
+    const outcomes = await Promise.allSettled([
+      deleteRun(record.run_id, record.revision, ACCESS),
+      saveRun({
+        ...record,
+        updated_at: new Date().toISOString(),
+        error: { code: "CONCURRENT_UPDATE", message: "并发更新。" },
+      }, record.revision, ACCESS),
+    ]);
+    expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.find((outcome) => outcome.status === "rejected"))
+      .toMatchObject({ reason: { code: "RUN_CONFLICT" } });
+  });
+
   it("接受绑定当前草稿，保存理由与轨迹，源事实和文件指纹不变", async () => {
     const record = await auditedRun();
     const reviewed = await reviewRun(record.run_id, reviewInput(record), ACCESS);
@@ -152,6 +238,71 @@ describe("运行持久化与复核", () => {
     expect((await download(reviewed)).status).toBe(200);
     await expect(reviewRun(record.run_id, reviewInput(record), ACCESS)).rejects.toMatchObject({ code: "RUN_CONFLICT" });
     await expect(reviewRun(record.run_id, reviewInput(reviewed), ACCESS)).rejects.toMatchObject({ code: "INVALID_TRANSITION" });
+  });
+
+  it("接受草稿前逐项评价全部已判定风险，评价不改写源事实", async () => {
+    const record = await auditedRun(true, [knownRisk()]);
+    await expect(reviewRun(record.run_id, reviewInput(record), ACCESS))
+      .rejects.toMatchObject({ code: "RISK_EVALUATION_REQUIRED" });
+
+    const reviewed = await reviewRun(record.run_id, reviewInput(record, "accepted", [{
+      risk_item_index: 0,
+      disposition: "follow_up_required",
+      comment: "已核对该点报警，安排下一时段加密监测。",
+    }]), ACCESS);
+    expect(reviewed.review?.evaluations).toEqual([{
+      risk_item_index: 0,
+      point_id: "WTHD-01",
+      metric_key: "wall_top_horizontal_displacement",
+      metric_name: "围护墙顶部水平位移",
+      timestamp: "2026-10-14T08:00:00+08:00",
+      risk_level: "报警",
+      disposition: "follow_up_required",
+      comment: "已核对该点报警，安排下一时段加密监测。",
+    }]);
+    expect(reviewed.result?.payload).toEqual(record.result?.payload);
+    expect(reviewed.result?.agent_run?.state.trace.at(-1)?.output_versions)
+      .toMatchObject({ decision: "accepted", risk_evaluation_count: "1" });
+  });
+
+  it("有异议的风险不能接受当前草稿，但可随退回决定留痕", async () => {
+    const record = await auditedRun(true, [knownRisk()]);
+    const disputed: EngineerRiskEvaluationInput[] = [{
+      risk_item_index: 0,
+      disposition: "disputed",
+      comment: "现场复测与上传值不一致，需核对原始数据。",
+    }];
+    await expect(reviewRun(record.run_id, reviewInput(record, "accepted", disputed), ACCESS))
+      .rejects.toMatchObject({ code: "RISK_EVALUATION_DISPUTED" });
+    const returned = await reviewRun(
+      record.run_id,
+      reviewInput(record, "needs_changes", disputed),
+      ACCESS,
+    );
+    expect(returned.review?.evaluations[0]).toMatchObject({
+      disposition: "disputed",
+      risk_level: "报警",
+    });
+    expect(returned.result?.agent_run?.state.run.status).toBe("stopped");
+  });
+
+  it("拒绝不存在或重复的风险评价对象", async () => {
+    const record = await auditedRun(true, [knownRisk()]);
+    await expect(reviewRun(record.run_id, reviewInput(record, "accepted", [{
+      risk_item_index: 9,
+      disposition: "confirmed",
+      comment: "测试越界评价。",
+    }]), ACCESS)).rejects.toMatchObject({ code: "RUN_CONFLICT" });
+    const duplicate = {
+      risk_item_index: 0,
+      disposition: "confirmed" as const,
+      comment: "重复评价。",
+    };
+    await expect(reviewRun(
+      record.run_id,
+      reviewInput(record, "accepted", [duplicate, duplicate]),
+      ACCESS,
+    )).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   });
 
   it.each(["needs_changes", "rejected"] as const)("决定 %s 停止自动流程，保留文件并关闭下载", async (decision) => {

@@ -6,6 +6,11 @@ import {
   artifactRefSchema,
   supervisorActionSchema,
 } from "@/contracts/agent-runtime";
+import {
+  engineerRiskEvaluationInputSchema,
+  engineerRiskEvaluationSchema,
+  riskEvaluationTargets,
+} from "@/contracts/engineer-evaluation";
 
 /**
  * 分析任务（run）的请求与响应契约。
@@ -130,9 +135,23 @@ export const reviewRequestSchema = z.strictObject({
   draft_ref: artifactRefSchema,
   decision: z.enum(["accepted", "needs_changes", "rejected"]),
   reason: z.string().trim().min(1).max(2000),
+  evaluations: z.array(engineerRiskEvaluationInputSchema).max(500).optional(),
+}).superRefine((value, context) => {
+  const indexes = value.evaluations?.map((evaluation) => evaluation.risk_item_index) ?? [];
+  if (new Set(indexes).size !== indexes.length) {
+    context.addIssue({
+      code: "custom",
+      path: ["evaluations"],
+      message: "同一风险条目只能提交一条工程师评价。",
+    });
+  }
 });
 
 export const resumeRequestSchema = z.strictObject({
+  expected_revision: z.number().int().positive(),
+});
+
+export const deleteRunRequestSchema = z.strictObject({
   expected_revision: z.number().int().positive(),
 });
 
@@ -152,6 +171,7 @@ export const persistedRunSchema = z.strictObject({
   review: z.strictObject({
     decision: reviewRequestSchema.shape.decision,
     reason: reviewRequestSchema.shape.reason,
+    evaluations: z.array(engineerRiskEvaluationSchema).max(500).default([]),
     draft_ref: artifactRefSchema,
     submitted_at: z.iso.datetime(),
     owner_id: z.union([z.literal("local-operator"), z.uuid()]),
@@ -168,6 +188,25 @@ export const persistedRunSchema = z.strictObject({
     human?.decision !== value.review.decision ||
     JSON.stringify(draft?.ref) !== JSON.stringify(value.review.draft_ref)
   )) context.addIssue({ code: "custom", message: "复核记录必须绑定当前决定与草稿。" });
+  if (value.review?.evaluations.length) {
+    const targets = new Map(
+      riskEvaluationTargets(value.result?.payload)
+        .map((target) => [target.risk_item_index, target]),
+    );
+    const indexes = value.review.evaluations.map((evaluation) => evaluation.risk_item_index);
+    if (new Set(indexes).size !== indexes.length ||
+        value.review.evaluations.some((evaluation) => {
+          const target = targets.get(evaluation.risk_item_index);
+          return !target ||
+            target.point_id !== evaluation.point_id ||
+            target.metric_key !== evaluation.metric_key ||
+            target.metric_name !== evaluation.metric_name ||
+            target.timestamp !== evaluation.timestamp ||
+            target.risk_level !== evaluation.risk_level;
+        })) {
+      context.addIssue({ code: "custom", message: "工程师评价必须逐项绑定当前冻结风险事实。" });
+    }
+  }
 });
 
 export type PersistedRun = z.output<typeof persistedRunSchema>;

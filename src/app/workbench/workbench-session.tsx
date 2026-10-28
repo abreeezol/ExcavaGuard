@@ -70,7 +70,7 @@ export function WorkbenchClient() {
             await responseBody(await fetch("/api/session", { method: "DELETE" }));
           })}>退出登录</button>}
         </div>
-        {session.can_create_project && <form onSubmit={event => {
+        {session.can_create_project && <form className="wb-project-create" onSubmit={event => {
           event.preventDefault(); void perform(async () => {
             const body = await responseBody(await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newProject }) }));
             await selectProject(body.project.id); setNewProject("");
