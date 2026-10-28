@@ -107,6 +107,11 @@ npm run dev
 3. 可选上传用户规范：不上传时直接使用默认规范库，不报错、不提示缺失。
 4. 点击 **「运行分析」**。工作台默认勾选“生成并审计日报三件套”，成功后会显示运行轨迹、下载入口和人工复核按钮。
 
+报告审计通过后，项目管理员或复核工程师可在下载区下方对「关注 / 预警 / 报警 /
+危险报警」逐项填写评价，再提交草稿接受、退回或拒绝。接受前必须评价全部已判定风险；
+有异议时需退回并建立关联运行。评价不会改写确定性风险等级；「未知」仍按弃权队列处理。
+具体契约见 [工程师风险评价闭环](方案与迭代note/21_工程师风险评价闭环.md)。
+
 上传文件必须包含 5 个必填列：测点编号、观测日期、监测项目、本次观测值、单位。基准值、上次值和间隔天数可以缺失，由阶段一按测点时序派生。`.xlsx` 读取需要 Python 环境里安装 `openpyxl`；CSV 路径是纯标准库。
 
 ## 当前数据存储与 RAG
@@ -273,8 +278,10 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
 - `POST /api/projects/select`：选择获授权工程，更新服务端签名会话。
 - `GET /api/runs` / `GET /api/runs/<run_id>`：最近 100 次摘要 / 完整请求与结果。
 - `POST /api/runs/<run_id>/review`：`expected_revision`、完整 `draft_ref`、
-  `decision`（accepted / needs_changes / rejected）、必填 `reason`。
-  旧版本或重复决定返回 409；退回和拒绝关闭下载，不修改事实。
+  `decision`（accepted / needs_changes / rejected）、必填 `reason`，以及可选
+  `evaluations[]`（风险条目位置、处置结论、工程师说明）。
+  接受草稿时必须逐项覆盖全部关注及以上风险，且不能存在有异议条目；旧版本或重复决定
+  返回 409。退回和拒绝关闭下载，评价与总评随不可变 revision 留痕，不修改冻结事实。
 - `POST /api/runs/<run_id>/resume`：显式提交 `expected_revision`，只续跑已保存的
   Agent 检查点；不重置原预算。无检查点、活动任务或预算到期时需加载输入新建关联运行。
 

@@ -6,6 +6,7 @@ import { resolve, join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { presetReportPeriod, reportPeriodSchema } from '@/contracts/report-period';
 import { createRunRequestSchema } from '@/contracts/runs';
+import { riskEvaluationTargets } from '@/contracts/engineer-evaluation';
 import { reviewRecurringWarnings } from '@/server/agents/period-evidence';
 
 const sandbox=mkdtempSync(join(tmpdir(),'excavaguard-period-test-'));
@@ -112,7 +113,7 @@ test('upload -> period API -> actual Python artifacts -> audit -> download -> re
  const book=draft.artifacts.find(a=>a.kind==='workbook');assert.match(book.file_name,/监测周报_2026-10-02_2026-10-08/);
  const downloadResponse=await download(new Request('http://localhost:3000'+body.record.result.agent_run.downloads[0].url),{params:Promise.resolve({draftId:draft.ref.artifact_id,fileName:book.file_name})});
  assert.equal(downloadResponse.status,200);assert.ok((await downloadResponse.arrayBuffer()).byteLength>1000);
- const approved=await review(new Request(`http://localhost:3000/api/runs/${body.run_id}/review`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expected_revision:body.record.revision,draft_ref:draft.ref,decision:'accepted',reason:'SIMULATED_自动化验收，不是工程签发'})}),{params:Promise.resolve({runId:body.run_id})});
+ const approved=await review(new Request(`http://localhost:3000/api/runs/${body.run_id}/review`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expected_revision:body.record.revision,draft_ref:draft.ref,decision:'accepted',reason:'SIMULATED_自动化验收，不是工程签发',evaluations:riskEvaluationTargets(body.payload).map(target=>({risk_item_index:target.risk_item_index,disposition:'confirmed',comment:'SIMULATED_周期逐项风险评价。'}))})}),{params:Promise.resolve({runId:body.run_id})});
  assert.equal(approved.status,200);
  const dailyRequest={...request};delete dailyRequest.report_period;dailyRequest.options={generate_report:false,report_mode:'template'};
  const dailyResponse=await run(new Request('http://localhost:3000/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dailyRequest)}));

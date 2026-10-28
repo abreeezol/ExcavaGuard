@@ -16,6 +16,7 @@ import { presetReportPeriod, reportPeriodSchema, type ReportKind } from "@/contr
 import type { ReadReport, StoredFile, StrictnessReport } from "@/contracts/monitoring-files";
 import type { AccessStatus } from "@/contracts/access";
 import type { CreateRunRequest, PersistedRun, ReviewRequest, RunSummary } from "@/contracts/runs";
+import type { EngineerRiskEvaluationInput } from "@/contracts/engineer-evaluation";
 import { decisionLabel, executionLabel, RunDelivery } from "./run-delivery";
 
 /**
@@ -304,13 +305,23 @@ export function ProjectWorkbench({ session, onBusyChange }: {
     setNotice(`已加载 ${record.run_id.slice(0, 8)} 的输入；修正后点“运行分析”将创建关联运行。`);
   }
 
-  async function review(decision: ReviewRequest["decision"], reason: string) {
+  async function review(
+    decision: ReviewRequest["decision"],
+    reason: string,
+    evaluations: EngineerRiskEvaluationInput[],
+  ) {
     const record = result?.record;
     const draft = record?.result?.agent_run?.state.report_draft;
     if (!record || !draft) return;
     const response = await apiFetch(`/api/runs/${record.run_id}/review`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ expected_revision: record.revision, draft_ref: draft.ref, decision, reason }),
+      body: JSON.stringify({
+        expected_revision: record.revision,
+        draft_ref: draft.ref,
+        decision,
+        reason,
+        evaluations,
+      }),
     });
     if (!response.ok) {
       const message = await readError(response);
@@ -833,8 +844,8 @@ export function ProjectWorkbench({ session, onBusyChange }: {
 
         {/* ---------------- 右列：结果 ---------------- */}
         <div className="wb-col">
-          {result?.record && <RunDelivery key={result.record.run_id} record={result.record} disabled={busy !== null} canReviewRole={canReview} canWrite={canWrite}
-            onReview={(decision, reason) => void perform("review", () => review(decision, reason))}
+          {result?.record && <RunDelivery key={`${result.record.run_id}:${result.record.revision}`} record={result.record} disabled={busy !== null} canReviewRole={canReview} canWrite={canWrite}
+            onReview={(decision, reason, evaluations) => void perform("review", () => review(decision, reason, evaluations))}
             onDownload={(url, fileName) => void perform("download", () => download(url, fileName))}
             onLoadInputs={() => void perform("inputs", loadInputs)}
             onResume={() => void perform("resume", async () => {

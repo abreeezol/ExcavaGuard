@@ -16,6 +16,7 @@ import { GET as runGET } from "@/app/api/runs/[runId]/route";
 import { POST as review } from "@/app/api/runs/[runId]/review/route";
 import { GET as download } from "@/app/api/report-artifacts/[draftId]/[fileName]/route";
 import { requireAccess } from "@/server/access";
+import { riskEvaluationTargets } from "@/contracts/engineer-evaluation";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -185,7 +186,17 @@ describe("账号登录与获授权项目选择", () => {
     const params = { params: Promise.resolve({ draftId: draft.ref.artifact_id, fileName: draft.artifacts[0].file_name }) };
     expect((await download(request("/api/report-artifacts/test", reviewer), params)).status).toBe(200);
     expect((await download(request("/api/report-artifacts/test", outsider), params)).status).toBe(404);
-    const accepted = await review(request("/api/runs/test/review", reviewer, { expected_revision: body.record.revision, draft_ref: draft.ref, decision: "accepted", reason: "合成测试复核，不是正式签发。" }), context);
+    const accepted = await review(request("/api/runs/test/review", reviewer, {
+      expected_revision: body.record.revision,
+      draft_ref: draft.ref,
+      decision: "accepted",
+      reason: "合成测试复核，不是正式签发。",
+      evaluations: riskEvaluationTargets(body.payload).map((target) => ({
+        risk_item_index: target.risk_item_index,
+        disposition: "confirmed",
+        comment: "合成测试逐项风险评价。",
+      })),
+    }), context);
     expect(accepted.status).toBe(200);
     const reviewed = (await accepted.json()).record;
     expect(reviewed.review.owner_id).toBe(IDS.reviewer);

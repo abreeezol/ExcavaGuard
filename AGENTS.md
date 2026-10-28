@@ -81,6 +81,10 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   按不可变 revision 保存，支持并发版本校验；
   `/workbench` 默认开启报告链，可查看历史、恢复输入、展示三 Agent 轨迹、下载三件套、
   提交复核并建立关联重跑。人工接受只表示草稿复核，不代表正式签发；
+- **工程师风险评价闭环**：审计通过后，`admin / reviewer` 可对冻结载荷中
+  「关注 / 预警 / 报警 / 危险报警」逐项记录确认、持续跟踪或异议及说明，再提交整份
+  草稿复核。接受要求全部风险已评价且无异议；评价随不可变 revision 保存，不改写风险
+  等级、规范依据或报告文件。「正常」与表示弃权的「未知」不进入该评价表；
 - **登录与项目成员边界**：独立账号使用scrypt密码哈希与8小时HttpOnly签名会话，兼容原共享密码；
   登录后选择获授权工程，四类成员角色约束上传、生成、复核。同项目共享历史，跨项目拒绝访问；
   下载核验持久化审计清单与SHA-256。账号目录为私有本地文件，未使用Supabase Auth；
@@ -88,7 +92,7 @@ ExcavaGuard 是面向基坑监测场景的 AI 监测日报智能体。系统读�
   新式 `sb_secret_...` 配置契约、五张元数据表 + RLS + 私有 bucket 幂等迁移及无密钥
   回显的检查/写探针工具已准备；监测文件/用户规范上传、Python 安全临时物化、运行 revision
   CAS、审计后三件套上传、云端哈希下载与人工复核已接通，`.env.local` 已显式切至 supabase；
-- 全栈检查 `npm run check` **118 项通过**（另有 4 个 live suite 的 6 项测试默认跳过：
+- 全栈检查 `npm run check` **141 项通过**（另有 4 个 live suite 的 6 项测试默认跳过：
   真实 LLM、local-RAG、Pinecone-RAG、Supabase live；
   含 8 项上传/纵向端到端 + 16 项 Agent Executor + 12 项持久化/访问边界
   + 10 项服务配置 + 7 项报告/审计 Skill），`npm run build` 13 条路由生成；
@@ -195,7 +199,7 @@ ExcavaGuard/
 │       ├── agents/                        三 Agent 注册 + Supervisor + 同步执行器
 │       ├── evidence/                      规范证据检索（双 Provider 适配器）
 │       └── config.ts / integrations/      环境配置与外部客户端
-├── tests/                                 Vitest（118 项通过，6 项 live 默认跳过）
+├── tests/                                 Vitest（141 项通过，6 项 live 默认跳过）
 ├── package.json / tsconfig.json / next.config.ts / vitest.config.ts / eslint.config.mjs
 ├── .env.example / .nvmrc / .gitignore
 ├── README.md / 项目介绍.html
@@ -439,7 +443,7 @@ node tools/bridge-smoke/run_judgement.mjs                                       
 
 # --- Web 全栈 ---
 npm ci
-npm run check                                                                   # 118 项通过，6 项 live 默认跳过
+npm run check                                                                   # 141 项通过，6 项 live 默认跳过
 npm run build                                                                   # 13 条路由；运行数据不打包
 npm run dev                                                                     # http://localhost:3000/workbench
 npm run supabase:verify                                                         # 基础设施真实写探针

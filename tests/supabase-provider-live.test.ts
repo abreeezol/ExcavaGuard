@@ -5,6 +5,7 @@ import {
   DEFAULT_PROJECT_ID,
   type LocalAccess,
 } from "@/contracts/access";
+import { riskEvaluationTargets } from "@/contracts/engineer-evaluation";
 
 const enabled = process.env.EXCAVAGUARD_TEST_SUPABASE === "1";
 const describeLive = enabled ? describe : describe.skip;
@@ -276,6 +277,11 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
           draft_ref: draft.ref,
           decision: "accepted",
           reason: "SIMULATED Supabase Provider 自动化验收，不代表正式工程签发。",
+          evaluations: riskEvaluationTargets(latest.result?.payload).map((target) => ({
+            risk_item_index: target.risk_item_index,
+            disposition: "confirmed",
+            comment: "SIMULATED Supabase Provider 逐项风险评价。",
+          })),
         }),
       },
     ), { params: Promise.resolve({ runId }) });

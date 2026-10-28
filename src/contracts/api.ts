@@ -30,6 +30,8 @@ export const apiErrorSchema = z.strictObject({
       "RUN_CONFLICT",
       "INVALID_TRANSITION",
       "ARTIFACT_CHANGED",
+      "RISK_EVALUATION_REQUIRED",
+      "RISK_EVALUATION_DISPUTED",
     ]),
     message: z.string(),
     fields: z.array(z.string()).optional(),

@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
 import { agentRunStateSchema } from "@/contracts/agent-runtime";
 import type { LocalAccess } from "@/contracts/access";
+import {
+  riskEvaluationTargets,
+  type EngineerRiskEvaluation,
+} from "@/contracts/engineer-evaluation";
 import type { CreateRunRequest, PersistedRun, ReviewRequest, RunResult } from "@/contracts/runs";
 import { AppError } from "@/server/api/errors";
 import { executeAgentRun, type AgentRunExecutionResult } from "@/server/agents/executor";
@@ -21,6 +25,45 @@ import { EngineError } from "@/server/skills/python-bridge";
 import { selectProjectStandards } from "@/server/evidence/project-standard-library";
 
 const LEASE_MS = 420_000;
+
+function resolveRiskEvaluations(
+  payload: unknown,
+  input: ReviewRequest,
+): EngineerRiskEvaluation[] {
+  const targets = riskEvaluationTargets(payload);
+  const targetByIndex = new Map(targets.map((target) => [target.risk_item_index, target]));
+  const submitted = input.evaluations ?? [];
+  const submittedIndexes = new Set<number>();
+  const evaluations = submitted.map((evaluation) => {
+    if (submittedIndexes.has(evaluation.risk_item_index)) {
+      throw new AppError(400, "INVALID_REQUEST", "同一风险条目只能提交一条工程师评价。");
+    }
+    submittedIndexes.add(evaluation.risk_item_index);
+    const target = targetByIndex.get(evaluation.risk_item_index);
+    if (!target) {
+      throw new AppError(409, "RUN_CONFLICT", "评价对象已变化，请重新打开当前运行后填写。");
+    }
+    return { ...target, disposition: evaluation.disposition, comment: evaluation.comment };
+  });
+
+  if (input.decision === "accepted") {
+    if (evaluations.length !== targets.length) {
+      throw new AppError(
+        400,
+        "RISK_EVALUATION_REQUIRED",
+        "接受草稿前，必须逐项评价全部已判定非正常风险；正常和未知/弃权项不在此评价。",
+      );
+    }
+    if (evaluations.some((evaluation) => evaluation.disposition === "disputed")) {
+      throw new AppError(
+        400,
+        "RISK_EVALUATION_DISPUTED",
+        "存在有异议的风险条目，不能接受当前草稿；请退回修改并建立关联运行。",
+      );
+    }
+  }
+  return evaluations;
+}
 
 function agentResult(
   execution: AgentRunExecutionResult,
@@ -218,6 +261,7 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
   if (JSON.stringify(draft.ref) !== JSON.stringify(input.draft_ref)) {
     throw new AppError(409, "RUN_CONFLICT", "草稿版本已变化，请重新打开后复核。");
   }
+  const evaluations = resolveRiskEvaluations(record.result?.payload, input);
   if (input.decision === "accepted") await verifyReportFiles(draft);
   const at = new Date().toISOString();
   const state = agentRunStateSchema.parse({
@@ -234,7 +278,11 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
     trace: [...agent.state.trace, {
       event_id: randomUUID(), agent: "supervisor", capability: "human-review",
       status: "success", input_versions: { draft: `${draft.ref.artifact_id}@${draft.ref.version}:${draft.ref.content_hash}` },
-      output_versions: { decision: input.decision }, rule_ids: [], evidence_ids: [],
+      output_versions: {
+        decision: input.decision,
+        risk_evaluation_count: String(evaluations.length),
+      },
+      rule_ids: [], evidence_ids: [],
       error: null, return_reason: input.reason, started_at: at, finished_at: at,
     }],
   });
@@ -253,6 +301,7 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
     }) },
     review: {
       decision: input.decision, reason: input.reason,
+      evaluations,
       submitted_at: at, owner_id: access.owner_id, draft_ref: draft.ref,
     },
   }, record.revision, access);
