@@ -89,10 +89,13 @@ export function requireAccess(request: Request, projectId?: string): LocalAccess
   if (readAccessDirectory()) access.role = status.projects!.find(p => p.id === status.project_id)!.role;
   return access;
 }
-export function requireProjectAction(request: Request, action: "write" | "review" | "standards", projectId?: string): LocalAccess {
+export function requireProjectAction(request: Request, action: "write" | "review" | "standards" | "delete", projectId?: string): LocalAccess {
   const access = requireAccess(request, projectId);
   const roles: Record<typeof action, ProjectRole[]> = {
-    write: ["admin", "reviewer", "engineer"], review: ["admin", "reviewer"], standards: ["admin", "reviewer", "engineer"],
+    write: ["admin", "reviewer", "engineer"],
+    review: ["admin", "reviewer"],
+    standards: ["admin", "reviewer", "engineer"],
+    delete: ["admin"],
   };
   if (access.role && !roles[action].includes(access.role)) throw new AppError(403, "FORBIDDEN", "当前工程角色无权执行此操作。");
   return access;

@@ -156,6 +156,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 .wb-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 .wb-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 4px; }
+.wb-project-create { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .wb-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid #cfd9ce; border-radius: 5px; background: #fafbf8; color: var(--ink); font-size: 12px; cursor: pointer; }
 .wb-btn:hover:not(:disabled) { border-color: #7a947b; background: #f4f7f1; }
 .wb-btn:disabled { opacity: .55; cursor: not-allowed; }
@@ -228,9 +229,12 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 
 .wb-inputs { display: flex; flex-direction: column; gap: 18px; border: 0; padding: 0; margin: 0; min-width: 0; }
 .wb-history { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow: auto; margin-top: 12px; }
-.wb-history-item { display: flex; flex-direction: column; gap: 5px; text-align: left; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: #fafcf9; font: inherit; font-size: 11px; cursor: pointer; overflow-wrap: anywhere; }
+.wb-history-row { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 8px; }
+.wb-history-item { display: flex; width: 100%; min-width: 0; flex-direction: column; gap: 5px; text-align: left; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: #fafcf9; font: inherit; font-size: 11px; cursor: pointer; overflow-wrap: anywhere; }
 .wb-history-item span { color: var(--muted); }
 .wb-history-item:disabled { opacity: .6; cursor: not-allowed; }
+.wb-history-delete { width: 34px; min-height: 34px; align-self: stretch; justify-content: center; padding: 0; color: #8f2b2b; }
+.wb-history-delete:hover:not(:disabled) { border-color: #c98f8f; background: #fbeaea; }
 .wb-review { margin-top: 20px; padding: 14px; border: 1px solid var(--border); border-radius: 6px; min-width: 0; }
 .wb-review legend { font-size: 12px; color: #3f5a43; }
 .wb-risk-evaluations { display: grid; gap: 10px; margin: 14px 0 18px; }

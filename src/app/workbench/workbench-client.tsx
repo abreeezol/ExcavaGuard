@@ -10,6 +10,7 @@ import {
   Loader2,
   Play,
   ShieldAlert,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { presetReportPeriod, reportPeriodSchema, type ReportKind } from "@/contracts/report-period";
@@ -189,6 +190,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
   const project = session.projects?.find(p => p.id === session.project_id);
   const canWrite = project?.role !== "viewer";
   const canReview = !project || ["admin", "reviewer"].includes(project.role);
+  const canDelete = !project || project.role === "admin";
   const [files, setFiles] = useState<StoredFile[]>([]);
   const [standardFiles, setStandardFiles] = useState<StoredFile[]>([]);
   const [history, setHistory] = useState<RunSummary[]>([]);
@@ -274,6 +276,31 @@ export function ProjectWorkbench({ session, onBusyChange }: {
     const response = await apiFetch(`/api/runs/${runId}`);
     if (!response.ok) throw new Error(await readError(response));
     setResult(await response.json() as RunResponse);
+  }
+
+  async function deleteHistory(run: RunSummary) {
+    const response = await apiFetch(
+      `/api/runs/${run.run_id}?expected_revision=${run.revision}`,
+      { method: "DELETE" },
+    );
+    if (!response.ok) {
+      if (response.status === 409) await refreshHistory();
+      throw new Error(await readError(response));
+    }
+    const deleted = await response.json() as { deleted?: unknown; cleanup_complete?: unknown };
+    if (deleted.deleted !== true || typeof deleted.cleanup_complete !== "boolean") {
+      throw new Error("删除响应不完整，请刷新历史确认结果。");
+    }
+    setHistory((current) => current.filter((item) => item.run_id !== run.run_id));
+    if (result?.record.run_id === run.run_id) setResult(null);
+    if (parentRunId === run.run_id) {
+      setParentRunId(null);
+      setRerunInput(null);
+    }
+    await refreshHistory();
+    setNotice(deleted.cleanup_complete
+      ? `已删除运行 ${run.run_id.slice(0, 8)} 及关联报告产物。`
+      : `已删除运行 ${run.run_id.slice(0, 8)}；部分云端报告对象需管理员继续清理。`);
   }
 
   async function loadInputs() {
@@ -521,11 +548,37 @@ export function ProjectWorkbench({ session, onBusyChange }: {
             </div>
             <p className="wb-hint">最近 100 次运行。打开历史可恢复结果、检查点和复核记录。</p>
             <div className="wb-history">
-              {history.map((run) => <button className="wb-history-item" key={run.run_id}
-                disabled={busy !== null} onClick={() => void perform("history", () => openRun(run.run_id))}>
-                <strong>{run.project_name} · {run.report_period ? `${run.report_period.start_date} 至 ${run.report_period.end_date}` : run.report_date}</strong>
-                <span>{run.run_id.slice(0, 8)} · {run.decision ? decisionLabel(run.decision) : executionLabel(run.execution_status)}</span>
-              </button>)}
+              {history.map((run) => (
+                <div className="wb-history-row" key={run.run_id}>
+                  <button className="wb-history-item"
+                    disabled={busy !== null} onClick={() => void perform("history", () => openRun(run.run_id))}>
+                    <strong>{run.project_name} · {run.report_period ? `${run.report_period.start_date} 至 ${run.report_period.end_date}` : run.report_date}</strong>
+                    <span>{run.run_id.slice(0, 8)} · {run.decision ? decisionLabel(run.decision) : executionLabel(run.execution_status)}</span>
+                  </button>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      className="wb-btn wb-history-delete"
+                      aria-label={`删除运行 ${run.run_id.slice(0, 8)}`}
+                      title={run.execution_status === "running"
+                        ? "运行结束后才能删除"
+                        : "删除该条运行历史"}
+                      disabled={busy !== null || run.execution_status === "running"}
+                      onClick={() => {
+                        const period = run.report_period
+                          ? `${run.report_period.start_date} 至 ${run.report_period.end_date}`
+                          : run.report_date;
+                        if (!window.confirm(
+                          `确认删除“${run.project_name} · ${period}”的运行历史及关联报告产物？此操作不可撤销。`,
+                        )) return;
+                        void perform("delete", () => deleteHistory(run));
+                      }}
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              ))}
               {history.length === 0 && <p className="wb-hint">暂无运行记录。</p>}
             </div>
           </section>

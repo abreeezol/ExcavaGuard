@@ -151,6 +151,10 @@ export const resumeRequestSchema = z.strictObject({
   expected_revision: z.number().int().positive(),
 });
 
+export const deleteRunRequestSchema = z.strictObject({
+  expected_revision: z.number().int().positive(),
+});
+
 export const persistedRunSchema = z.strictObject({
   schema: z.literal("excavaguard.persisted_run/v1"),
   run_id: z.uuid(),

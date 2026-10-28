@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -10,7 +11,7 @@ import {
   type EngineerRiskEvaluationInput,
 } from "@/contracts/engineer-evaluation";
 import type { ReportDraft, ReportArtifact } from "@/contracts/agent-runtime";
-import { readRun, saveRun, listRuns } from "@/server/storage/run-store";
+import { deleteRun, readRun, saveRun, listRuns } from "@/server/storage/run-store";
 import { executeAgentRun } from "@/server/agents/executor";
 import { reviewRun, resumeRun } from "@/server/runs";
 import { GET as artifactGET } from "@/app/api/report-artifacts/[draftId]/[fileName]/route";
@@ -178,6 +179,52 @@ describe("运行持久化与复核", () => {
     const record = await saveRun(emptyRun(), 0, ACCESS);
     await expect(readRun(record.run_id, { ...ACCESS, project_id: randomUUID() })).rejects.toMatchObject({ code: "RUN_NOT_FOUND" });
     await expect(readRun("../other", ACCESS)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+  });
+
+  it("按当前修订删除指定运行及报告产物，不影响其他历史", async () => {
+    const retained = await saveRun(emptyRun(), 0, ACCESS);
+    const record = await auditedRun();
+    const draftId = record.result!.agent_run!.state.report_draft!.ref.artifact_id;
+    const artifactDirectory = resolve("var/report-artifacts", draftId);
+    expect(existsSync(artifactDirectory)).toBe(true);
+
+    await expect(deleteRun(record.run_id, record.revision + 1, ACCESS))
+      .rejects.toMatchObject({ code: "RUN_CONFLICT" });
+    expect(await readRun(record.run_id, ACCESS)).toMatchObject({ run_id: record.run_id });
+
+    expect(await deleteRun(record.run_id, record.revision, ACCESS)).toEqual({
+      deleted: true,
+      cleanup_complete: true,
+    });
+    await expect(readRun(record.run_id, ACCESS)).rejects.toMatchObject({ code: "RUN_NOT_FOUND" });
+    expect((await listRuns(ACCESS)).map((run) => run.run_id)).toEqual([retained.run_id]);
+    expect(existsSync(artifactDirectory)).toBe(false);
+    expect((await download(record)).status).toBe(404);
+  });
+
+  it("活动租约中的运行不能删除", async () => {
+    const active = emptyRun();
+    active.execution_status = "running";
+    active.lease_until = new Date(Date.now() + 60_000).toISOString();
+    const record = await saveRun(active, 0, ACCESS);
+    await expect(deleteRun(record.run_id, record.revision, ACCESS))
+      .rejects.toMatchObject({ code: "INVALID_TRANSITION" });
+    expect(await readRun(record.run_id, ACCESS)).toMatchObject({ execution_status: "running" });
+  });
+
+  it("删除与新修订并发时仅一个操作成功", async () => {
+    const record = await saveRun(emptyRun(), 0, ACCESS);
+    const outcomes = await Promise.allSettled([
+      deleteRun(record.run_id, record.revision, ACCESS),
+      saveRun({
+        ...record,
+        updated_at: new Date().toISOString(),
+        error: { code: "CONCURRENT_UPDATE", message: "并发更新。" },
+      }, record.revision, ACCESS),
+    ]);
+    expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.find((outcome) => outcome.status === "rejected"))
+      .toMatchObject({ reason: { code: "RUN_CONFLICT" } });
   });
 
   it("接受绑定当前草稿，保存理由与轨迹，源事实和文件指纹不变", async () => {

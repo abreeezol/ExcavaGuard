@@ -27,6 +27,7 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
   let readIntegrationConfig: typeof import("@/server/config").readIntegrationConfig;
   let readRun: typeof import("@/server/storage/run-store").readRun;
   let saveRun: typeof import("@/server/storage/run-store").saveRun;
+  let deleteRun: typeof import("@/server/storage/run-store").deleteRun;
   const cleanupObjectPaths = new Set<string>();
   const fileIds = new Set<string>();
   let runId: string | null = null;
@@ -41,7 +42,7 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
     ({ POST: standardsPOST } = await import("@/app/api/standards/route"));
     ({ POST: runsPOST } = await import("@/app/api/runs/route"));
     ({ POST: reviewPOST } = await import("@/app/api/runs/[runId]/review/route"));
-    ({ readRun, saveRun } = await import("@/server/storage/run-store"));
+    ({ deleteRun, readRun, saveRun } = await import("@/server/storage/run-store"));
     ({ GET: artifactGET } = await import(
       "@/app/api/report-artifacts/[draftId]/[fileName]/route"
     ));
@@ -316,5 +317,16 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
     expect(await tamperedResponse.json()).toMatchObject({
       error: { code: "ARTIFACT_CHANGED" },
     });
+
+    const reviewed = await readRun(runId, access);
+    expect(await deleteRun(runId, reviewed.revision, access)).toEqual({
+      deleted: true,
+      cleanup_complete: true,
+    });
+    await expect(readRun(runId, access)).rejects.toMatchObject({ code: "RUN_NOT_FOUND" });
+    expect((await client
+      .from("excavaguard_report_artifacts")
+      .select("artifact_id")
+      .eq("run_id", runId)).data).toHaveLength(0);
   }, 90_000);
 });

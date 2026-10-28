@@ -277,6 +277,8 @@ publishable key 可达。当前基础设施写探针已达到 `infrastructure_ve
 - `GET/POST /api/projects`：获授权工程列表；系统管理员创建工程。
 - `POST /api/projects/select`：选择获授权工程，更新服务端签名会话。
 - `GET /api/runs` / `GET /api/runs/<run_id>`：最近 100 次摘要 / 完整请求与结果。
+- `DELETE /api/runs/<run_id>?expected_revision=<revision>`：仅项目管理员可按当前修订删除
+  单条运行历史及关联报告产物；活动运行或旧修订请求拒绝删除。
 - `POST /api/runs/<run_id>/review`：`expected_revision`、完整 `draft_ref`、
   `decision`（accepted / needs_changes / rejected）、必填 `reason`，以及可选
   `evaluations[]`（风险条目位置、处置结论、工程师说明）。
