@@ -18,7 +18,10 @@ stdin （JSON）：
         "excavation_depth_m": 20.0,
         "design_values": {"support_axial_force": 1000.0},
         "post_slab_from": "2026-09-10",
-        "point_overrides": {"LF-01": {"crack_state": "既有裂缝"}}
+        "point_overrides": {"LF-01": {"crack_state": "既有裂缝"}},
+        # --- 非基坑场景（新增，可选）---
+        "conditions": {"construction_method": "矿山法", "rock_class": "IV"},
+        "reference_lengths": {"buried_depth_m": 32.0, "span_m": 6.2}
       },
       "options": {                             # 可选
         "file_path": null,                     # 与 records 二选一：由引擎侧读取文件（含编码探测）
@@ -29,7 +32,11 @@ stdin （JSON）：
         "project": {"name": "××基坑工程"},
         "points_meta": {"WTHD-01": {"point_name": "墙顶水平位移 1 号点"}},
         "standards_dir": null,                 # 指定用户规范目录时传入
-        "with_payload": true                   # 是否返回日报载荷（默认 true）
+        "with_payload": true,                  # 是否返回日报载荷（默认 true）
+        "scenario": null,                      # 场景画像 id；缺省读 EXCAVAGUARD_SCENARIO，再缺省 jikeng
+        "derived_pairs": null,                 # 差值型派生点对 [{point_a, point_b, section_id}]
+        "derived_metric_key": null,            # 差值型派生的目标监测项（如 clearance_convergence）
+        "section_map": null                    # 测点→断面映射 {"GD-01": "DK1+200"}，用于断面级综合判定
       }
     }
 
@@ -176,6 +183,7 @@ def main() -> int:
         engine / "pipeline" / "stage1_data_preparation",
         engine / "pipeline" / "stage2_deterministic_calc",
         engine / "pipeline" / "stage3_standard_comparison",
+        engine / "scenarios",
     ):
         if str(p) not in sys.path:
             sys.path.insert(0, str(p))
@@ -266,7 +274,18 @@ def main() -> int:
     ctx_raw = req.get("context")
     if not isinstance(ctx_raw, dict):
         return _fail("INVALID_INPUT", "context 必须是对象（工程条件）。", 2)
-    if ctx_raw.get("excavation_depth_m") in (None, ""):
+
+    # --- 场景画像 ---
+    scenario_name = opts.get("scenario") or ctx_raw.get("scenario_id")
+    try:
+        import scenario as scenario_profile
+
+        profile = scenario_profile.load_profile(scenario_name)
+    except Exception as exc:  # noqa: BLE001 - 画像不可用属输入问题
+        return _fail("INVALID_INPUT", f"场景画像不可用：{exc}", 2)
+
+    ref_key = scenario_profile.reference_length_key(profile)
+    if ctx_raw.get("excavation_depth_m") in (None, "") and ref_key == "excavation_depth_m":
         # 不阻断，但明确告知：%H 类限值无法换算（见 06_..._目标实现度评估.md P1-2）
         sys.stderr.write(
             "WARN: 未提供 excavation_depth_m，%H 类限值无法换算，"
@@ -276,7 +295,22 @@ def main() -> int:
     try:
         from orchestrator import build_daily_report_input, run_pipeline
         from risk_identifier import ProjectContext
-        from standards_registry import StandardsRegistry
+
+        conditions_raw = ctx_raw.get("conditions")
+        conditions = dict(conditions_raw) if isinstance(conditions_raw, dict) else {}
+        # 兼容：调用方把条件维度写在 context 顶层（如 construction_method）时一并采集
+        for dim in scenario_profile.condition_dimensions(profile):
+            if dim in ctx_raw and ctx_raw[dim] not in (None, "") and dim not in conditions:
+                conditions[dim] = ctx_raw[dim]
+
+        reference_lengths_raw = ctx_raw.get("reference_lengths")
+        reference_lengths = (
+            {str(k): float(v) for k, v in reference_lengths_raw.items() if isinstance(v, (int, float))}
+            if isinstance(reference_lengths_raw, dict)
+            else {}
+        )
+        if ctx_raw.get("excavation_depth_m") not in (None, "") and "excavation_depth_m" not in reference_lengths:
+            reference_lengths["excavation_depth_m"] = float(ctx_raw["excavation_depth_m"])
 
         ctx = ProjectContext(
             safety_level=ctx_raw.get("safety_level") or "一级",
@@ -289,13 +323,19 @@ def main() -> int:
             danger_signals=ctx_raw.get("danger_signals") or {},
             point_overrides=ctx_raw.get("point_overrides") or {},
             post_slab_from=ctx_raw.get("post_slab_from"),
+            conditions=conditions,
+            reference_lengths=reference_lengths,
         )
 
         standards_dir = opts.get("standards_dir")
-        registry = StandardsRegistry(user_dir=standards_dir) if standards_dir else None
+        registry = scenario_profile.load_registry(profile, user_dir=standards_dir)
 
         value_range = opts.get("value_range")
         vr = tuple(value_range) if isinstance(value_range, list) and len(value_range) == 2 else None
+
+        derived_pairs = opts.get("derived_pairs")
+        if derived_pairs is not None and not isinstance(derived_pairs, list):
+            return _fail("INVALID_INPUT", "options.derived_pairs 必须是数组。", 2)
 
         result = run_pipeline(
             records,
@@ -303,6 +343,9 @@ def main() -> int:
             expected_interval_days=opts.get("expected_interval_days"),
             value_range=vr,
             registry=registry,
+            scenario=profile,
+            derived_pairs=derived_pairs,
+            derived_metric_key=opts.get("derived_metric_key"),
         )
 
         if period is not None:
@@ -318,6 +361,7 @@ def main() -> int:
                 points_meta=opts.get("points_meta"),
                 report_date=opts.get("report_date"),
                 item_date=opts.get("report_date") if aggregation_report or file_paths else None,
+                section_map=opts.get("section_map") if isinstance(opts.get("section_map"), dict) else None,
             )
 
         elapsed = round((time.perf_counter() - t0) * 1000, 1)
@@ -334,6 +378,7 @@ def main() -> int:
                     "source_records": source_record_count or len(records),
                     "engine_dir": str(engine),
                     "python": sys.version.split()[0],
+                    "scenario": scenario_profile.summary(profile),
                     "read_report": read_report,
                     "daily_aggregation": aggregation_report,
                 },

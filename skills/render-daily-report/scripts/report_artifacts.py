@@ -22,10 +22,12 @@ from openpyxl.utils import get_column_letter
 from report_adapter import canonical_json, cover_blocks, value_hash, _unit_from_checks
 from evidence_labels import clean_name, citation_label, engine_basis, paragraph_text, form_evidence, source_location, project_form_candidates
 from appendix_forms import APPENDIX_FORMS
+from scenario_forms import active_report_scenario
+import tunnel_appendix_forms as tunnel_forms
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ARTIFACT_ROOT = REPO_ROOT / "var" / "report-artifacts"
-FORM_TITLES = {
+JIKENG_FORM_TITLES = {
     "表A": "附表A_水平位移监测日报表",
     "表B": "附表B_深层水平位移监测日报表",
     "表C": "附表C_围护墙内力等监测日报表",
@@ -33,6 +35,112 @@ FORM_TITLES = {
     "表E": "附表E_地下水位等监测日报表",
     "表F": "附表F_裂缝监测日报表",
 }
+
+
+def _is_tunnel() -> bool:
+    """当前场景是否使用隧道表式（GB 50911-2013 附录 D）。"""
+    return active_report_scenario() == "tunnel"
+
+
+def _form_titles() -> dict[str, str]:
+    return tunnel_forms.form_titles() if _is_tunnel() else JIKENG_FORM_TITLES
+
+
+def _form_template(form: str) -> dict[str, Any]:
+    """按完整表号取表式：隧道用附录 D 注册表，基坑沿用附录 A~G。"""
+    if form in tunnel_forms.TUNNEL_FORMS:
+        return tunnel_forms.TUNNEL_FORMS[form]
+    return APPENDIX_FORMS[form[-1:]]
+
+
+def _limit_of(item: dict[str, Any], check_name: str, *keys: str) -> Any:
+    """从冻结 checks 里取该检查项的控制值（不改写、不重算）。"""
+    for check in item.get("checks") or []:
+        if not isinstance(check, dict) or check.get("check") != check_name:
+            continue
+        for key in ("limit",) + keys:
+            if check.get(key) is not None:
+                return check[key]
+    return None
+
+
+def _tunnel_form_row(
+    form: str,
+    item: dict[str, Any],
+    payload: dict[str, Any],
+    item_index: int,
+) -> tuple[list[str], list[tuple[Any, str | None]]]:
+    """按附录 D 的列构造一行（值与冻结事实路径成对返回）。"""
+    prefix = f"items.{item_index}"
+    baseline = item.get("baseline")
+    previous = item.get("previous")
+    cumulative = item.get("cumulative")
+    prev_cum = (
+        float(previous) - float(baseline)
+        if isinstance(previous, (int, float)) and isinstance(baseline, (int, float))
+        else None
+    )
+    note_text = _item_note(item)
+    if item.get("rag_basis"):
+        note_text += "；RAG解释依据：" + item["rag_basis"]
+    note = (note_text, None)
+    template = tunnel_forms.TUNNEL_FORMS[form]
+    columns = template["columns"]
+    limit_cum = _limit_of(item, "累计值")
+    limit_rate = _limit_of(item, "变化速率")
+    limit_ratio = _limit_of(item, "实测值 / (设计值 × 控制比例)")
+
+    if form == "表D1":
+        values = [
+            (item.get("point_id"), f"{prefix}.point_id"),
+            (baseline, f"{prefix}.baseline"),
+            (prev_cum, None),
+            (cumulative, f"{prefix}.cumulative"),
+            (item.get("single_change"), f"{prefix}.single_change"),
+            (item.get("rate"), f"{prefix}.rate"),
+            (limit_cum, None),
+            (limit_rate, None),
+            (item.get("risk_level"), f"{prefix}.risk_level"),
+            note,
+        ]
+    elif form == "表D2":
+        values = [
+            (item.get("point_id"), f"{prefix}.point_id"),
+            (item.get("depth"), None),
+            (prev_cum, None),
+            (cumulative, f"{prefix}.cumulative"),
+            (item.get("single_change"), f"{prefix}.single_change"),
+            (item.get("rate"), f"{prefix}.rate"),
+            (limit_cum, None),
+            (limit_rate, None),
+            ("（监测深度-位移曲线由监测系统生成，本表保留位置）", None),
+        ]
+    elif form == "表D3":
+        values = [
+            (item.get("point_id"), f"{prefix}.point_id"),
+            (baseline, f"{prefix}.baseline"),
+            (previous, f"{prefix}.previous"),
+            (item.get("current"), f"{prefix}.current"),
+            (item.get("single_change"), f"{prefix}.single_change"),
+            (item.get("rate"), f"{prefix}.rate"),
+            (limit_cum, None),
+            ("—", None),
+            (item.get("risk_level"), f"{prefix}.risk_level"),
+            note,
+        ]
+    else:  # 表D4
+        values = [
+            (item.get("point_id"), f"{prefix}.point_id"),
+            (baseline, f"{prefix}.baseline"),
+            (previous, f"{prefix}.previous"),
+            (item.get("current"), f"{prefix}.current"),
+            (item.get("single_change"), f"{prefix}.single_change"),
+            (item.get("rate"), f"{prefix}.rate"),
+            (limit_ratio if limit_ratio is not None else limit_cum, None),
+            (item.get("risk_level"), f"{prefix}.risk_level"),
+            note,
+        ]
+    return columns, values
 RISK_FILLS = {
     "正常": "E2F0D9",
     "关注": "FFF2CC",
@@ -343,45 +451,68 @@ def _build_form_sheets(
 ) -> OrderedDict[str, dict[str, Any]]:
     grouped: dict[str, list[tuple[int, dict[str, Any]]]] = {}
     items = report["sections"]["monitoring_results"]["items"]
+    titles = _form_titles()
     for index, item in enumerate(items):
-        item = {**item, "rag_basis": form_evidence(report, str(item.get("appendix_form") or "")[-1:])}
         form = item.get("appendix_form")
-        if form in FORM_TITLES:
+        if form in titles:
+            evidence_key = "" if form in tunnel_forms.TUNNEL_FORMS else str(form)[-1:]
+            item = {**item, "rag_basis": form_evidence(report, evidence_key)}
             grouped.setdefault(form, []).append((index, item))
 
     sheets: OrderedDict[str, dict[str, Any]] = OrderedDict()
     project = report["sections"]["project"]
-    for form in FORM_TITLES:
+    selected_indices = {
+        "表A": [0, 1, 3, 4, 5, 9],
+        "表B": [0, 1, 2, 4, 5, 6, 9],
+        "表C": [0, 1, 2, 3, 4, 5, 6, 8, 11],
+        "表D": [0, 1, 2, 3, 4, 5, 6, 8, 11],
+        "表E": [0, 1, 2, 3, 4, 5, 6, 7, 9, 12],
+        "表F": [0, 1, 2, 3, 4, 5, 6, 7, 9, 11],
+    }
+    for form in titles:
         rows = grouped.get(form)
         if not rows:
             continue
-        name = FORM_TITLES[form]
-        template = APPENDIX_FORMS[form[-1]]
+        name = titles[form]
+        template = _form_template(form)
         headers = template["columns"]
-        sheet = _new_sheet(header_row=6)
+        header_rows = int(template.get("header_rows", 1))
+        header_row = 6
+        data_start = header_row + header_rows
+        sheet = _new_sheet(header_row=header_row)
+        tunnel_header = form in tunnel_forms.TUNNEL_FORMS
+        header_values = _tunnel_header_values(report, payload) if tunnel_header else {}
         for row, text in enumerate(template["header_lines"], 1):
-            if row == 2:
-                text = f"工程名称：{_display(project.get('name'))}　报表编号：＿＿＿＿（草稿）"
-            if row == 5:
+            if tunnel_header:
+                # 附录 D 表头：仪器型号/出厂编号/检定日期/本次与上次监测时间/天气
+                text = str(text).format(**header_values)
+            elif row == int(template.get("project_line", 2)):
+                text = f"监测工程名称：{_display(project.get('name'))}　报表编号：＿＿＿＿（草稿）"
+            if not tunnel_header and row == int(template.get("date_line", 5)):
                 text = (f"报告区间：{payload['period']['start_date']} 至 {payload['period']['end_date']}；本表为周期最严重原观测。"
-                        if payload.get("period") else f"本次监测日期：{_display(project.get('report_date'))}　上次监测时间：见冻结记录")
+                        if payload.get("period") else f"本次监测时间：{_display(project.get('report_date'))}　上次监测时间：见冻结记录")
+            if text in (None, ""):
+                continue
             _merge(sheet, row, 1, len(headers), text, style="title" if row == 1 else "body")
-        for column, header in enumerate(headers, 1):
-            _put(sheet, 6, column, header, style="header")
-        selected_indices = {
-            "表A": [0, 1, 3, 4, 5, 9],
-            "表B": [0, 1, 2, 4, 5, 6, 9],
-            "表C": [0, 1, 2, 3, 4, 5, 6, 8, 11],
-            "表D": [0, 1, 2, 3, 4, 5, 6, 8, 11],
-            "表E": [0, 1, 2, 3, 4, 5, 6, 7, 9, 12],
-            "表F": [0, 1, 2, 3, 4, 5, 6, 7, 9, 11],
-        }
-        for row_number, (item_index, item) in enumerate(rows, 7):
-            _headers, values = _form_row(form, item, payload, item_index)
-            values = [values[index] for index in selected_indices[form]]
-            if form == "表E":
-                values[2:5] = [("—", None)] * 3
-                values[-1] = (str(values[-1][0]) + "；未提供高程基准，高程栏留空，原观测值见冻结明细。", None)
+        first_header = template.get("header_row1") or headers
+        for column, header in enumerate(first_header, 1):
+            if header:
+                _put(sheet, header_row, column, header, style="header")
+        if header_rows == 2:
+            for column, header in enumerate(template.get("header_row2") or [], 1):
+                if header:
+                    _put(sheet, header_row + 1, column, header, style="header")
+            for start, end in template.get("merge_groups") or []:
+                _merge(sheet, header_row, start, end, first_header[start - 1], style="header")
+        for row_number, (item_index, item) in enumerate(rows, data_start):
+            if form in tunnel_forms.TUNNEL_FORMS:
+                _headers, values = _tunnel_form_row(form, item, payload, item_index)
+            else:
+                _headers, values = _form_row(form, item, payload, item_index)
+                values = [values[index] for index in selected_indices[form]]
+                if form == "表E":
+                    values[2:5] = [("—", None)] * 3
+                    values[-1] = (str(values[-1][0]) + "；未提供高程基准，高程栏留空，原观测值见冻结明细。", None)
             for column, (value, fact_path) in enumerate(values, 1):
                 _put(
                     sheet,
@@ -391,26 +522,26 @@ def _build_form_sheets(
                     style="body",
                     fact_path=fact_path,
                 )
-        footer_row = len(rows) + 8
+        footer_row = len(rows) + data_start
         narrative = report["sections"].get("narrative") or {}
         form_analysis = next((item for item in narrative.get("appendix_analysis", [])
-                              if item["form"] == form[-1]), None)
+                              if item["form"] == str(form)[-1:]), None)
         work_condition = narrative.get("work_condition", {}).get("text") or report["sections"]["work_condition_analysis"]["work_condition"]
         analysis = form_analysis["analysis"]["text"] if form_analysis else "风险与弃权见逐测点备注；请工程师核对实测值与适用判据。"
         recommendation = form_analysis["recommendation"]["text"] if form_analysis else "对未知项补充资料后复核，对超限项核验现场情况；本表为草稿。"
         footer = [
-            f"工况描述：{paragraph_text(report, narrative['work_condition']) if narrative else work_condition}",
-            f"简要分析及判断性结论：{paragraph_text(report, form_analysis['analysis']) if form_analysis else analysis}",
+            f"施工工况：{paragraph_text(report, narrative['work_condition']) if narrative else work_condition}",
+            f"监测结论及建议：{paragraph_text(report, form_analysis['analysis']) if form_analysis else analysis}",
             f"复核建议：{paragraph_text(report, form_analysis['recommendation']) if form_analysis else recommendation}",
-            f"工程负责人：＿＿＿＿　监测单位：{_display(project.get('monitoring_unit'))}",
+            f"监测项目负责人：＿＿＿＿　监测单位：{_display(project.get('monitoring_unit'))}",
             template["footer_lines"][-1],
         ]
         for text in footer:
-            for line in text.split("\n"):
+            for line in str(text).split("\n"):
                 for offset in range(0, len(line), 240):
                     _merge(sheet, footer_row, 1, len(headers), line[offset:offset + 240], style="note")
                     footer_row += 1
-        sheet["data_end_row"] = len(rows) + 6
+        sheet["data_end_row"] = len(rows) + data_start - 1
         sheets[name] = sheet
     return sheets
 
@@ -714,6 +845,193 @@ def _period_sheets(payload: dict[str, Any]) -> OrderedDict:
     return sheets
 
 
+def _is_tunnel_report(payload: dict[str, Any], report: dict[str, Any]) -> bool:
+    scenario = str(
+        (payload.get("project") or {}).get("scenario_id")
+        or (report["sections"].get("project") or {}).get("scenario_id")
+        or ""
+    )
+    return scenario == "tunnel"
+
+
+def _short_timestamp(value: Any) -> str:
+    """零点整的时间戳只保留日期，避免表头出现“00:00:00”。"""
+    text = str(value or "").strip()
+    for suffix in (" 00:00:00", "T00:00:00"):
+        if text.endswith(suffix):
+            return text[: -len(suffix)]
+    return text
+
+
+def _tunnel_header_values(report: dict[str, Any], payload: dict[str, Any]) -> dict[str, str]:
+    """附录 D 表头必备要素（第 11.0.5 条第 1 款第 3 项）。"""
+    project = payload.get("project") or {}
+    patrol = payload.get("patrol") or {}
+    items = payload.get("items") or []
+    times = sorted({str(item.get("timestamp")) for item in items if item.get("timestamp")})
+    def blank(value: Any) -> str:
+        """表头缺值保留填写位，不写“—”（表头留白与“无此项”含义不同）。"""
+        return _display(value) if value not in (None, "") else "＿＿＿＿"
+
+    return {
+        "project_name": blank(project.get("name")),
+        "report_no": "＿＿＿＿（草稿）",
+        "weather": blank(patrol.get("weather") or project.get("weather")),
+        "time_current": _short_timestamp(times[-1]) if times else "＿＿年＿＿月＿＿日＿＿时",
+        "time_previous": "＿＿年＿＿月＿＿日＿＿时",
+        "instrument_model": blank(project.get("instrument_model")),
+        "instrument_serial": blank(project.get("instrument_serial")),
+        "calibrated_at": blank(project.get("instrument_calibrated_at")),
+    }
+
+
+def _build_patrol_sheet(
+    report: dict[str, Any],
+    payload: dict[str, Any],
+) -> tuple[str, dict[str, Any]] | None:
+    """附录 C 现场巡查报表（按施工工法选表）。
+
+    没有巡查记录就不出表；工法未知也不出表 —— 不允许靠猜表式把日报"补齐"。
+    """
+    patrol = payload.get("patrol") or {}
+    records = [record for record in (patrol.get("records") or []) if isinstance(record, dict)]
+    if not records:
+        return None
+    conditions = (payload.get("project") or {}).get("conditions") or {}
+    method = patrol.get("method") or conditions.get("construction_method")
+    form = tunnel_forms.patrol_form_for_method(method)
+    if form is None:
+        return None
+    values = _tunnel_header_values(report, payload)
+    values["patrol_time"] = _display(patrol.get("time"))
+    rows, extras = tunnel_forms.match_patrol_records(form["key"], records)
+
+    sheet = _new_sheet(header_row=4)
+    columns = form["columns"]
+    for row_index, line in enumerate(form["header_lines"][:3], 1):
+        _merge(sheet, row_index, 1, len(columns), line.format(**values),
+               style="title" if row_index == 1 else "body")
+    for column, header in enumerate(columns, 1):
+        _put(sheet, 4, column, header, style="header")
+
+    row_number = 5
+    previous_category = None
+    for entry in rows + extras:
+        category = str(entry.get("category") or "其他")
+        matched = bool(entry.get("matched"))
+        result = entry.get("result")
+        note = entry.get("note")
+        if not matched:
+            result = "未填写"
+            note = (str(note) + "；" if note else "") + "规范应巡查内容，本期未记录"
+        # 分类列只在分类变化时写一次，其余留空（不合并单元格，避免覆盖为只读单元格）
+        if category != previous_category:
+            _put(sheet, row_number, 1, category)
+        _put(sheet, row_number, 2, entry.get("content"))
+        _put(sheet, row_number, 3, result, style="risk" if result == "未填写" else "body")
+        if note:
+            _put(sheet, row_number, 4, note)
+        previous_category = category
+        row_number += 1
+
+    sheet["data_end_row"] = row_number - 1
+    footer_row = row_number
+    for text in form["footer_lines"]:
+        _merge(sheet, footer_row, 1, len(columns), text, style="note")
+        footer_row += 1
+    _merge(
+        sheet,
+        footer_row,
+        1,
+        len(columns),
+        "巡查结果仅记录现场所见，不参与风险分级；“未填写”不得视为正常。",
+        style="note",
+    )
+    return form["sheet_title"], sheet
+
+
+def _build_point_layout_sheet(
+    report: dict[str, Any],
+    payload: dict[str, Any],
+) -> tuple[str, dict[str, Any]]:
+    """监测点平面位置图（第 11.0.5 条第 1 款第 3 项）。
+
+    系统不绘制正式平面图，只按冻结载荷输出测点清单与里程/坐标，
+    并在表内明确"正式图应由项目提供"，避免用清单冒充平面图。
+    """
+    items = payload.get("items") or []
+    sheet = _new_sheet(header_row=5)
+    _merge(sheet, 1, 1, 7, "监测点平面位置图（测点清单）", style="title")
+    _merge(
+        sheet,
+        2,
+        1,
+        7,
+        "依据：GB 50911-2013 第 11.0.5 条第 1 款第 3 项“监测点平面位置图”。"
+        "正式平面位置图应由项目提供（CAD/PDF 盖章图）；本表按冻结载荷列出测点清单，供核对图上点位。",
+        style="note",
+    )
+    _merge(
+        sheet,
+        3,
+        1,
+        7,
+        "未提供平面坐标的测点只列里程/断面，不得据此推定点位；坐标与里程均为调用方提供的台账值，系统不计算。",
+        style="note",
+    )
+    headers = ("序号", "监测点号", "监测点名称", "监测项目", "断面/里程", "平面坐标 X(m)", "平面坐标 Y(m)")
+    for column, header in enumerate(headers, 1):
+        _put(sheet, 5, column, header, style="header")
+
+    seen: set[tuple[Any, ...]] = set()
+    row = 6
+    missing_coord = 0
+    for item in items:
+        key = (
+            item.get("point_id"),
+            item.get("metric_key"),
+            item.get("mileage") or item.get("section_id"),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        x_value = item.get("x")
+        y_value = item.get("y")
+        if x_value is None or y_value is None:
+            missing_coord += 1
+        _put(sheet, row, 1, len(seen))
+        _put(sheet, row, 2, item.get("point_id"))
+        _put(sheet, row, 3, item.get("point_name"))
+        _put(sheet, row, 4, item.get("metric_name"))
+        _put(sheet, row, 5, item.get("mileage") or item.get("section_id"))
+        _put(sheet, row, 6, x_value)
+        _put(sheet, row, 7, y_value)
+        row += 1
+    sheet["data_end_row"] = row - 1
+    if not seen:
+        _merge(sheet, row, 1, 7, "本期无测点记录，未生成测点清单。", style="note")
+        row += 1
+    elif missing_coord:
+        _merge(
+            sheet,
+            row,
+            1,
+            7,
+            f"其中 {missing_coord} 个测点未提供平面坐标（显示为“—”），平面位置需项目补图或补测点坐标。",
+            style="note",
+        )
+        row += 1
+    _merge(
+        sheet,
+        row,
+        1,
+        7,
+        "本表不是测量成果图，不用于放样；点位冲突以项目测量成果为准。",
+        style="note",
+    )
+    return "监测点平面位置图", sheet
+
+
 def build_workbook_model(
     report: dict[str, Any],
     payload: dict[str, Any],
@@ -721,12 +1039,21 @@ def build_workbook_model(
     sheets: OrderedDict[str, dict[str, Any]] = OrderedDict()
     cover_name = report.get("report_label", "监测日报")
     sheets[cover_name] = _build_cover_sheet(report, payload)
+    if _is_tunnel_report(payload, report):
+        # 11.0.5-1-2：现场巡查信息排在监测项目日报表之前
+        patrol_sheet = _build_patrol_sheet(report, payload)
+        if patrol_sheet is not None:
+            sheets[patrol_sheet[0]] = patrol_sheet[1]
     forms = _build_form_sheets(report, payload)
     if payload.get("period"):
         forms = {name.replace("日报表", "周期表"): sheet for name, sheet in forms.items()}
     sheets.update(forms)
     if payload.get("period"):
         sheets.update(_period_sheets(payload))
+    if _is_tunnel_report(payload, report):
+        # 11.0.5-1-3：监测点平面位置图随日报表提供
+        layout_name, layout_sheet = _build_point_layout_sheet(report, payload)
+        sheets[layout_name] = layout_sheet
     sheets["超限测点清单"] = _build_alert_sheet(report, payload)
     sheets.update(_evidence_sheets(report))
 
