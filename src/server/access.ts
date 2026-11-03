@@ -29,12 +29,32 @@ function config() {
     mode: accounts ? "accounts" as const : password ? "password" as const : "local" as const,
     secret: accounts ? signature(directory!.session_secret, secret || directory!.session_secret) : signature(`${projectId}:${password}`, secret) };
 }
+function originFromHeader(protocol: string, host: string | null): string | null {
+  if (!host?.trim()) return null;
+  try { return new URL(`${protocol}://${host.trim()}`).origin; }
+  catch { return null; }
+}
+function allowedOrigins(request: Request, url: URL) {
+  const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = forwardedProtocol === "https" || forwardedProtocol === "http"
+    ? forwardedProtocol
+    : url.protocol.slice(0, -1);
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || request.headers.get("host");
+  return new Set([
+    url.origin,
+    originFromHeader(protocol, host),
+  ].filter((origin): origin is string => Boolean(origin)));
+}
 function checkOrigin(request: Request, local: boolean) {
   const url = new URL(request.url); const host = request.headers.get("host");
   if (local && (!["localhost", "127.0.0.1", "[::1]"].includes(url.hostname.toLowerCase()) ||
     (host && host.toLowerCase() !== url.host.toLowerCase()))) throw new AppError(403, "FORBIDDEN", "本地模式仅允许从本机访问。");
   const origin = request.headers.get("origin");
-  if (request.headers.get("sec-fetch-site") === "cross-site" || (origin && origin !== url.origin)) throw new AppError(403, "FORBIDDEN", "请从本站页面执行此操作。");
+  const origins = allowedOrigins(request, url);
+  if ((origin && !origins.has(origin)) || (request.headers.get("sec-fetch-site") === "cross-site" && (!origin || !origins.has(origin)))) {
+    throw new AppError(403, "FORBIDDEN", "请从本站页面执行此操作。");
+  }
 }
 function tokenFrom(request: Request) {
   return request.headers.get("cookie")?.split(";").map(p => p.trim()).find(p => p.startsWith(`${COOKIE_NAME}=`))?.slice(COOKIE_NAME.length + 1) ?? "";

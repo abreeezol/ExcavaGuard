@@ -99,6 +99,11 @@ describe("账号登录与获授权项目选择", () => {
     const cookie = await user("engineer", A);
     const tampered = cookie.replace(/v2\./, "v3.");
     expect(() => requireAccess(request("/api/runs", tampered))).toThrow();
+    expect((await login(new Request("http://0.0.0.0:3000/api/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", host: "39.96.71.0:3000", origin: "http://39.96.71.0:3000" },
+      body: JSON.stringify({ username: "engineer", password: PASSWORD }),
+    }))).status).toBe(200);
     const cross = new Request(base + "/api/session", { headers: { origin: "https://untrusted.example", cookie } });
     expect(sessionGET(cross).status).toBe(403);
     expect(logout(new Request(base + "/api/session", { method: "DELETE", headers: { cookie } })).headers.get("set-cookie")).toContain("Max-Age=0");
