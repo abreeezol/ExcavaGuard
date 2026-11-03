@@ -3,6 +3,16 @@
 当前应用已显式切换到 Supabase Provider；本目录保存基础设施、检查和真实验收说明。
 `var/` 中既有本地测试资产保留，不自动复制或删除。
 
+## 多端协作迁移
+
+已有存储表的项目还需执行 `migrations/202611020001_collaboration.sql`，
+为 `excavaguard_files` 新增可空上传者快照字段。旧记录保持 NULL。
+此字段记录本地账号身份，不引用 `auth.users`；原项目会话授权和服务端角色校验保持生效。
+运行、暂存评价及复核人使用现有不可变 JSON revision 存储，无需新建报告表。
+
+执行后用 `npm run supabase:check` 确认 `collaboration_ready=true`，再显式运行
+`npm run supabase:test` 验证真实 Provider。普通测试不连接云端。
+
 ## 0. 先轮换数据库密码
 
 此前数据库密码曾出现在对话中，应视为已泄露。进入 Supabase Dashboard 的

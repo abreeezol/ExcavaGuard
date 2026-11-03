@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/
 import { tmpdir } from "node:os";
 import { dirname, extname, join, resolve } from "node:path";
 import { z } from "zod";
+import type { Actor } from "@/contracts/actor";
 import { storedFileSchema, type FileKind, type StoredFile } from "@/contracts/monitoring-files";
 import { DEFAULT_PROJECT_ID } from "@/contracts/access";
 import { atomicJson, withFileLock } from "@/server/storage/atomic";
@@ -125,6 +126,7 @@ function toPublic(record: IndexRecord): StoredFile {
     sha256: record.sha256,
     created_at: record.created_at,
     storage: record.storage,
+    ...(record.uploaded_by !== undefined ? { uploaded_by: record.uploaded_by } : {}),
   };
 }
 
@@ -161,6 +163,7 @@ type SupabaseFileRow = {
   media_type: string;
   sha256: string;
   created_at: string;
+  uploaded_by?: Actor | null;
 };
 
 export type MaterializedFile = {
@@ -183,6 +186,7 @@ function toSupabasePublic(row: SupabaseFileRow): StoredFile {
     sha256: row.sha256,
     created_at: createdAt.toISOString(),
     storage: "supabase",
+    uploaded_by: row.uploaded_by ?? null,
   });
 }
 
@@ -190,7 +194,7 @@ async function getSupabaseRow(fileId: string): Promise<SupabaseFileRow | null> {
   const { client } = supabaseContext();
   const { data, error } = await client
     .from("excavaguard_files")
-    .select("file_id,project_id,kind,original_name,storage_path,size_bytes,media_type,sha256,created_at")
+    .select("*")
     .eq("file_id", fileId)
     .maybeSingle();
   if (error) throw supabaseStorageError("Supabase 文件元数据读取失败", error);
@@ -203,6 +207,7 @@ async function saveSupabaseFile(input: {
   bytes: Uint8Array;
   mediaType?: string;
   projectId: string;
+  uploadedBy?: Actor;
 }): Promise<StoredFile> {
   const ext = safeExtension(input.kind, input.originalName);
   const fileId = randomUUID();
@@ -231,13 +236,17 @@ async function saveSupabaseFile(input: {
       media_type: mediaType,
       sha256,
       created_at: createdAt,
+      ...(input.uploadedBy ? { uploaded_by: input.uploadedBy } : {}),
     })
-    .select("file_id,project_id,kind,original_name,storage_path,size_bytes,media_type,sha256,created_at")
+    .select("*")
     .single();
   if (metadataError) {
     const { error: cleanupError } = await client.storage.from(bucket).remove([storagePath]);
     const suffix = cleanupError ? `；对象清理失败：${cleanupError.message}` : "";
-    throw supabaseStorageError("Supabase 文件元数据写入失败", {
+    throw supabaseStorageError(
+      metadataError.code === "PGRST204" || metadataError.code === "42703"
+        ? "Supabase 上传者字段尚未就绪，请先执行 202611020001_collaboration.sql"
+        : "Supabase 文件元数据写入失败", {
       message: `${metadataError.message}${suffix}`,
     });
   }
@@ -250,6 +259,7 @@ export async function saveFile(input: {
   bytes: Uint8Array;
   mediaType?: string;
   projectId?: string;
+  uploadedBy?: Actor;
 }): Promise<StoredFile> {
   const provider = getStorageProvider();
   const { kind, originalName, bytes } = input;
@@ -275,6 +285,7 @@ export async function saveFile(input: {
       bytes,
       mediaType: input.mediaType,
       projectId: input.projectId ?? DEFAULT_PROJECT_ID,
+      uploadedBy: input.uploadedBy,
     });
   }
 
@@ -304,6 +315,7 @@ export async function saveFile(input: {
     created_at: new Date().toISOString(),
     storage: "local",
     stored_rel_path: rel.split("\\").join("/"),
+    uploaded_by: input.uploadedBy ?? null,
   };
 
   await withFileLock(`${indexPath()}.lock`, async () => {
@@ -319,7 +331,7 @@ export async function listFiles(kind?: FileKind, projectId?: string): Promise<St
     const { client } = supabaseContext();
     let query = client
       .from("excavaguard_files")
-      .select("file_id,project_id,kind,original_name,storage_path,size_bytes,media_type,sha256,created_at")
+      .select("*")
       .order("created_at", { ascending: false });
     if (kind) query = query.eq("kind", kind);
     if (projectId) query = query.eq("project_id", projectId);

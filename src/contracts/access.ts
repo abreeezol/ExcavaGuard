@@ -4,6 +4,7 @@ export type LocalAccess = {
   owner_id: string;
   project_id: string;
   role?: ProjectRole;
+  actor?: { id: string; name: string };
 };
 
 export type ProjectRole = "admin" | "reviewer" | "engineer" | "viewer";

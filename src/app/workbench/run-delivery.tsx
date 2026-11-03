@@ -33,7 +33,7 @@ export function decisionLabel(value: ReviewRequest["decision"]): string {
 }
 
 export function RunDelivery({
-  record, disabled, onReview, onResume, onDownload, onLoadInputs, canReviewRole = true, canWrite = true,
+  record, disabled, onReview, onSaveEvaluations, onResume, onDownload, onLoadInputs, canReviewRole = true, canWrite = true,
 }: {
   record: PersistedRun;
   canReviewRole?: boolean;
@@ -45,14 +45,17 @@ export function RunDelivery({
     evaluations: EngineerRiskEvaluationInput[],
   ) => void;
   onResume: () => void;
+  onSaveEvaluations: (evaluations: EngineerRiskEvaluationInput[], reason: string) => void;
   onDownload: (url: string, fileName: string) => void;
   onLoadInputs: () => void;
 }) {
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(record.evaluation_draft?.reason ?? "");
   const [riskEvaluations, setRiskEvaluations] = useState<Record<number, {
     disposition: EngineerEvaluationDisposition | "";
     comment: string;
-  }>>({});
+  }>>(() => Object.fromEntries((record.evaluation_draft?.evaluations ?? []).map(item =>
+    [item.risk_item_index, { disposition: item.disposition, comment: item.comment }],
+  )));
   const [activeRiskPosition, setActiveRiskPosition] = useState(0);
   const execution = record.result?.agent_run;
   const state = execution?.state;
@@ -79,6 +82,10 @@ export function RunDelivery({
   const evaluationTargets = useMemo(
     () => riskEvaluationTargets(record.result?.payload),
     [record.result?.payload],
+  );
+  const savedEvaluations = useMemo(
+    () => new Map(record.evaluation_draft?.evaluations.map(item => [item.risk_item_index, item]) ?? []),
+    [record.evaluation_draft],
   );
   const evaluationInputs = useMemo(() => evaluationTargets.flatMap((target) => {
     const evaluation = riskEvaluations[target.risk_item_index];
@@ -129,6 +136,13 @@ export function RunDelivery({
         {state && <span className="wb-chip">{state.report_mode === "ai" ? "AI 报告" : "确定性模板"} · 模型调用 {state.limits.model_calls_used}/{state.limits.max_model_calls}</span>}
         {models.map((model) => <span className="wb-chip" key={model}>{model}</span>)}
       </div>
+      <p className="wb-hint">生成者：{record.created_by?.name ?? "历史记录未保存姓名"} · {record.created_at}</p>
+      {record.source_files && <details className="wb-accordion">
+        <summary>本报告输入文件 · {record.source_files.length} 份</summary>
+        {record.source_files.map(file => <p key={file.file_id}>
+          {file.original_name} · 上传者：{file.uploaded_by?.name ?? "历史记录未保存上传者"} · {file.created_at}
+        </p>)}
+      </details>}
       {record.error && <div className="wb-alert wb-alert-error" role="alert">{record.error.code}：{record.error.message}</div>}
       <div className="wb-actions">
         <button className="wb-btn wb-btn-sm" disabled={disabled} onClick={onLoadInputs}>加载输入并新建关联运行</button>
@@ -202,7 +216,7 @@ export function RunDelivery({
         <div className="wb-alert wb-alert-info" role="status">
           <div>
             {decisionLabel(record.review.decision)} · {record.review.submitted_at}
-            <p className="wb-hint">复核人标识：{record.review.owner_id}</p>
+            <p className="wb-hint">复核人：{record.review.submitted_by?.name ?? record.review.owner_id}</p>
             <p>{record.review.reason}</p>
             {record.review.evaluations.length > 0 && (
               <div className="wb-evaluation-results">
@@ -212,6 +226,9 @@ export function RunDelivery({
                     {evaluation.point_id ?? "未提供点号"} · {evaluation.metric_name} ·
                     {evaluation.risk_level} · {EVALUATION_DISPOSITIONS[evaluation.disposition]}：
                     {evaluation.comment}
+                    {savedEvaluations.get(evaluation.risk_item_index) && (
+                      <>（填写人：{savedEvaluations.get(evaluation.risk_item_index)?.evaluated_by.name}）</>
+                    )}
                   </p>
                 ))}
               </div>
@@ -220,6 +237,15 @@ export function RunDelivery({
           </div>
         </div>
       )}
+      {record.evaluation_draft && !record.review && <details className="wb-accordion">
+        <summary>共享暂存评价 · {record.evaluation_draft.evaluations.length} 条</summary>
+        <p className="wb-hint">最后保存：{record.evaluation_draft.updated_by.name} · {record.evaluation_draft.updated_at}</p>
+        {record.evaluation_draft.evaluations.map(item => <p key={item.risk_item_index}>
+          {item.point_id ?? "未提供点号"} · {item.metric_name} · {EVALUATION_DISPOSITIONS[item.disposition]}：
+          {item.comment}（{item.evaluated_by.name} · {item.evaluated_at}）
+        </p>)}
+        {record.evaluation_draft.reason && <p>暂存总评：{record.evaluation_draft.reason}</p>}
+      </details>}
       {canReview && (
         <fieldset className="wb-review" disabled={disabled}>
           <legend>工程师复核</legend>
@@ -341,6 +367,11 @@ export function RunDelivery({
             </p>
           )}
           <div className="wb-actions">
+            <button className="wb-btn wb-btn-sm"
+              disabled={disabled || !evaluationInputs.length || hasPartialEvaluation}
+              onClick={() => onSaveEvaluations(evaluationInputs, reason.trim())}>
+              暂存风险评价
+            </button>
             {(Object.keys(DECISIONS) as ReviewRequest["decision"][]).map((decision) => (
               <button
                 className="wb-btn wb-btn-sm"

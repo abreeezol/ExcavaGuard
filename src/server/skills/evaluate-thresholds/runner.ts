@@ -19,6 +19,7 @@ export type JudgementRequest = {
   records?: unknown[];
   /** 由引擎侧读取文件（含编码探测与列名映射）。 */
   filePath?: string;
+  filePaths?: string[];
   context: ProjectContextInput;
   standardsDir?: string | null;
   reportDate?: string | null;
@@ -31,6 +32,7 @@ export type JudgementRequest = {
 export async function runJudgement(request: JudgementRequest): Promise<SkillEnvelope> {
   const options: Record<string, unknown> = { with_payload: true };
   if (request.filePath) options.file_path = request.filePath;
+  if (request.filePaths) options.file_paths = request.filePaths;
   if (request.standardsDir) options.standards_dir = request.standardsDir;
   if (request.reportDate) options.report_date = request.reportDate;
   if (request.reportPeriod) options.report_period = request.reportPeriod;

@@ -1,0 +1,12 @@
+{
+  "skill": "guardian-testcase-generation",
+  "status": "skipped",
+  "gate_status": "skipped",
+  "missing_inputs": ["feature", "prd_url"],
+  "reason": "本轮依据用户对话实现多端协作，无 Lume feature 或飞书 PRD；按技能早退规则不生成正式 TestCases.yaml。",
+  "local_validation": [
+    "tests/project-access.test.ts：多人上传统一日报、不同账号暂存和复核、上传者读取相同决定、跨工程及重复来源拒绝。",
+    "tests/persisted-runs.test.ts：暂存跨成员恢复、逐项合并、填写人保留、接受门禁、并发旧revision拒绝、事实和文件不变。",
+    "tests/multi-file-judgement.test.ts：宽表跨文件历史与每日末值、量值语义冲突、互斥输入协议。"
+  ]
+}

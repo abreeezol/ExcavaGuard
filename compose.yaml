@@ -1,0 +1,18 @@
+services:
+  app:
+    image: excavaguard:${EXCAVAGUARD_IMAGE_TAG:-trial}
+    platform: linux/amd64
+    restart: unless-stopped
+    init: true
+    env_file:
+      - ./deploy/server.env
+    ports:
+      # Access initially through an SSH tunnel; add an HTTPS reverse proxy later.
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./deploy/state:/app/var
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

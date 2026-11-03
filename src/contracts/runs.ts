@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { actorSchema } from "@/contracts/actor";
+import { storedFileSchema } from "@/contracts/monitoring-files";
 import { projectStandardDocumentSchema } from "@/contracts/project-standards";
-import { reportPeriodSchema, type ReportPeriod } from "@/contracts/report-period";
+import { reportPeriodSchema } from "@/contracts/report-period";
 import {
   agentRunStateSchema,
   artifactRefSchema,
@@ -47,6 +49,7 @@ export const createRunRequestSchema = z.strictObject({
   project_id: z.uuid(),
   parent_run_id: z.uuid().optional(),
   monitoring_file_id: z.uuid(),
+  additional_monitoring_file_ids: z.array(z.uuid()).max(9).optional(),
   report_date: z.iso.date(),
   report_period: reportPeriodSchema.optional(),
   context: projectContextSchema,
@@ -76,6 +79,10 @@ export const createRunRequestSchema = z.strictObject({
     })
     .optional(),
 }).superRefine((value, ctx) => {
+  const fileIds = [value.monitoring_file_id, ...(value.additional_monitoring_file_ids ?? [])];
+  if (new Set(fileIds).size !== fileIds.length) {
+    ctx.addIssue({ code: "custom", path: ["additional_monitoring_file_ids"], message: "监测文件不能重复选择。" });
+  }
   if (value.report_period && value.report_date !== value.report_period.end_date) {
     ctx.addIssue({ code: "custom", path: ["report_date"], message: "周期报告日期必须等于区间结束日。" });
   }
@@ -155,11 +162,37 @@ export const deleteRunRequestSchema = z.strictObject({
   expected_revision: z.number().int().positive(),
 });
 
+export const saveEvaluationRequestSchema = z.strictObject({
+  expected_revision: z.number().int().positive(),
+  draft_ref: artifactRefSchema,
+  evaluations: z.array(engineerRiskEvaluationInputSchema).min(1).max(500),
+  reason: z.string().trim().max(2000).optional(),
+}).superRefine((value, context) => {
+  if (new Set(value.evaluations.map(item => item.risk_item_index)).size !== value.evaluations.length) {
+    context.addIssue({ code: "custom", path: ["evaluations"], message: "同一风险条目只能提交一条评价。" });
+  }
+});
+
+export const sharedEvaluationSchema = engineerRiskEvaluationSchema.extend({
+  evaluated_by: actorSchema,
+  evaluated_at: z.iso.datetime(),
+});
+
 export const persistedRunSchema = z.strictObject({
   schema: z.literal("excavaguard.persisted_run/v1"),
   run_id: z.uuid(),
   revision: z.number().int().positive(),
   owner_id: z.union([z.literal("local-operator"), z.uuid()]),
+  created_by: actorSchema.optional(),
+  source_files: z.array(storedFileSchema).min(1).max(10).optional(),
+  risk_evaluation_total: z.number().int().nonnegative().optional(),
+  evaluation_draft: z.strictObject({
+    draft_ref: artifactRefSchema,
+    evaluations: z.array(sharedEvaluationSchema).max(500),
+    updated_by: actorSchema,
+    updated_at: z.iso.datetime(),
+    reason: z.string().max(2000).optional(),
+  }).nullable().optional(),
   project_id: z.uuid(),
   created_at: z.iso.datetime(),
   updated_at: z.iso.datetime(),
@@ -175,6 +208,7 @@ export const persistedRunSchema = z.strictObject({
     draft_ref: artifactRefSchema,
     submitted_at: z.iso.datetime(),
     owner_id: z.union([z.literal("local-operator"), z.uuid()]),
+    submitted_by: actorSchema.optional(),
   }).nullable(),
 }).superRefine((value, context) => {
   if (value.project_id !== value.request.project_id ||
@@ -184,40 +218,70 @@ export const persistedRunSchema = z.strictObject({
   }
   const human = value.result?.agent_run?.state.human_review;
   const draft = value.result?.agent_run?.state.report_draft;
+  if (value.created_by && value.created_by.id !== value.owner_id) {
+    context.addIssue({ code: "custom", message: "生成者必须与运行创建者一致。" });
+  }
+  if (value.review?.submitted_by && value.review.submitted_by.id !== value.review.owner_id) {
+    context.addIssue({ code: "custom", message: "复核提交者标识不一致。" });
+  }
+  if (value.source_files) {
+    const ids = [value.request.monitoring_file_id, ...(value.request.additional_monitoring_file_ids ?? [])];
+    if (value.source_files.length !== ids.length || value.source_files.some((file, index) =>
+      file.file_id !== ids[index] || file.project_id !== value.project_id || file.kind !== "monitoring"
+    )) context.addIssue({ code: "custom", message: "输入文件清单必须绑定当前工程和运行请求。" });
+  }
+  if (value.evaluation_draft && JSON.stringify(value.evaluation_draft.draft_ref) !== JSON.stringify(draft?.ref)) {
+    context.addIssue({ code: "custom", message: "暂存评价必须绑定当前草稿。" });
+  }
   if (value.review && (
     human?.decision !== value.review.decision ||
     JSON.stringify(draft?.ref) !== JSON.stringify(value.review.draft_ref)
   )) context.addIssue({ code: "custom", message: "复核记录必须绑定当前决定与草稿。" });
-  if (value.review?.evaluations.length) {
-    const targets = new Map(
-      riskEvaluationTargets(value.result?.payload)
-        .map((target) => [target.risk_item_index, target]),
-    );
-    const indexes = value.review.evaluations.map((evaluation) => evaluation.risk_item_index);
-    if (new Set(indexes).size !== indexes.length ||
-        value.review.evaluations.some((evaluation) => {
-          const target = targets.get(evaluation.risk_item_index);
-          return !target ||
-            target.point_id !== evaluation.point_id ||
-            target.metric_key !== evaluation.metric_key ||
-            target.metric_name !== evaluation.metric_name ||
-            target.timestamp !== evaluation.timestamp ||
-            target.risk_level !== evaluation.risk_level;
-        })) {
-      context.addIssue({ code: "custom", message: "工程师评价必须逐项绑定当前冻结风险事实。" });
+  const targets = new Map(
+    riskEvaluationTargets(value.result?.payload).map(target => [target.risk_item_index, target]),
+  );
+  if (value.risk_evaluation_total !== undefined && value.risk_evaluation_total !== targets.size) {
+    context.addIssue({ code: "custom", message: "风险评价总数必须与冻结事实一致。" });
+  }
+  for (const evaluations of [value.review?.evaluations, value.evaluation_draft?.evaluations]) {
+    if (evaluations?.length) {
+      const indexes = evaluations.map(evaluation => evaluation.risk_item_index);
+      if (new Set(indexes).size !== indexes.length ||
+          evaluations.some(evaluation => {
+            const target = targets.get(evaluation.risk_item_index);
+            return !target ||
+              target.point_id !== evaluation.point_id ||
+              target.metric_key !== evaluation.metric_key ||
+              target.metric_name !== evaluation.metric_name ||
+              target.timestamp !== evaluation.timestamp ||
+              target.risk_level !== evaluation.risk_level;
+          })) {
+        context.addIssue({ code: "custom", message: "工程师评价必须逐项绑定当前冻结风险事实。" });
+      }
     }
   }
 });
 
 export type PersistedRun = z.output<typeof persistedRunSchema>;
 export type ReviewRequest = z.output<typeof reviewRequestSchema>;
-export type RunSummary = Pick<PersistedRun,
-  "run_id" | "revision" | "created_at" | "updated_at" | "execution_status" | "error"
-> & {
-  report_date: string;
-  project_name: string;
-  agent_status: string | null;
-  decision: ReviewRequest["decision"] | null;
-  parent_run_id: string | null;
-  report_period?: ReportPeriod;
-};
+export type SaveEvaluationRequest = z.infer<typeof saveEvaluationRequestSchema>;
+export const runSummarySchema = z.strictObject({
+  run_id: z.uuid(),
+  revision: z.number().int().positive(),
+  created_at: z.iso.datetime(),
+  updated_at: z.iso.datetime(),
+  execution_status: persistedRunSchema.shape.execution_status,
+  error: persistedRunSchema.shape.error,
+  report_date: z.string(),
+  project_name: z.string(),
+  agent_status: z.string().nullable(),
+  decision: reviewRequestSchema.shape.decision.nullable(),
+  parent_run_id: z.uuid().nullable(),
+  report_period: reportPeriodSchema.optional(),
+  created_by: actorSchema.nullable().optional(),
+  reviewed_by: actorSchema.nullable().optional(),
+  evaluation_count: z.number().int().nonnegative().optional(),
+  risk_evaluation_total: z.number().int().nonnegative().nullable().optional(),
+});
+export const runListResponseSchema = z.strictObject({ runs: z.array(runSummarySchema).max(100) });
+export type RunSummary = z.infer<typeof runSummarySchema>;

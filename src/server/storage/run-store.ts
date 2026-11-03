@@ -2,6 +2,8 @@ import "server-only";
 import { readFile, readdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
+import { actorSchema } from "@/contracts/actor";
+import { reportPeriodSchema } from "@/contracts/report-period";
 import { persistedRunSchema, type PersistedRun, type RunSummary } from "@/contracts/runs";
 import type { LocalAccess } from "@/contracts/access";
 import { AppError } from "@/server/api/errors";
@@ -38,6 +40,12 @@ type SupabaseRunSummaryRow = {
   agent_status: string | null;
   decision: string | null;
   parent_run_id: string | null;
+  report_period?: unknown;
+  created_by?: unknown;
+  reviewed_by?: unknown;
+  draft_evaluations?: unknown;
+  review_evaluations?: unknown;
+  risk_evaluation_total?: string | null;
 };
 
 const runExecutionStatusSchema = persistedRunSchema.shape.execution_status;
@@ -199,6 +207,8 @@ async function allSupabaseRuns(access: LocalAccess): Promise<PersistedRun[]> {
       .select("run_id,revision,project_id,record,created_at")
       .eq("project_id", access.project_id)
       .order("created_at", { ascending: false })
+      .order("revision", { ascending: false })
+      .order("run_id", { ascending: true })
       .range(from, from + pageSize - 1);
     if (error) throw supabaseStorageError("Supabase 运行历史读取失败", error);
     const rows = (data ?? []) as SupabaseRunRow[];
@@ -241,6 +251,13 @@ function supabaseSummary(row: SupabaseRunSummaryRow, access: LocalAccess): RunSu
     agent_status: row.agent_status,
     decision,
     parent_run_id: row.parent_run_id,
+    ...(row.report_period ? { report_period: reportPeriodSchema.parse(row.report_period) } : {}),
+    created_by: row.created_by ? actorSchema.parse(row.created_by) : null,
+    reviewed_by: row.reviewed_by ? actorSchema.parse(row.reviewed_by) : null,
+    evaluation_count: Array.isArray(row.review_evaluations) ? row.review_evaluations.length
+      : Array.isArray(row.draft_evaluations) ? row.draft_evaluations.length : 0,
+    risk_evaluation_total: row.risk_evaluation_total == null ? null
+      : z.coerce.number().int().nonnegative().parse(row.risk_evaluation_total),
   };
 }
 
@@ -269,10 +286,18 @@ async function listSupabaseRuns(access: LocalAccess): Promise<RunSummary[]> {
         project_name:record->request->project->>name,
         agent_status:record->result->agent_run->state->run->>status,
         decision:record->review->>decision,
-        parent_run_id:record->request->>parent_run_id
+        parent_run_id:record->request->>parent_run_id,
+        report_period:record->request->report_period,
+        created_by:record->created_by,
+        reviewed_by:record->review->submitted_by,
+        draft_evaluations:record->evaluation_draft->evaluations,
+        review_evaluations:record->review->evaluations,
+        risk_evaluation_total:record->>risk_evaluation_total
       `)
       .eq("project_id", access.project_id)
       .order("created_at", { ascending: false })
+      .order("revision", { ascending: false })
+      .order("run_id", { ascending: true })
       .range(from, from + RUN_HISTORY_PAGE_SIZE - 1);
     if (error) throw supabaseStorageError("Supabase 运行历史读取失败", error);
     const rows = (data ?? []) as SupabaseRunSummaryRow[];
@@ -402,6 +427,10 @@ export async function saveRun(
   if (expectedRevision > 0) {
     const previous = await readRun(next.run_id, access);
     if (previous.owner_id !== next.owner_id) throw new AppError(403, "FORBIDDEN", "不可更改运行创建者。");
+    if (JSON.stringify(previous.source_files) !== JSON.stringify(next.source_files) ||
+        JSON.stringify(previous.created_by) !== JSON.stringify(next.created_by)) {
+      throw new AppError(409, "RUN_CONFLICT", "不可更改已冻结的输入来源和生成者。");
+    }
   }
   if (getStorageProvider() === "supabase") {
     return saveSupabaseRun(next, expectedRevision);
@@ -439,6 +468,10 @@ export async function listRuns(access: LocalAccess): Promise<RunSummary[]> {
       agent_status: record.result?.agent_run?.state.run.status ?? null,
       decision: record.review?.decision ?? null,
       parent_run_id: record.request.parent_run_id ?? null,
+      created_by: record.created_by ?? null,
+      reviewed_by: record.review?.submitted_by ?? null,
+      evaluation_count: record.review?.evaluations.length ?? record.evaluation_draft?.evaluations.length ?? 0,
+      risk_evaluation_total: record.risk_evaluation_total ?? null,
     }));
 }
 

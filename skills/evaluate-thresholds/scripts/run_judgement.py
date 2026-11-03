@@ -95,6 +95,62 @@ def _fail(code: str, message: str, status: int) -> int:
     return status
 
 
+def _read_collaborative_files(paths: list[str], end_date: str | None, period: dict | None):
+    """Combine selected sources before temporal derivation; use existing normalizers."""
+    from file_reader import aggregate_daily_records, read_monitoring_file
+    from ingest import build_metric_aliases, normalize_records
+    from period_reports import cutoff_records
+    from standards_registry import StandardsRegistry
+
+    aliases = build_metric_aliases(StandardsRegistry().display_names())
+    combined: list[dict] = []
+    wide: list[dict] = []
+    reports: list[dict] = []
+    channels: dict[tuple, tuple] = {}
+    observations: dict[tuple, int] = {}
+    source_count = 0
+    for position, path in enumerate(paths):
+        records, report = read_monitoring_file(path)
+        if not report.get("ok") or not records:
+            raise ValueError(f"第{position + 1}份文件不能参与汇总：" +
+                             "；".join(report.get("errors") or ["没有可用数据。"]))
+        source_count += len(records)
+        if source_count > 300_000:
+            raise ValueError("多文件汇总最多支持300000条源记录，请缩小范围。")
+        if end_date:
+            records = cutoff_records(records, end_date)
+        normalized = normalize_records(records, metric_aliases=aliases)
+        layout = report.get("layout", "long")
+        for raw, record in zip(records, normalized):
+            channel = (record.point_id, record.metric_key)
+            convention = (record.unit, record.measurement_semantics, record.data_origin, layout)
+            if channel in channels and channels[channel] != convention:
+                raise ValueError(f"{record.point_id} · {record.metric_key} 的单位、量值语义、来源或表布局不一致，请核对后单独生成。")
+            channels[channel] = convention
+            key = (*channel, record.timestamp)
+            if key in observations and observations[key] != position:
+                raise ValueError(f"{record.point_id} · {record.metric_key} 在 {record.timestamp} 存在跨文件重复观测，请只选择一份可靠来源。")
+            observations[key] = position
+            metadata = dict(raw.get("source_metadata") or {})
+            metadata["collaboration_source_position"] = position + 1
+            raw["source_metadata"] = metadata
+            (wide if layout == "wide" else combined).append(raw)
+        # Runtime paths must not enter the shared read report.
+        reports.append({key: value for key, value in report.items() if key != "source"})
+    aggregation = None
+    if wide:
+        aggregated, aggregation = aggregate_daily_records(
+            wide, report_date=None if period else end_date,
+        )
+        combined.extend(aggregated)
+    if not combined:
+        raise ValueError("报告结束日之前没有可用观测。")
+    return combined, {
+        "ok": True, "layout": "multiple", "files": reports,
+        "source_notes": ["多文件先合并历史再派生；跨文件重复观测与通道口径冲突不自动修复。"],
+    }, aggregation, source_count
+
+
 def main() -> int:
     t0 = time.perf_counter()
 
@@ -140,6 +196,24 @@ def main() -> int:
     aggregation_report: dict | None = None
     source_record_count: int | None = None
     file_path = opts.get("file_path")
+    file_paths = opts.get("file_paths")
+    if file_paths is not None:
+        if (file_path or records is not None or not isinstance(file_paths, list) or
+                not 2 <= len(file_paths) <= 10 or
+                any(not isinstance(path, str) or not path.strip() for path in file_paths) or
+                len(set(file_paths)) != len(file_paths)):
+            return _fail("INVALID_INPUT", "file_paths需为2～10个不同路径，不能与file_path或records混用。", 2)
+        try:
+            records, read_report, aggregation_report, source_record_count = _read_collaborative_files(
+                file_paths, period["end_date"] if period else opts.get("report_date"), period,
+            )
+        except FileNotFoundError:
+            return _fail("FILE_NOT_FOUND", "参与汇总的监测文件已不存在。", 2)
+        except ValueError as exc:
+            return _fail("DATA_QUALITY", str(exc), 2)
+        except Exception:
+            sys.stderr.write(traceback.format_exc())
+            return _fail("FILE_UNREADABLE", "参与汇总的监测文件不可读取。", 2)
     if not isinstance(records, list) or not records:
         if not file_path:
             return _fail("INVALID_INPUT", "records 必须是非空数组，或提供 options.file_path。", 2)
@@ -243,7 +317,7 @@ def main() -> int:
                 project=opts.get("project"),
                 points_meta=opts.get("points_meta"),
                 report_date=opts.get("report_date"),
-                item_date=opts.get("report_date") if aggregation_report else None,
+                item_date=opts.get("report_date") if aggregation_report or file_paths else None,
             )
 
         elapsed = round((time.perf_counter() - t0) * 1000, 1)

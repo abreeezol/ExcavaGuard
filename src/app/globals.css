@@ -154,6 +154,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 .wb-field textarea { min-height: 150px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 11px; line-height: 1.6; resize: vertical; }
 .wb-field input:focus, .wb-field select:focus, .wb-field textarea:focus { outline: 2px solid #a2c663; outline-offset: 1px; border-color: #9ab08d; }
 .wb-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wb-checkbox { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 12px; overflow-wrap: anywhere; }
+.wb-checkbox input { flex: 0 0 auto; }
 
 .wb-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 4px; }
 .wb-project-create { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }

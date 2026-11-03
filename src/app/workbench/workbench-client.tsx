@@ -14,9 +14,10 @@ import {
   Upload,
 } from "lucide-react";
 import { presetReportPeriod, reportPeriodSchema, type ReportKind } from "@/contracts/report-period";
-import type { ReadReport, StoredFile, StrictnessReport } from "@/contracts/monitoring-files";
+import { listFilesResponseSchema, type ReadReport, type StoredFile, type StrictnessReport } from "@/contracts/monitoring-files";
 import type { AccessStatus } from "@/contracts/access";
 import type { CreateRunRequest, PersistedRun, ReviewRequest, RunSummary } from "@/contracts/runs";
+import { persistedRunSchema, runListResponseSchema } from "@/contracts/runs";
 import type { EngineerRiskEvaluationInput } from "@/contracts/engineer-evaluation";
 import { decisionLabel, executionLabel, RunDelivery } from "./run-delivery";
 
@@ -194,6 +195,12 @@ export function ProjectWorkbench({ session, onBusyChange }: {
   const [files, setFiles] = useState<StoredFile[]>([]);
   const [standardFiles, setStandardFiles] = useState<StoredFile[]>([]);
   const [history, setHistory] = useState<RunSummary[]>([]);
+  const [historyDate, setHistoryDate] = useState("");
+  const [onlyPending, setOnlyPending] = useState(false);
+  const [remoteRevision, setRemoteRevision] = useState<number | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncedAt, setSyncedAt] = useState<string | null>(null);
+  const [additionalFileIds, setAdditionalFileIds] = useState<string[]>([]);
   const [generateReport, setGenerateReport] = useState(true);
   const [reportMode, setReportMode] = useState<"ai" | "template">("ai");
   const [selectedStandardId, setSelectedStandardId] = useState<string | null>(null);
@@ -226,7 +233,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
   const apiFetch = useCallback((url: string, init?: RequestInit) => {
     const headers = new Headers(init?.headers);
     headers.set("X-Excavaguard-Project", session.project_id);
-    return fetch(url, { ...init, headers });
+    return fetch(url, { ...init, headers, cache: "no-store" });
   }, [session.project_id]);
   useEffect(() => { onBusyChange(busy !== null); }, [busy, onBusyChange]);
   useEffect(() => {
@@ -236,16 +243,71 @@ export function ProjectWorkbench({ session, onBusyChange }: {
         const responses = await Promise.all([apiFetch("/api/runs"), apiFetch("/api/monitoring-files"), apiFetch("/api/standards")]);
         for (const response of responses) if (!response.ok) throw new Error(await readError(response));
         const [runs, monitoringFiles, standards] = await Promise.all(responses.map(response => response.json()));
-        if (!cancelled) { setHistory(runs.runs); setFiles(monitoringFiles.files); setStandardFiles(standards.files); }
+        if (!cancelled) {
+          setHistory(runListResponseSchema.parse(runs).runs);
+          setFiles(listFilesResponseSchema.parse(monitoringFiles).files);
+          setStandardFiles(listFilesResponseSchema.parse(standards).files);
+        }
       } catch (caught) { if (!cancelled) setError(caught instanceof Error ? caught.message : "加载项目失败。"); }
     })();
     return () => { cancelled = true; };
   }, [apiFetch]);
+  useEffect(() => {
+    let cancelled = false;
+    let refreshing = false;
+    async function sync() {
+      if (cancelled || refreshing || operation.current || document.visibilityState === "hidden") return;
+      refreshing = true;
+      try {
+        const responses = await Promise.all([
+          apiFetch("/api/runs"), apiFetch("/api/monitoring-files"),
+        ]);
+        for (const response of responses) if (!response.ok) throw new Error(await readError(response));
+        const [runs, uploads] = await Promise.all(responses.map(response => response.json()));
+        if (cancelled || operation.current) return;
+        const summaries = runListResponseSchema.parse(runs).runs;
+        setHistory(summaries);
+        setFiles(listFilesResponseSchema.parse(uploads).files);
+        const latest = summaries.find(item => item.run_id === result?.record.run_id);
+        setRemoteRevision(latest && latest.revision > (result?.record.revision ?? 0) ? latest.revision : null);
+        setSyncError(null);
+        setSyncedAt(new Date().toLocaleTimeString("zh-CN", { hour12: false }));
+      } catch (caught) {
+        if (!cancelled) setSyncError(caught instanceof Error ? caught.message : "协作数据同步失败。");
+      } finally {
+        refreshing = false;
+      }
+    }
+    const timer = window.setInterval(() => void sync(), 15_000);
+    const onVisible = () => void sync();
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [apiFetch, result?.record.run_id, result?.record.revision]);
 
   async function refreshHistory() {
     const response = await apiFetch("/api/runs");
     if (!response.ok) throw new Error(await readError(response));
-    setHistory((await response.json() as { runs: RunSummary[] }).runs);
+    const summaries = runListResponseSchema.parse(await response.json()).runs;
+    setHistory(summaries);
+    const latest = summaries.find(item => item.run_id === result?.record.run_id);
+    setRemoteRevision(latest && latest.revision > (result?.record.revision ?? 0) ? latest.revision : null);
+    setSyncError(null);
+    return summaries;
+  }
+
+  async function refreshSharedData() {
+    const response = await apiFetch("/api/monitoring-files");
+    if (!response.ok) throw new Error(await readError(response));
+    const files = listFilesResponseSchema.parse(await response.json()).files;
+    await refreshHistory();
+    setFiles(files);
+    setSyncedAt(new Date().toLocaleTimeString("zh-CN", { hour12: false }));
   }
 
   function begin(name: string): boolean {
@@ -274,8 +336,14 @@ export function ProjectWorkbench({ session, onBusyChange }: {
 
   async function openRun(runId: string) {
     const response = await apiFetch(`/api/runs/${runId}`);
-    if (!response.ok) throw new Error(await readError(response));
-    setResult(await response.json() as RunResponse);
+    if (!response.ok) {
+      if (response.status === 404 && result?.record.run_id === runId) setResult(null);
+      throw new Error(await readError(response));
+    }
+    const body = await response.json() as RunResponse;
+    persistedRunSchema.parse(body.record);
+    setResult(body);
+    setRemoteRevision(null);
   }
 
   async function deleteHistory(run: RunSummary) {
@@ -312,7 +380,13 @@ export function ProjectWorkbench({ session, onBusyChange }: {
     const file = files.find((file) => file.file_id === record.request.monitoring_file_id);
     if (!file) throw new Error("原监测文件已不可用，请重新上传。");
     const input = record.request;
+    const additional = record.request.additional_monitoring_file_ids ?? [];
+    if (additional.some(id => !files.some(file => file.file_id === id))) {
+      throw new Error("参与汇总的监测文件已不可用，请重新上传。");
+    }
     setMonitoring({ file, read_report: (record.result?.read_report as ReadReport | null) ?? null });
+    setFiles(files);
+    setAdditionalFileIds(additional);
     setSafetyLevel(input.context.safety_level);
     setSupportType(input.context.support_type);
     setDepthInput(input.context.excavation_depth_m?.toString() ?? "");
@@ -352,11 +426,39 @@ export function ProjectWorkbench({ session, onBusyChange }: {
     });
     if (!response.ok) {
       const message = await readError(response);
-      if (response.status === 409) await openRun(record.run_id);
+      if (response.status === 409) {
+        await refreshHistory();
+      }
       throw new Error(message);
     }
-    setResult(await response.json() as RunResponse);
+    const body = await response.json() as RunResponse;
+    persistedRunSchema.parse(body.record);
+    setResult(body);
     await refreshHistory();
+    setRemoteRevision(null);
+  }
+
+  async function saveEvaluations(evaluations: EngineerRiskEvaluationInput[], reason: string) {
+    const record = result?.record;
+    const draft = record?.result?.agent_run?.state.report_draft;
+    if (!record || !draft) return;
+    const response = await apiFetch(`/api/runs/${record.run_id}/evaluations`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expected_revision: record.revision, draft_ref: draft.ref, evaluations, reason }),
+    });
+    if (!response.ok) {
+      const message = await readError(response);
+      if (response.status === 409) {
+        await refreshHistory();
+      }
+      throw new Error(message);
+    }
+    const body = await response.json() as RunResponse;
+    persistedRunSchema.parse(body.record);
+    setResult(body);
+    await refreshHistory();
+    setRemoteRevision(null);
+    setNotice("风险评价已暂存到当前工程，其他成员可加载最新运行查看和继续复核。");
   }
 
   async function download(url: string, fileName: string) {
@@ -391,6 +493,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
       }
       const body = (await response.json()) as { file: StoredFile; read_report: ReadReport | null };
       setMonitoring({ file: body.file, read_report: body.read_report });
+      setAdditionalFileIds([]);
       setFiles(old => [body.file, ...old.filter(f => f.file_id !== body.file.file_id)]);
       if (body.read_report?.ok === false) {
         setNotice("文件已保存，但缺少必填列，运行分析会被拒绝。请对照下方提示修改后重新上传。");
@@ -480,6 +583,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
           project_id: session?.project_id,
           parent_run_id: parentRunId ?? undefined,
           monitoring_file_id: monitoring.file.file_id,
+          additional_monitoring_file_ids: additionalFileIds,
           standards_file_id: selectedStandardId,
           report_date: reportPeriod?.end_date ?? reportDate,
           report_period: reportPeriod,
@@ -513,6 +617,10 @@ export function ProjectWorkbench({ session, onBusyChange }: {
   const payload = result?.payload;
   const byLevel = payload?.summary?.by_risk_level ?? {};
   const maxLevelCount = Math.max(1, ...Object.values(byLevel));
+  const visibleHistory = history.filter(run =>
+    (!historyDate || run.report_date === historyDate) &&
+    (!onlyPending || (!run.error && !run.decision && run.agent_status === "awaiting_human_review" && run.execution_status === "completed")),
+  );
 
   return (
     <>
@@ -540,20 +648,39 @@ export function ProjectWorkbench({ session, onBusyChange }: {
         {/* ---------------- 左列：输入 ---------------- */}
         <div className="wb-col">
           <section className="wb-card" aria-label="运行历史">
-            <div className="wb-card-head"><h2>运行历史</h2></div>
+            <div className="wb-card-head"><h2>工程共享日报与运行历史</h2></div>
             <div className="wb-actions">
-              <button className="wb-btn wb-btn-sm" disabled={busy !== null} onClick={() => void perform("history", refreshHistory)}>刷新历史</button>
+              <button className="wb-btn wb-btn-sm" disabled={busy !== null} onClick={() => void perform("history", refreshSharedData)}>刷新历史</button>
               {result && <button className="wb-btn wb-btn-sm" disabled={busy !== null}
-                onClick={() => void perform("history", () => openRun(result.record.run_id))}>刷新当前运行</button>}
+                onClick={() => {
+                  if (window.confirm("刷新当前运行会替换未保存的评价和总评，确认继续？")) {
+                    void perform("history", () => openRun(result.record.run_id));
+                  }
+                }}>刷新当前运行</button>}
             </div>
-            <p className="wb-hint">最近 100 次运行。打开历史可恢复结果、检查点和复核记录。</p>
+            <p className="wb-hint">本工程最近 100 次运行。每15秒同步成员上传和复核状态；打开同一运行即可协作。{syncedAt && `最近同步 ${syncedAt}。`}</p>
+            {syncError && <p role="status" className="wb-hint">自动同步失败：{syncError} 可点击刷新历史重试。</p>}
+            <div className="wb-row">
+              <Field label="按报告日期筛选"><input type="date" value={historyDate} onChange={event => setHistoryDate(event.target.value)} /></Field>
+              <label className="wb-checkbox"><input type="checkbox" checked={onlyPending} onChange={event => setOnlyPending(event.target.checked)} />只看待工程师复核</label>
+            </div>
+            {remoteRevision && result && <div className="wb-alert wb-alert-warn" role="status"><div>
+              该运行已有更新，当前页面仍保留你的未保存内容。
+              <button className="wb-btn wb-btn-sm" disabled={busy !== null}
+                onClick={() => {
+                  if (window.confirm("加载最新运行将替换当前未保存的评价和总评，确认继续？")) {
+                    void perform("history", () => openRun(result.record.run_id));
+                  }
+                }}>加载最新协作版本</button>
+            </div></div>}
             <div className="wb-history">
-              {history.map((run) => (
+              {visibleHistory.map((run) => (
                 <div className="wb-history-row" key={run.run_id}>
                   <button className="wb-history-item"
                     disabled={busy !== null} onClick={() => void perform("history", () => openRun(run.run_id))}>
                     <strong>{run.project_name} · {run.report_period ? `${run.report_period.start_date} 至 ${run.report_period.end_date}` : run.report_date}</strong>
-                    <span>{run.run_id.slice(0, 8)} · {run.decision ? decisionLabel(run.decision) : executionLabel(run.execution_status)}</span>
+                    <span>{run.run_id.slice(0, 8)} · {run.decision ? decisionLabel(run.decision) : executionLabel(run.execution_status === "completed" && !run.error ? run.agent_status ?? run.execution_status : run.execution_status)}</span>
+                    <span>生成者：{run.created_by?.name ?? "历史记录未保存姓名"} · {run.reviewed_by ? `复核人：${run.reviewed_by.name}` : `暂存评价 ${run.evaluation_count ?? 0}${run.risk_evaluation_total != null ? `/${run.risk_evaluation_total}` : ""} 条`}</span>
                   </button>
                   {canDelete && (
                     <button
@@ -579,7 +706,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
                   )}
                 </div>
               ))}
-              {history.length === 0 && <p className="wb-hint">暂无运行记录。</p>}
+              {visibleHistory.length === 0 && <p className="wb-hint">暂无符合筛选条件的运行记录。</p>}
             </div>
           </section>
           <fieldset className="wb-inputs" disabled={busy !== null || !canWrite}>
@@ -675,12 +802,25 @@ export function ProjectWorkbench({ session, onBusyChange }: {
             <Field label="选择本工程已上传的监测数据">
               <select value={monitoring?.file.file_id ?? ""} onChange={event => {
                 const file = files.find(f => f.file_id === event.target.value);
-                setMonitoring(file ? { file, read_report: null } : null); setResult(null); setParentRunId(null);
+                setMonitoring(file ? { file, read_report: null } : null); setAdditionalFileIds([]); setResult(null); setParentRunId(null);
               }}>
                 <option value="">请选择，或上传新文件</option>
-                {files.map(file => <option key={file.file_id} value={file.file_id}>{file.original_name} · {file.created_at.slice(0, 10)}</option>)}
+                {files.map(file => <option key={file.file_id} value={file.file_id}>{file.original_name} · {file.uploaded_by?.name ?? "历史上传"} · {file.created_at.slice(0, 10)}</option>)}
               </select>
             </Field>
+            {monitoring && <details className="wb-accordion">
+              <summary>追加成员文件，统一生成报告 · 已选 {1 + additionalFileIds.length} 份</summary>
+              <p className="wb-hint">共用当前工程条件，最多10份。跨文件重复观测或通道口径冲突需核对来源后再生成。</p>
+              {files.filter(file => file.file_id !== monitoring.file.file_id).map(file =>
+                <label className="wb-checkbox" key={file.file_id}>
+                  <input type="checkbox" checked={additionalFileIds.includes(file.file_id)}
+                    disabled={!additionalFileIds.includes(file.file_id) && additionalFileIds.length >= 9}
+                    onChange={event => setAdditionalFileIds(current => event.target.checked
+                      ? [...current, file.file_id] : current.filter(id => id !== file.file_id))} />
+                  {file.original_name} · {file.uploaded_by?.name ?? "历史上传"}
+                </label>,
+              )}
+            </details>}
             <div className="wb-drop">
               <input
                 id="wb-file"
@@ -899,6 +1039,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
         <div className="wb-col">
           {result?.record && <RunDelivery key={`${result.record.run_id}:${result.record.revision}`} record={result.record} disabled={busy !== null} canReviewRole={canReview} canWrite={canWrite}
             onReview={(decision, reason, evaluations) => void perform("review", () => review(decision, reason, evaluations))}
+            onSaveEvaluations={(evaluations, reason) => void perform("evaluation", () => saveEvaluations(evaluations, reason))}
             onDownload={(url, fileName) => void perform("download", () => download(url, fileName))}
             onLoadInputs={() => void perform("inputs", loadInputs)}
             onResume={() => void perform("resume", async () => {
