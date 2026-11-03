@@ -22,6 +22,10 @@ next-env.d.ts
 .artifacts/
 .playwright-cli/
 *.log
+deploy/server.env
+deploy/state/
+*.tar
+*.tar.gz
 
 # --- 本项目本地资产（不入库）---------------------------------------------
 # 上传文件（监测数据 / 用户规范）：本地存储层工作目录，含用户上传内容

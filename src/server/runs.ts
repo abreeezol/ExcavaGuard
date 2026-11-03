@@ -7,7 +7,7 @@ import {
   riskEvaluationTargets,
   type EngineerRiskEvaluation,
 } from "@/contracts/engineer-evaluation";
-import type { CreateRunRequest, PersistedRun, ReviewRequest, RunResult } from "@/contracts/runs";
+import type { CreateRunRequest, PersistedRun, ReviewRequest, RunResult, SaveEvaluationRequest } from "@/contracts/runs";
 import { AppError } from "@/server/api/errors";
 import { executeAgentRun, type AgentRunExecutionResult } from "@/server/agents/executor";
 import { runJudgement } from "@/server/skills/evaluate-thresholds/runner";
@@ -28,7 +28,7 @@ const LEASE_MS = 420_000;
 
 function resolveRiskEvaluations(
   payload: unknown,
-  input: ReviewRequest,
+  input: Pick<ReviewRequest, "evaluations"> & { decision?: ReviewRequest["decision"] },
 ): EngineerRiskEvaluation[] {
   const targets = riskEvaluationTargets(payload);
   const targetByIndex = new Map(targets.map((target) => [target.risk_item_index, target]));
@@ -97,6 +97,7 @@ async function requireFile(fileId: string, kind: "monitoring" | "standard", acce
   if (!file || file.kind !== kind || file.project_id !== access.project_id) {
     throw new AppError(404, "FILE_NOT_FOUND", "未找到该项目的上传文件，请先上传。");
   }
+  return file;
 }
 
 async function materializeRequiredFile(fileId: string): Promise<MaterializedFile> {
@@ -166,7 +167,14 @@ async function saveFailure(record: PersistedRun, access: LocalAccess, error: unk
 export async function createRun(input: CreateRunRequest, access: LocalAccess): Promise<PersistedRun> {
   if (input.project_id !== access.project_id) throw new AppError(403, "FORBIDDEN", "无权访问该项目。");
   const projectStandards = await selectProjectStandards(access.project_id, input.project_standard_ids);
-  await requireFile(input.monitoring_file_id, "monitoring", access);
+  const fileIds = [input.monitoring_file_id, ...(input.additional_monitoring_file_ids ?? [])];
+  if (fileIds.length > 10 || new Set(fileIds).size !== fileIds.length) {
+    throw new AppError(400, "INVALID_REQUEST", "请选择最多10份不同的监测文件。");
+  }
+  const sourceFiles = await Promise.all(fileIds.map(id => requireFile(id, "monitoring", access)));
+  if (sourceFiles.reduce((sum, file) => sum + file.size_bytes, 0) > 100 * 1024 * 1024) {
+    throw new AppError(413, "FILE_TOO_LARGE", "参与同一报告的监测文件合计不得超过100 MB。");
+  }
   if (input.standards_file_id) {
     await requireFile(input.standards_file_id, "standard", access);
   }
@@ -177,6 +185,8 @@ export async function createRun(input: CreateRunRequest, access: LocalAccess): P
     run_id: randomUUID(),
     revision: 1,
     owner_id: access.owner_id,
+    created_by: access.actor ?? { id: access.owner_id, name: "本地工程师" },
+    source_files: sourceFiles,
     project_id: access.project_id,
     created_at: at,
     updated_at: at,
@@ -187,16 +197,19 @@ export async function createRun(input: CreateRunRequest, access: LocalAccess): P
     error: null,
     review: null,
   }, 0, access);
-  let monitoringFile: MaterializedFile | null = null;
+  const monitoringFiles: MaterializedFile[] = [];
   let standardFile: MaterializedFile | null = null;
   let primaryError: unknown = null;
   try {
-    monitoringFile = await materializeRequiredFile(input.monitoring_file_id);
+    // Acquire sequentially so every successful lease is registered for cleanup.
+    for (const fileId of fileIds) monitoringFiles.push(await materializeRequiredFile(fileId));
     standardFile = input.standards_file_id
       ? await materializeRequiredFile(input.standards_file_id)
       : null;
     const envelope = await runJudgement({
-      filePath: monitoringFile.path,
+      ...(monitoringFiles.length === 1
+        ? { filePath: monitoringFiles[0].path }
+        : { filePaths: monitoringFiles.map(file => file.path) }),
       standardsDir: standardFile ? dirname(standardFile.path) : null,
       context: input.context,
       reportDate: input.report_date,
@@ -226,6 +239,7 @@ export async function createRun(input: CreateRunRequest, access: LocalAccess): P
         agent_run: null,
       },
       updated_at: new Date().toISOString(),
+      risk_evaluation_total: riskEvaluationTargets(envelope.result).length,
       execution_status: input.options?.generate_report ? "running" : "completed",
       lease_until: input.options?.generate_report ? new Date(Date.now() + LEASE_MS).toISOString() : null,
     }, current.revision, access);
@@ -234,7 +248,7 @@ export async function createRun(input: CreateRunRequest, access: LocalAccess): P
     await saveFailure(current, access, error);
     throw error;
   } finally {
-    const cleanups = [monitoringFile, standardFile]
+    const cleanups = [...monitoringFiles, standardFile]
       .filter((file): file is MaterializedFile => file !== null)
       .map((file) => file.cleanup());
     const cleanupResults = await Promise.allSettled(cleanups);
@@ -261,9 +275,14 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
   if (JSON.stringify(draft.ref) !== JSON.stringify(input.draft_ref)) {
     throw new AppError(409, "RUN_CONFLICT", "草稿版本已变化，请重新打开后复核。");
   }
-  const evaluations = resolveRiskEvaluations(record.result?.payload, input);
+  const evaluations = resolveRiskEvaluations(record.result?.payload, {
+    ...input,
+    evaluations: input.evaluations ?? record.evaluation_draft?.evaluations,
+  });
   if (input.decision === "accepted") await verifyReportFiles(draft);
   const at = new Date().toISOString();
+  const reviewer = access.actor ?? { id: access.owner_id, name: "本地工程师" };
+  const savedEvaluations = new Map(record.evaluation_draft?.evaluations.map(item => [item.risk_item_index, item]));
   const state = agentRunStateSchema.parse({
     ...agent.state,
     run: {
@@ -288,6 +307,17 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
   });
   return saveRun({
     ...record, updated_at: at,
+    evaluation_draft: {
+      draft_ref: draft.ref,
+      evaluations: evaluations.map(evaluation => {
+        const previous = savedEvaluations.get(evaluation.risk_item_index);
+        return previous && previous.disposition === evaluation.disposition && previous.comment === evaluation.comment
+          ? previous : { ...evaluation, evaluated_by: reviewer, evaluated_at: at };
+      }),
+      updated_by: reviewer,
+      updated_at: at,
+      reason: input.reason,
+    },
     result: { ...record.result!, agent_run: agentResult({
       state,
       terminalAction: {
@@ -303,6 +333,48 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
       decision: input.decision, reason: input.reason,
       evaluations,
       submitted_at: at, owner_id: access.owner_id, draft_ref: draft.ref,
+      submitted_by: access.actor ?? { id: access.owner_id, name: "本地工程师" },
+    },
+  }, record.revision, access);
+}
+
+export async function saveRiskEvaluations(runId: string, input: SaveEvaluationRequest, access: LocalAccess) {
+  if (access.role && !["admin", "reviewer"].includes(access.role)) {
+    throw new AppError(403, "FORBIDDEN", "当前工程角色无权暂存风险评价。");
+  }
+  const record = await readRun(runId, access);
+  if (record.revision !== input.expected_revision) {
+    throw new AppError(409, "RUN_CONFLICT", "其他成员已更新该运行，请加载最新版本后暂存。");
+  }
+  const agent = record.result?.agent_run;
+  const draft = agent?.state.report_draft;
+  if (record.execution_status !== "completed" || record.error || !draft ||
+      agent?.state.run.status !== "awaiting_human_review" || !agent.state.audit_result?.valid ||
+      record.review || agent.state.human_review.decision !== null) {
+    throw new AppError(409, "INVALID_TRANSITION", "仅可暂存已审计且尚未提交决定的当前草稿评价。");
+  }
+  if (JSON.stringify(draft.ref) !== JSON.stringify(input.draft_ref)) {
+    throw new AppError(409, "RUN_CONFLICT", "草稿版本已变化，请加载最新运行。");
+  }
+  const evaluations = resolveRiskEvaluations(record.result?.payload, { evaluations: input.evaluations });
+  const at = new Date().toISOString();
+  const actor = access.actor ?? { id: access.owner_id, name: "本地工程师" };
+  const merged = new Map((record.evaluation_draft?.evaluations ?? []).map(item => [item.risk_item_index, item]));
+  for (const evaluation of evaluations) {
+    const previous = merged.get(evaluation.risk_item_index);
+    if (!previous || previous.disposition !== evaluation.disposition || previous.comment !== evaluation.comment) {
+      merged.set(evaluation.risk_item_index, { ...evaluation, evaluated_by: actor, evaluated_at: at });
+    }
+  }
+  return saveRun({
+    ...record,
+    updated_at: at,
+    evaluation_draft: {
+      draft_ref: draft.ref,
+      evaluations: [...merged.values()].sort((left, right) => left.risk_item_index - right.risk_item_index),
+      updated_by: actor,
+      updated_at: at,
+      reason: input.reason ?? record.evaluation_draft?.reason ?? "",
     },
   }, record.revision, access);
 }

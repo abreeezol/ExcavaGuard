@@ -28,6 +28,8 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
   let readRun: typeof import("@/server/storage/run-store").readRun;
   let saveRun: typeof import("@/server/storage/run-store").saveRun;
   let deleteRun: typeof import("@/server/storage/run-store").deleteRun;
+  let saveRiskEvaluations: typeof import("@/server/runs").saveRiskEvaluations;
+  let listRuns: typeof import("@/server/storage/run-store").listRuns;
   const cleanupObjectPaths = new Set<string>();
   const fileIds = new Set<string>();
   let runId: string | null = null;
@@ -42,7 +44,8 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
     ({ POST: standardsPOST } = await import("@/app/api/standards/route"));
     ({ POST: runsPOST } = await import("@/app/api/runs/route"));
     ({ POST: reviewPOST } = await import("@/app/api/runs/[runId]/review/route"));
-    ({ deleteRun, readRun, saveRun } = await import("@/server/storage/run-store"));
+    ({ deleteRun, readRun, saveRun, listRuns } = await import("@/server/storage/run-store"));
+    ({ saveRiskEvaluations } = await import("@/server/runs"));
     ({ GET: artifactGET } = await import(
       "@/app/api/report-artifacts/[draftId]/[fileName]/route"
     ));
@@ -131,6 +134,7 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
       kind: "monitoring",
       storage: "supabase",
       original_name: "SIMULATED_supabase_provider.csv",
+      uploaded_by: { id: "local-operator", name: "本地工程师" },
     });
     expect(upload.read_report).toMatchObject({ ok: true, data_rows: 7 });
 
@@ -267,6 +271,26 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
       reason: { code: "RUN_CONFLICT" },
     });
     const latest = await readRun(runId, access);
+    const peer: LocalAccess = {
+      owner_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      project_id: DEFAULT_PROJECT_ID,
+      role: "reviewer",
+      actor: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "SIMULATED 远端复核者" },
+    };
+    const evaluations = riskEvaluationTargets(latest.result?.payload).map(target => ({
+      risk_item_index: target.risk_item_index,
+      disposition: "confirmed" as const,
+      comment: "SIMULATED 云端协作暂存评价。",
+    }));
+    const shared = await saveRiskEvaluations(runId, {
+      expected_revision: latest.revision,
+      draft_ref: latest.result!.agent_run!.state.report_draft!.ref,
+      evaluations,
+    }, peer);
+    expect((await readRun(runId, access)).evaluation_draft?.evaluations[0]?.evaluated_by)
+      .toEqual(peer.actor);
+    expect((await listRuns(peer)).find(summary => summary.run_id === runId))
+      .toMatchObject({ evaluation_count: evaluations.length });
 
     const reviewResponse = await reviewPOST(new Request(
       `http://localhost/api/runs/${runId}/review`,
@@ -274,7 +298,7 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          expected_revision: latest.revision,
+          expected_revision: shared.revision,
           draft_ref: draft.ref,
           decision: "accepted",
           reason: "SIMULATED Supabase Provider 自动化验收，不代表正式工程签发。",

@@ -14,6 +14,7 @@ import { GET as normsGET, POST as normsPOST } from "@/app/api/project-standards/
 import { GET as runsGET, POST as run } from "@/app/api/runs/route";
 import { DELETE as runDELETE, GET as runGET } from "@/app/api/runs/[runId]/route";
 import { POST as review } from "@/app/api/runs/[runId]/review/route";
+import { POST as saveEvaluations } from "@/app/api/runs/[runId]/evaluations/route";
 import { GET as download } from "@/app/api/report-artifacts/[draftId]/[fileName]/route";
 import { requireAccess } from "@/server/access";
 import { riskEvaluationTargets } from "@/contracts/engineer-evaluation";
@@ -45,6 +46,18 @@ async function modifyDirectory(change: (directory: AccessDirectory) => void) {
   const directory = accessDirectorySchema.parse(JSON.parse(await readFile(directoryFile, "utf8")));
   change(directory); await writeFile(directoryFile, JSON.stringify(directory));
 }
+async function uploadSource(cookie: string, contents: string) {
+  const form = new FormData();
+  form.set("file", new File([contents], "SIMULATED_collaboration.csv"));
+  form.set("uploaded_by", JSON.stringify({ id: IDS.outsider, name: "伪造上传者" }));
+  const response = await upload(new Request(base + "/api/monitoring-files", {
+    method: "POST", headers: { cookie, "X-Excavaguard-Project": A }, body: form,
+  }));
+  expect(response.status).toBe(201);
+  return (await response.json()).file;
+}
+const HEADER = "point_id,timestamp,metric_key,value,unit,data_origin\n";
+const CONDITIONS = { safety_level: "一级", support_type: "地下连续墙", excavation_depth_m: 20 };
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "excavaguard-project-auth-")); directoryFile = join(root, "directory.json");
   vi.stubEnv("EXCAVAGUARD_ACCESS_FILE", directoryFile);
@@ -155,6 +168,73 @@ describe("账号登录与获授权项目选择", () => {
     expect((await sessionGET(request("/api/session", cookie)).json()).projects).toHaveLength(4);
     await modifyDirectory(directory => { directory.projects.find(p => p.id === A)!.active = false; });
     expect((await runsGET(request("/api/runs", cookie))).status).toBe(403);
+  });
+  it("多人上传汇成同一日报，异地会话暂存和复核后上传者读取相同结果", async () => {
+    const engineer = await user("engineer", A), admin = await user("admin", A);
+    const reviewer = await user("reviewer", A), outsider = await user("outsider", B);
+    const first = await uploadSource(engineer, HEADER + "SIMULATED-P,2026-10-01,wall_top_horizontal_displacement,0,mm,simulated\n");
+    const second = await uploadSource(admin, HEADER + "SIMULATED-P,2026-10-02,wall_top_horizontal_displacement,12,mm,simulated\n");
+    expect(first.uploaded_by).toEqual({ id: IDS.engineer, name: "engineer" });
+    expect(second.uploaded_by).toEqual({ id: IDS.admin, name: "admin" });
+    const response = await run(request("/api/runs", reviewer, {
+      project_id: A, monitoring_file_id: first.file_id, additional_monitoring_file_ids: [second.file_id],
+      report_date: "2026-10-02", context: CONDITIONS, options: { generate_report: true, report_mode: "template" },
+    }));
+    const body = await response.json();
+    expect(response.status, JSON.stringify(body.error)).toBe(200);
+    expect(body.record.source_files.map((file: { uploaded_by: { id: string } }) => file.uploaded_by.id)).toEqual([IDS.engineer, IDS.admin]);
+    expect(body.record.created_by).toEqual({ id: IDS.reviewer, name: "reviewer" });
+    expect(body.payload.items).toHaveLength(1);
+    expect(body.payload.items[0]).toMatchObject({ current: 12, baseline: 0, previous: 0, cumulative: 12, single_change: 12, rate: 12 });
+    const draft = body.agent_run.state.report_draft;
+    artifacts.push(dirname(resolve(draft.artifacts[0].relative_path)));
+    expect(body.agent_run.downloads).toHaveLength(3);
+    const context = { params: Promise.resolve({ runId: body.run_id }) };
+    const evaluation = {
+      expected_revision: body.record.revision, draft_ref: draft.ref,
+      evaluations: [{ risk_item_index: 0, disposition: "confirmed", comment: "异地复核合成观测。" }],
+      reason: "多人协作暂存。",
+    };
+    expect((await saveEvaluations(request("/api/runs/test/evaluations", engineer, evaluation), context)).status).toBe(403);
+    expect((await saveEvaluations(request("/api/runs/test/evaluations", outsider, evaluation), context)).status).toBe(403);
+    expect((await saveEvaluations(request("/api/runs/test/evaluations", reviewer, { ...evaluation, evaluations: [...evaluation.evaluations, ...evaluation.evaluations] }), context)).status).toBe(400);
+    const saved = await saveEvaluations(request("/api/runs/test/evaluations", reviewer, evaluation), context);
+    expect(saved.status).toBe(200);
+    const fromOtherDevice = await (await runGET(request("/api/runs/test", engineer), context)).json();
+    expect(fromOtherDevice.record.evaluation_draft.evaluations[0].evaluated_by.id).toBe(IDS.reviewer);
+    expect(fromOtherDevice.record.review).toBeNull();
+    expect((await saveEvaluations(request("/api/runs/test/evaluations", reviewer, evaluation), context)).status).toBe(409);
+    const accepted = await review(request("/api/runs/test/review", admin, {
+      expected_revision: fromOtherDevice.record.revision, draft_ref: draft.ref,
+      decision: "accepted", reason: "接受协作草稿，不代表签发。",
+    }), context);
+    expect(accepted.status).toBe(200);
+    const final = await (await runGET(request("/api/runs/test", engineer), context)).json();
+    expect(final.record.review.submitted_by.id).toBe(IDS.admin);
+    expect(final.record.evaluation_draft.evaluations[0].evaluated_by.id).toBe(IDS.reviewer);
+    expect(final.payload).toEqual(body.payload);
+    expect(final.agent_run.downloads).toEqual(body.agent_run.downloads);
+    expect((await (await runsGET(request("/api/runs", engineer))).json()).runs[0]).toMatchObject({
+      created_by: { id: IDS.reviewer }, reviewed_by: { id: IDS.admin }, evaluation_count: 1, risk_evaluation_total: 1,
+    });
+  });
+  it("汇总拒绝跨项目文件、重复文件、别名归一后的重复观测和来源冲突", async () => {
+    const engineer = await user("engineer", A);
+    const first = await uploadSource(engineer, HEADER + "SIMULATED-P,2026-10-02,wall_top_horizontal_displacement,12,mm,simulated\n");
+    const duplicate = await uploadSource(engineer, HEADER + "simulated-p,2026/10/02,围护墙顶部水平位移,0.012,m,simulated\n");
+    const input = { project_id: A, monitoring_file_id: first.file_id, additional_monitoring_file_ids: [duplicate.file_id],
+      report_date: "2026-10-02", context: CONDITIONS };
+    expect((await run(request("/api/runs", engineer, { ...input, additional_monitoring_file_ids: [first.file_id] }))).status).toBe(400);
+    const conflict = await run(request("/api/runs", engineer, input));
+    expect(conflict.status).toBe(422);
+    expect((await conflict.json()).error.message).toContain("重复观测");
+    const changedOrigin = await uploadSource(engineer, HEADER + "SIMULATED-P,2026-10-03,wall_top_horizontal_displacement,13,mm,real\n");
+    const originConflict = await run(request("/api/runs", engineer, { ...input, report_date: "2026-10-03", additional_monitoring_file_ids: [changedOrigin.file_id] }));
+    expect(originConflict.status).toBe(422);
+    expect((await originConflict.json()).error.message).toContain("不一致");
+    await modifyDirectory(directory => { directory.memberships.find(m => m.user_id === IDS.engineer)!.project_id = B; });
+    const cookieB = await user("engineer", B);
+    expect((await run(request("/api/runs", cookieB, { ...input, project_id: B }))).status).toBe(404);
   });
   it("真实上传→项目规范→报告→同项目复核共享；其他项目不可读或下载", async () => {
     const admin = await user("admin", A), engineer = await user("engineer", A);

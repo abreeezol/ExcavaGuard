@@ -61,6 +61,7 @@ export async function POST(request: Request) {
       bytes,
       mediaType: file.type,
       projectId: access.project_id,
+      uploadedBy: access.actor ?? { id: access.owner_id, name: "本地工程师" },
     });
 
     let readReport: ReadReport | null = null;

@@ -1,5 +1,14 @@
 # ExcavaGuard 项目记忆
 
+### 2026-11-02 多端协作与共享日报
+
+- 同项目成员共享文件和运行；工作台按日期/待复核筛选最近100次运行，每15秒及恢复可见时同步列表。当前运行新revision只提示显式加载，不覆盖未保存评价。
+- 文件保存上传者，运行冻结生成者及全部输入文件ID/哈希/上传者，评价记录实际填写人，最终决定记录提交人。新增字段兼容旧记录，旧身份缺失不补造。
+- 统一日报从显式选择的1～10份原始上传文件生成单个运行，不拼接旧报告。文件合计最多100MB、300000条源记录；Python先合并历史再派生，宽表沿用每日末值；跨文件重复观测与通道单位/量值语义/来源/布局冲突拒绝汇总。
+- `POST /api/runs/:id/evaluations` 以草稿与revision CAS合并共享暂存评价及总评，仅admin/reviewer可写。接受沿用全部风险已评价且无异议门禁；暂存和决定均不改写冻结事实或报告文件。
+- Supabase文件表需要执行 `supabase/migrations/202611020001_collaboration.sql` 的可空上传者列迁移；本轮只读核验该迁移尚未执行。`npm run supabase:check`新增`collaboration_ready`，不得把本地双会话验证描述为已部署异地服务。
+- 账号授权仍使用单服务私有目录；项目补充规范SQLite仍依赖持久卷。多人浏览器访问同一服务可协作，多个独立服务实例的本地目录共享仍需另行配置。
+
 ### 2026-10-28 运行历史单条删除
 
 - 工作台运行历史增加逐条删除入口，仅项目 `admin` 可见和调用；删除前明确二次确认。
@@ -703,3 +712,10 @@ ExcavaGuard/
 - 已检查本地与远端分支/提交及 GitHub 开放 PR，未发现等效升级。`gh` 不可用，改用 GitHub API；只读 Git 元数据阻止 fetch，使用 ls-remote 确认远端分支与本地跟踪记录一致。
 - 验证：npm ci 成功，Next.js v16.4.3；清空继承的外部服务配置、指定现有项目 Python 虚拟环境后 npm run check 137 通过、6 项 live 跳过；NODE_ENV=production npm run build 成功；生产服务 health/workbench HTTP 200。
 - 安装过程中修复 npm 可选依赖记录与离线缓存缺失导致的原生包问题；首次构建受环境非标准 NODE_ENV 影响，显式 production 后通过。原工作区未提交改动未纳入本分支；尚未推送或创建 PR。
+
+## 阿里云轻量服务器部署约定
+
+- Mac 使用 Colima 构建 `linux/amd64` 镜像，再以 tar 上传服务器并导入；镜像使用当前工作区源码，包含未提交修改。运行在服务器后，Mac 无需保持 Colima 启动。
+- 1GB 服务器采用云端 Pinecone，不在容器内加载本地 Torch/Chroma。模板日报可独立验证；AI 模式需配置模型与检索服务。
+- 环境密钥单独保存在服务器 `deploy/server.env`；账号、项目规范 SQLite 与本地产物挂载到 `deploy/state`，更新镜像时保留。部署步骤见 `deploy/README.md`。
+- 首次通过 SSH 隧道访问服务器 loopback 端口；多人公网使用需另行配置域名与 HTTPS。业务协作功能需先执行对应 Supabase 迁移。

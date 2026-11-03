@@ -87,6 +87,7 @@ export function requireAccess(request: Request, projectId?: string): LocalAccess
   const access: LocalAccess = { owner_id: status.user!.id, project_id: status.project_id };
   // Keep old single-operator callers compatible; membership mode shares project history.
   if (readAccessDirectory()) access.role = status.projects!.find(p => p.id === status.project_id)!.role;
+  if (access.role) access.actor = status.user!;
   return access;
 }
 export function requireProjectAction(request: Request, action: "write" | "review" | "standards" | "delete", projectId?: string): LocalAccess {

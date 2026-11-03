@@ -13,7 +13,7 @@ import {
 import type { ReportDraft, ReportArtifact } from "@/contracts/agent-runtime";
 import { deleteRun, readRun, saveRun, listRuns } from "@/server/storage/run-store";
 import { executeAgentRun } from "@/server/agents/executor";
-import { reviewRun, resumeRun } from "@/server/runs";
+import { reviewRun, resumeRun, saveRiskEvaluations } from "@/server/runs";
 import { GET as artifactGET } from "@/app/api/report-artifacts/[draftId]/[fileName]/route";
 import { requireAccess } from "@/server/access";
 import { GET as sessionGET, POST as sessionPOST, DELETE as sessionDELETE } from "@/app/api/session/route";
@@ -284,6 +284,57 @@ describe("运行持久化与复核", () => {
       risk_level: "报警",
     });
     expect(returned.result?.agent_run?.state.run.status).toBe("stopped");
+  });
+
+  it("暂存评价可跨成员恢复，逐项合并，最终接受保留填写人且不改变报告", async () => {
+    const record = await auditedRun(true, [knownRisk(), { ...knownRisk(), point_id: "WTHD-02" }]);
+    const reviewer: LocalAccess = {
+      ...ACCESS, role: "reviewer", owner_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      actor: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "合成复核人" },
+    };
+    const admin: LocalAccess = { ...ACCESS, role: "admin", actor: { id: ACCESS.owner_id, name: "合成管理员" } };
+    const first = await saveRiskEvaluations(record.run_id, {
+      ...reviewInput(record), evaluations: [{ risk_item_index: 0, disposition: "confirmed", comment: "第一条已核对。" }],
+      reason: "暂存总评。",
+    }, reviewer);
+    expect(first.review).toBeNull();
+    expect(first.result).toEqual(record.result);
+    expect((await readRun(record.run_id, admin)).evaluation_draft).toMatchObject({
+      reason: "暂存总评。",
+      evaluations: [{ evaluated_by: reviewer.actor, comment: "第一条已核对。" }],
+    });
+    await expect(reviewRun(first.run_id, reviewInput(first), admin)).rejects.toMatchObject({ code: "RISK_EVALUATION_REQUIRED" });
+    const second = await saveRiskEvaluations(record.run_id, {
+      ...reviewInput(first),
+      evaluations: [{ risk_item_index: 1, disposition: "follow_up_required", comment: "第二条持续跟踪。" }],
+    }, admin);
+    expect(second.evaluation_draft?.evaluations.map(item => item.evaluated_by)).toEqual([reviewer.actor, admin.actor]);
+    const accepted = await reviewRun(second.run_id, reviewInput(second), admin);
+    expect(accepted.review?.evaluations).toHaveLength(2);
+    expect(accepted.evaluation_draft?.evaluations.map(item => item.evaluated_by)).toEqual([reviewer.actor, admin.actor]);
+    expect(accepted.result?.agent_run?.state.report_draft).toEqual(record.result?.agent_run?.state.report_draft);
+    await expect(saveRiskEvaluations(accepted.run_id, {
+      ...reviewInput(accepted), evaluations: [{ risk_item_index: 0, disposition: "confirmed", comment: "已终结后不能写入。" }],
+    }, reviewer)).rejects.toMatchObject({ code: "INVALID_TRANSITION" });
+  });
+
+  it("暂存并发只允许一个成功，旧版本、旧草稿、重复条目和非复核角色拒绝", async () => {
+    const record = await auditedRun(true, [knownRisk()]);
+    const input = { ...reviewInput(record), evaluations: [{ risk_item_index: 0, disposition: "confirmed" as const, comment: "核对记录。" }] };
+    await expect(saveRiskEvaluations(record.run_id, input, { ...ACCESS, role: "engineer" }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(saveRiskEvaluations(record.run_id, { ...input, draft_ref: { ...input.draft_ref, content_hash: hash("other") } }, ACCESS))
+      .rejects.toMatchObject({ code: "RUN_CONFLICT" });
+    await expect(saveRiskEvaluations(record.run_id, { ...input, evaluations: [...input.evaluations, ...input.evaluations] }, ACCESS))
+      .rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    const outcomes = await Promise.allSettled([
+      saveRiskEvaluations(record.run_id, input, ACCESS),
+      saveRiskEvaluations(record.run_id, input, ACCESS),
+    ]);
+    expect(outcomes.filter(item => item.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.find(item => item.status === "rejected")).toMatchObject({ reason: { code: "RUN_CONFLICT" } });
+    await expect(saveRiskEvaluations(record.run_id, input, ACCESS)).rejects.toMatchObject({ code: "RUN_CONFLICT" });
+    expect((await listRuns(ACCESS))[0]).toMatchObject({ evaluation_count: 1, decision: null });
   });
 
   it("拒绝不存在或重复的风险评价对象", async () => {

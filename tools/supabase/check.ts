@@ -95,6 +95,9 @@ if (bucketError) errors.push(`bucket: ${safeMessage(bucketError.message)}`);
 if (bucketInfo?.public === true) errors.push("bucket: bucket 必须为 private。");
 
 const schemaReady = Object.values(tableChecks).every(Boolean);
+const { error: collaborationError } = await admin.from("excavaguard_files").select("uploaded_by").limit(1);
+const collaborationReady = !collaborationError;
+if (collaborationError) errors.push("collaboration: 请执行 202611020001_collaboration.sql 迁移。");
 let infrastructureVerified = false;
 
 if (writeProbe && schemaReady && privateBucketReady) {
@@ -160,12 +163,14 @@ console.log(JSON.stringify({
   public_connection: true,
   secret_configured: true,
   schema_ready: schemaReady,
+  collaboration_ready: collaborationReady,
   table_checks: tableChecks,
   private_bucket_ready: privateBucketReady,
   bucket,
   write_probe_requested: writeProbe,
   infrastructure_verified: infrastructureVerified,
   missing: [
+    ...(!collaborationReady ? ["执行 supabase/migrations/202611020001_collaboration.sql"] : []),
     ...(!schemaReady
       ? ["执行 supabase/migrations/202610140001_excavaguard_storage.sql"]
       : []),
@@ -175,6 +180,7 @@ console.log(JSON.stringify({
 }, null, 2));
 
 if ((requireReady && status !== "schema_ready" && status !== "infrastructure_verified") ||
+    (requireReady && !collaborationReady) ||
     (writeProbe && !infrastructureVerified)) {
   process.exit(2);
 }

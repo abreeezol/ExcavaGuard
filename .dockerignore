@@ -1,0 +1,34 @@
+# Only application sources enter the build context. In particular, no local
+# credentials, uploaded files, model weights or generated reports are sent.
+**
+!package.json
+!package-lock.json
+!next.config.ts
+!tsconfig.json
+!src/
+!src/**
+!skills/
+!skills/**
+!确定性计算层/
+!确定性计算层/pipeline/
+!确定性计算层/pipeline/**
+!确定性计算层/contracts/
+!确定性计算层/contracts/**
+!确定性计算层/standards/
+!确定性计算层/standards/default/
+!确定性计算层/standards/default/**
+!确定性计算层/tools/
+!确定性计算层/tools/validate_daily_report_input.py
+!rag/
+!rag/standard-status.json
+!tools/
+!tools/access/
+!tools/access/manage.mjs
+!deploy/
+!deploy/requirements.txt
+skills/_archive/**
+skills/**/examples/**
+skills/**/tests/**
+**/__pycache__/**
+**/*.pyc
+**/.env*

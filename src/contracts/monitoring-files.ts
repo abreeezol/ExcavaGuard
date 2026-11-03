@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { actorSchema } from "@/contracts/actor";
 
 /**
  * 上传文件与读取报告的共享契约。
@@ -22,6 +23,7 @@ export const storedFileSchema = z.strictObject({
   created_at: z.iso.datetime(),
   /** 实际存储 Provider；切换由服务端显式配置。 */
   storage: z.enum(["local", "supabase"]),
+  uploaded_by: actorSchema.nullable().optional(),
 });
 
 export type StoredFile = z.infer<typeof storedFileSchema>;
