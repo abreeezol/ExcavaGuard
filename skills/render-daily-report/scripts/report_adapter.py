@@ -20,6 +20,13 @@ sys.path.insert(0, str(DEEP_REPORT_SCRIPTS))
 
 from render_report import DEFAULT_FORM_MAP  # noqa: E402
 from evidence_labels import clean_name, citation_label, engine_basis, paragraph_text, reference_text, source_location
+from scenario_forms import (  # noqa: E402
+    active_report_scenario,
+    appendix_form_of,
+    assert_renderable,
+    template_version as scenario_template_version,
+)
+import tunnel_appendix_forms as tunnel_forms_impl  # noqa: E402
 
 TEMPLATE_VERSION = "deep-pit-monitoring-report/service-v5"
 ITEM_FACT_FIELDS = (
@@ -206,27 +213,46 @@ def _narrative(payload: Any, engine: dict[str, Any], forms: list[str]) -> tuple[
 
 
 FORM_NAMES = {"A": "水平位移", "B": "深层水平位移", "C": "围护墙内力等", "D": "支撑轴力等", "E": "地下水位等", "F": "裂缝"}
+# 隧道（GB 50911-2013 附录 D）只有四张表，拱顶沉降与净空收敛同属 D.0.1。
+TUNNEL_FORM_NAMES = {
+    "1": "水平位移、竖向位移",
+    "2": "深层水平位移",
+    "3": "轴力（拉力）",
+    "4": "应力、压力",
+}
 RISK_ORDER = ["危险报警", "报警", "预警", "关注", "正常", "未知"]
 
 
 def _form_analysis(items: list[dict[str, Any]]) -> list[str]:
     """按附表统计风险分布，对齐 gold standard 的分项分析格式。"""
     grouped: dict[str, dict[str, int]] = {}
+    labels: dict[str, str] = {}
     for item in items:
         form = item.get("appendix_form")
-        if not form or form[-1] not in FORM_NAMES:
+        label = _form_label(form)
+        if not label:
             continue
-        key = form[-1]
+        labels[str(form)] = label
         level = str(item.get("risk_level") or "未知")
-        grouped.setdefault(key, {}).setdefault(level, 0)
-        grouped[key][level] += 1
+        grouped.setdefault(str(form), {}).setdefault(level, 0)
+        grouped[str(form)][level] += 1
     result = []
-    for form_key in sorted(grouped):
-        name = FORM_NAMES.get(form_key, form_key)
-        dist = grouped[form_key]
+    for form in sorted(grouped):
+        dist = grouped[form]
         parts = [f"{level} {dist.get(level, 0)} 点" for level in RISK_ORDER if dist.get(level, 0) > 0]
-        result.append(f"· {name}：{'、'.join(parts)}。")
+        result.append(f"· {labels[form]}：{'、'.join(parts)}。")
     return result
+
+
+def _form_label(form: str | None) -> str | None:
+    """附表代号 → 展示名（基坑 A~F / 隧道 D1~D4）。"""
+    text = str(form or "")
+    if not text:
+        return None
+    if text.startswith("表D"):
+        name = TUNNEL_FORM_NAMES.get(text[2:])
+        return f"{text} {name}" if name else text
+    return FORM_NAMES.get(text[-1:])
 
 
 def _standard_basis_summary(items: list[dict[str, Any]]) -> str:
@@ -235,7 +261,7 @@ def _standard_basis_summary(items: list[dict[str, Any]]) -> str:
         return "规范依据：未匹配到可唯一展示的适用规范，相关条目已进入待复核。"
     shown = "、".join(bases[:6])
     suffix = f"等 {len(bases)} 项" if len(bases) > 6 else ""
-    return f"规范依据：{shown}{suffix}；具体来源与适用条件见第四节及附表备注。"
+    return f"规范依据：{shown}{suffix}；具体来源与适用条件见规范核对依据及附表备注。"
 
 
 def _review_items(report: dict[str, Any]) -> list[str]:
@@ -257,7 +283,341 @@ def _review_items(report: dict[str, Any]) -> list[str]:
     return result
 
 
-def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
+def _review_lines(report: dict[str, Any], *, patrol_note: str | None = None) -> list[str]:
+    """待复核事项（两种场景共用；patrol_note 用于场景特有的巡查/巡视披露）。"""
+    sections = report["sections"]
+    narrative = sections.get("narrative") or {}
+
+    def lines(field):
+        return [paragraph_text(report, item) for item in narrative.get(field, [])]
+
+    abstain_items = _review_items(report)
+    reviews = []
+    if abstain_items and abstain_items != ["无引擎弃权条目。"]:
+        reviews = ["以下测点需人工复核："] + abstain_items + [""]
+    reviews += list(report["review_gaps"]) + lines("limitations")
+    if patrol_note:
+        reviews.append(patrol_note)
+    if sections["standard_override_warnings"]:
+        reviews += ["用户阈值宽松提示：以下差异必须由工程师逐项复核。"] + [
+            canonical_json(item) for item in sections["standard_override_warnings"]
+        ]
+    reviews += [
+        f"数据质量问题：{_display(sections['data_quality'].get('issue_count'))} 项；"
+        f"阻塞期次：{_display(sections['data_quality'].get('blocked_records'))}。"
+    ]
+    return reviews
+
+
+def _evidence_lines(report: dict[str, Any]) -> list[str]:
+    """规范核对依据（RAG 检索结果 + 覆盖与缺口）。"""
+    evidence: list[str] = []
+    standard_evidence = report["sections"]["standard_evidence"]
+    for doc in standard_evidence.get("project_standards") or []:
+        evidence.append(f"本工程补充规范：《{doc['standard_name']}》 {doc['standard_version']}；适用地区：{doc['region']}；适用范围：{doc['applicability']}。仅当前工程使用。")
+    for item in standard_evidence.get("items") or []:
+        metadata = item.get("metadata") or {}
+        source = citation_label(metadata)
+        evidence.append(
+            f"{source}（检索来源: {item.get('provider', '未提供')}）\n"
+            f"来源：{source_location(metadata)}\n"
+            f"原文：\n{item.get('text', '')}"
+        )
+    gaps = standard_evidence.get("gaps") or []
+    if gaps:
+        evidence += ["检索缺口："] + [str(g) for g in gaps]
+    if not evidence:
+        evidence = ["未附加本次 RAG 规范条文；不得补造规范性解释。"]
+    extended = standard_evidence.get("extended_review")
+    if extended:
+        evidence += ["多日预警追加规范核查：" + str(extended.get("status")), str(extended.get("notice", ""))]
+        for check in extended.get("checks", []):
+            evidence += [f"{check.get('group')}：补充规范候选 " + (reference_text(report, check.get("additional_evidence_ids", [])) or "未发现额外命中，仍需人工核查。")]
+    coverage = standard_evidence.get("coverage")
+    if coverage:
+        evidence += [f"规范目录覆盖：{coverage['queried_count']} / {coverage['catalogue_count']}；相关候选 {coverage['candidate_count']} 条，保留 {coverage['retained_count']} 条。", coverage["notice"]]
+        evidence += [f"《{clean_name(entry['standard_name'])}》 {entry['standard_version']}：{entry['reason']}" for entry in coverage["standards"]]
+    evidence += ["数值与风险判据来自冻结确定性规范库；上述 RAG 为本次检索的条文候选，适用性由工程师复核。"]
+    return evidence
+
+
+def _signing_lines(report: dict[str, Any]) -> list[str]:
+    return [
+        "监测人：＿＿＿＿　计算人：＿＿＿＿　校核人：＿＿＿＿",
+        "审核人：＿＿＿＿　项目负责人：＿＿＿＿",
+        "（均为人工填写）",
+        report["sections"]["disclaimer"],
+    ]
+
+
+# --- 隧道：按 GB 50911-2013 第 11.0.5 条第 1 款组织日报 -----------------------
+
+PATROL_DEFECT_WORDS = (
+    "异常", "裂缝", "渗漏", "漏水", "漏气", "变形", "破损", "开裂", "错台", "坍塌",
+    "塌方", "沉降", "沉陷", "隆起", "冒浆", "超载", "积水", "剥离", "掉块", "变位",
+    "失效", "损坏", "涌土", "流砂", "管涌", "侵限",
+)
+
+
+def _patrol_state(result: Any) -> str:
+    """巡查记录的定性状态。只做非常有限的措辞归类，原文始终照录。"""
+    text = str(result or "").strip()
+    if text in ("", "—", "-", "未填写", "待填写"):
+        return "未填写"
+    if text.startswith(("正常", "无", "未", "完好", "未见", "符合")):
+        return "正常"
+    if any(word in text for word in PATROL_DEFECT_WORDS):
+        return "异常"
+    return "已记录"
+
+
+def _tunnel_cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    sections = report["sections"]
+    summary = sections["summary"]
+    narrative = sections.get("narrative") or {}
+    items = sections["monitoring_results"]["items"]
+    project = sections["project"]
+    period = sections.get("period")
+    patrol = sections.get("patrol") or {}
+    section_judgment = sections.get("section_judgment") or {}
+    cond = project.get("conditions") if isinstance(project.get("conditions"), dict) else {}
+    ref = project.get("reference_lengths") if isinstance(project.get("reference_lengths"), dict) else {}
+    sj_summary = section_judgment.get("summary") if isinstance(section_judgment, dict) else {}
+    sj_summary = sj_summary or {}
+    overall = _display(summary.get("overall_risk_level"))
+
+    def lines(field):
+        return [paragraph_text(report, item) for item in narrative.get(field, [])]
+
+    # --- 一、工程施工概况（11.0.5-1-1）---
+    overview = [
+        paragraph_text(report, narrative["work_condition"]) if narrative
+        else sections["work_condition_analysis"]["work_condition"],
+        "",
+        f"工程名称：{_display(project.get('name'))}｜监测单位：{_display(project.get('monitoring_unit'))}"
+        f"｜报告日期：{_display(project.get('report_date'))}",
+        f"工程监测等级：{_display(cond.get('safety_level'))}｜施工工法：{_display(cond.get('construction_method'))}"
+        f"｜区域类型：{_display(cond.get('section_location'))}｜断面形式：{_display(cond.get('section_type'))}"
+        f"｜围岩级别：{_display(cond.get('rock_class'))}",
+    ]
+    refs = [
+        ("隧道埋深", ref.get("buried_depth_m"), "m"),
+        ("开挖跨度", ref.get("span_m"), "m"),
+        ("开挖直径 D", ref.get("diameter_m"), "m"),
+        ("监测点间距 Ls", ref.get("monitoring_spacing_m"), "m"),
+    ]
+    overview.append(
+        "结构尺寸与参照长度："
+        + "｜".join(f"{label}：{_display(value)}{unit if value is not None else ''}" for label, value, unit in refs)
+    )
+    overview.append(_standard_basis_summary(items))
+    if period:
+        overview += [
+            f"报告区间：{period['start_date']} 至 {period['end_date']}（含首尾日，{period['timezone']}）。",
+            "附表展示每通道周期最严重原观测，保留其实际日期，不代表期末值。",
+        ]
+
+    # --- 二、现场巡查信息（11.0.5-1-2）---
+    method = patrol.get("method") or cond.get("construction_method")
+    form = tunnel_forms_impl.patrol_form_for_method(method)
+    records = [rec for rec in (patrol.get("records") or []) if isinstance(rec, dict)]
+    photos = [photo for photo in (patrol.get("photos") or []) if photo]
+    patrol_lines: list[str] = []
+    if records:
+        rows, extras = tunnel_forms_impl.match_patrol_records(form["key"] if form else "", records)
+        all_rows = rows + extras
+        states = [_patrol_state(row.get("result")) for row in all_rows]
+        filled = sum(1 for state in states if state != "未填写")
+        abnormal = [row for row in all_rows if _patrol_state(row.get("result")) == "异常"]
+        if form:
+            patrol_lines.append(
+                f"巡查表式：{form['basis']}《{form['name_cn']}》，按施工工法“{_display(method)}”选择。"
+            )
+        else:
+            patrol_lines.append(
+                "巡查表式：施工工法未提供，无法确定附录 C.0.1～C.0.3 中应使用的巡查表；"
+                "记录按原文列示，表式待人工确认。"
+            )
+        patrol_lines.append(
+            f"巡查时间：{_display(patrol.get('time'))}｜天气：{_display(patrol.get('weather'))}"
+            f"｜现场巡查人：{_display(patrol.get('inspector'))}"
+        )
+        patrol_lines.append(
+            f"覆盖情况：规范应巡查 {len(rows)} 项，已填写 {filled} 项，"
+            f"未填写 {len(states) - filled} 项；另有 {len(extras)} 条记录不在规范清单内（按原文列示）。"
+        )
+        if abnormal:
+            patrol_lines.append("巡查异常项：")
+            for row in abnormal[:10]:
+                note = f"｜备注：{row.get('note')}" if row.get("note") else ""
+                patrol_lines.append(f"· {row.get('category')}｜{row.get('content')}｜{row.get('result')}{note}")
+            if len(abnormal) > 10:
+                patrol_lines.append(f"… 另有 {len(abnormal) - 10} 项异常，详见现场巡查报表。")
+        else:
+            patrol_lines.append("未记录到异常项；未填写项不得视为正常。")
+        patrol_lines.append(
+            f"巡查照片：{len(photos)} 张。" if photos
+            else "巡查照片：未附（第 11.0.5 条第 1 款第 2 项要求日报含巡查照片，需补附）。"
+        )
+        patrol_lines.append("巡查结果仅记录现场所见，不参与风险分级；与监测数据不一致时以工程师现场复核为准。")
+    else:
+        clause = form["clause"] if form else "C.0.1～C.0.3"
+        categories = "、".join(category for category, _contents in form["categories"]) if form else "施工工况、支护结构、周边环境、监测设施"
+        patrol_lines = [
+            "本期未提供现场巡查记录（巡查记录、巡查照片），未生成 GB 50911-2013 附录 C 现场巡查报表。",
+            f"按第 11.0.5 条第 1 款第 2 项，日报应包含现场巡查信息。缺失时不得判定“现场巡查正常”，"
+            f"应由现场巡查人按表 {clause} 补填并签字后归档。",
+            f"应巡查分类：{categories}。"
+            + (f"（按施工工法“{_display(method)}”选用{form['name_cn']}）" if form
+               else "（工法未提供，无法确定应使用的巡查表）"),
+        ]
+
+    # --- 三、监测项目日报表（11.0.5-1-3）---
+    used_forms = [
+        key for key in tunnel_forms_impl.TUNNEL_FORM_ORDER
+        if any(item.get("appendix_form") == key for item in items)
+    ]
+    form_lines = ["表式：采用 GB 50911-2013 附录 D 的样式（第 11.0.5 条第 1 款第 3 项）。"]
+    if used_forms:
+        form_lines.append(
+            "本期使用："
+            + "、".join(f"{key}《{tunnel_forms_impl.TUNNEL_FORMS[key]['name_cn']}》" for key in used_forms)
+            + "，逐测点结果见相应附表。"
+        )
+    else:
+        form_lines.append("本期测项均无法映射到附录 D 表式，未生成监测项目日报表；数值仍列于超限测点清单。")
+    unmapped = sorted({str(item.get("metric_name") or "未命名测项") for item in items if not item.get("appendix_form")})
+    if unmapped:
+        form_lines.append(
+            "未纳入附录 D 表式的测项：" + "、".join(unmapped)
+            + "；数值仍在冻结明细与超限清单中列示，表式需按项目模板补充，不得套用其他标准的表。"
+        )
+    raw_times = sorted({str(item.get("timestamp")) for item in items if isinstance(item.get("timestamp"), str)})
+    obs_times = [
+        text for text in raw_times
+        if ":" in text and not text.endswith(("00:00:00", "T00:00:00"))
+    ]
+    weather = patrol.get("weather") or project.get("weather")
+    required_header = [
+        ("仪器型号", project.get("instrument_model"), "表头留空，由现场填写"),
+        ("仪器出厂编号", project.get("instrument_serial"), "表头留空，由现场填写"),
+        ("检定日期", project.get("instrument_calibrated_at"), "表头留空，由现场填写"),
+        ("监测日期", project.get("report_date"), "缺失，模板中保留待填写"),
+        ("观测时间", "、".join(obs_times[:3]) if obs_times else None, "载荷时间戳仅到日，观测时刻需现场补填"),
+        ("天气情况", weather, "表头留空，由现场填写"),
+        ("累计变化值 / 变化速率值", "逐测点列示，见附表“本次累计变化量”“变化速率”列", ""),
+        ("控制值", "逐测点列示，取冻结判据的累计值与速率控制值", ""),
+        ("监测点平面位置图", "见“监测点平面位置图”工作表；正式平面图应由项目提供", ""),
+    ]
+    form_lines += ["", "表头必备要素（第 11.0.5 条第 1 款第 3 项）："]
+    for label, value, fallback in required_header:
+        if value in (None, ""):
+            form_lines.append(f"· {label}：未提供——{fallback}")
+        else:
+            form_lines.append(f"· {label}：{value}")
+
+    # --- 四、监测数据与现场巡查信息的分析与说明（11.0.5-1-4）---
+    by_level = summary.get("by_risk_level") or {}
+    analysis = [
+        f"本期综合判定：{overall}。当日判定条目共 {_display(summary.get('total'))} 条。",
+        "风险分布：" + "；".join(f"{key}={value}" for key, value in by_level.items()),
+        "分析范围：" + ("正文来自冻结模型分析，独立审计结果见运行记录。" if narrative else "确定性模板，未调用报告 LLM。"),
+        "",
+        "按附表分项统计：",
+    ] + _form_analysis(items) + [""]
+    if narrative:
+        analysis += lines("analysis")
+    if sj_summary and sj_summary.get("sections"):
+        analysis.append(
+            f"断面综合判定：共 {sj_summary.get('sections')} 个断面，最不利等级 "
+            f"{_display(sj_summary.get('overall_section_level'))}；缺测或含不可判定条目的断面 "
+            f"{sj_summary.get('incomplete_sections')} 个；未归属断面的测点 {sj_summary.get('items_unassigned')} 个。"
+            "断面只按显式“测点→断面”映射归组，不按点号前缀推断。"
+        )
+    elif sj_summary:
+        analysis.append(
+            f"断面综合判定：本期 {sj_summary.get('items_unassigned', 0)} 个测点未归属断面，"
+            "未形成断面结论；如需按断面评价，请在测点台账提供 section_id 或显式映射。"
+        )
+    if period:
+        analysis += [
+            f"区间日历天数：{period['calendar_days']}；有观测日期：{period['observed_days']}；"
+            f"明细观测：{period['observation_count']}；预警及以上点日：{period['warning_point_days']}。",
+            "缺测日期：" + ("、".join(period['missing_dates']) or "无整日缺测；逐通道缺口见周期统计。"),
+            f"未知观测：{period['unknown_observation_count']}；未知与缺测不能解释为安全。",
+            "每日变化、各通道覆盖及多日预警详见周期统计和逐日明细。",
+        ]
+    abs_codes = summary.get("abstain") or {}
+    if abs_codes:
+        analysis.append("弃权统计：" + "；".join(f"{code}: {count} 条" for code, count in abs_codes.items()))
+    analysis.append(
+        "现场巡查信息："
+        + ("已随本期提供，异常项与未填写项见第二节；巡查结果不改变冻结风险等级。" if records
+           else "本期缺失，第四节分析仅基于监测数据，不得据此推断现场巡查结论。")
+    )
+
+    # --- 五、结论与建议（11.0.5-1-5）---
+    alerts = sections["alerts"]["items"]
+    unknown = [item for item in items if item.get("risk_level") == "未知"]
+    conclusions = [f"结论：本期综合风险等级为{overall}，判定条目 {_display(summary.get('total'))} 条。"]
+    if alerts:
+        conclusions.append(f"报警及以上 {len(alerts)} 条：")
+        conclusions += [
+            f"· {_display(item.get('point_id'))}｜{_display(item.get('metric_name'))}｜"
+            f"{_display(item.get('risk_level'))}｜累计 {_display(item.get('cumulative'))}｜速率 {_display(item.get('rate'))}"
+            for item in alerts[:10]
+        ]
+        if len(alerts) > 10:
+            conclusions.append(f"… 另有 {len(alerts) - 10} 条，见超限测点清单。")
+    else:
+        conclusions.append("本期无报警及以上条目；未知条目不得视为正常。")
+    if unknown:
+        conclusions.append(f"未知（不可判定）{len(unknown)} 条，原因见待复核事项，须补齐资料后复核。")
+    if sj_summary and sj_summary.get("sections"):
+        incomplete = [
+            sec for sec in (section_judgment.get("sections") or [])
+            if sec.get("completeness") != "complete"
+        ]
+        line = (
+            f"断面结论：{sj_summary.get('sections')} 个断面，最不利等级 "
+            f"{_display(sj_summary.get('overall_section_level'))}"
+        )
+        conclusions.append(
+            line + (f"；{len(incomplete)} 个断面缺测或含不可判定条目，不得判为正常。" if incomplete else "。")
+        )
+    conclusions.append("")
+    if narrative:
+        conclusions += ["建议："] + lines("recommendations")
+    else:
+        conclusions += [
+            "建议：",
+            "1. 对报警及以上测点立即核验实测值、适用判据与现场工况；",
+            "2. 对未知项补齐设计文件、控制值或测点台账后复核；",
+        ]
+        if not records:
+            conclusions.append("3. 未提供现场巡查记录时，由现场巡查人按附录 C 补填，不得以“巡查正常”结论替代。")
+    if period:
+        conclusions.append("周期结论仅代表报告区间内最不利观测，不替代逐日判定记录。")
+
+    return [
+        ("一、工程施工概况", overview),
+        ("二、现场巡查信息", patrol_lines),
+        ("三、监测项目日报表", form_lines),
+        ("四、监测数据、现场巡查信息的分析与说明", analysis),
+        ("五、结论与建议", conclusions),
+        ("六、待复核事项", _review_lines(
+            report,
+            patrol_note=(
+                "本期未提供现场巡查记录；未生成附录 C 现场巡查报表，不得据此判定现场巡查正常。"
+                if not records else None
+            ),
+        )),
+        ("七、规范核对依据（RAG知识库检索）", _evidence_lines(report)),
+        ("八、签署", _signing_lines(report)),
+    ]
+
+
+def _jikeng_cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
     sections = report["sections"]
     summary = sections["summary"]
     narrative = sections.get("narrative") or {}
@@ -305,77 +665,29 @@ def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
     if abs_codes:
         analysis.append("弃权统计：" + "；".join(f"{code}: {count} 条" for code, count in abs_codes.items()))
 
-    # --- 第三节：待复核事项 ---
-    abstain_items = _review_items(report)
-    reviews = []
-    if abstain_items and abstain_items != ["无引擎弃权条目。"]:
-        reviews = ["以下测点需人工复核："] + abstain_items + [""]
-    reviews += list(report["review_gaps"]) + lines("limitations")
-    reviews.append("巡视记录未提供；未生成附表G，不得据此判定巡视正常。")
-    if sections["standard_override_warnings"]:
-        reviews += ["用户阈值宽松提示：以下差异必须由工程师逐项复核。"] + [
-            canonical_json(item) for item in sections["standard_override_warnings"]
-        ]
-    reviews += [
-        f"数据质量问题：{_display(sections['data_quality'].get('issue_count'))} 项；"
-        f"阻塞期次：{_display(sections['data_quality'].get('blocked_records'))}。"
-    ]
-
-    # --- 第四节：规范核对依据（RAG知识库检索）---
-    evidence = []
-    standard_evidence = sections["standard_evidence"]
-    for doc in standard_evidence.get("project_standards") or []:
-        evidence.append(f"本工程补充规范：《{doc['standard_name']}》 {doc['standard_version']}；适用地区：{doc['region']}；适用范围：{doc['applicability']}。仅当前工程使用。")
-    ev_items = standard_evidence.get("items") or []
-    # 按 metadata.clause 聚合展示
-    for item in ev_items:
-        metadata = item.get("metadata") or {}
-        source = citation_label(metadata)
-        evidence.append(
-            f"{source}（检索来源: {item.get('provider', '未提供')}）\n"
-            f"来源：{source_location(metadata)}\n"
-            f"原文：\n{item.get('text', '')}"
-        )
-    gaps = standard_evidence.get("gaps") or []
-    if gaps:
-        evidence += ["检索缺口："] + [str(g) for g in gaps]
-    if not evidence:
-        evidence = ["未附加本次 RAG 规范条文；不得补造规范性解释。"]
-    extended = standard_evidence.get("extended_review")
-    if extended:
-        evidence += ["多日预警追加规范核查：" + str(extended.get("status")), str(extended.get("notice", ""))]
-        for check in extended.get("checks", []):
-            evidence += [f"{check.get('group')}：补充规范候选 " + (reference_text(report, check.get("additional_evidence_ids", [])) or "未发现额外命中，仍需人工核查。")]
-    coverage = standard_evidence.get("coverage")
-    if coverage:
-        evidence += [f"规范目录覆盖：{coverage['queried_count']} / {coverage['catalogue_count']}；相关候选 {coverage['candidate_count']} 条，保留 {coverage['retained_count']} 条。", coverage["notice"]]
-        evidence += [f"《{clean_name(entry['standard_name'])}》 {entry['standard_version']}：{entry['reason']}" for entry in coverage["standards"]]
-    evidence += ["数值与风险判据来自冻结确定性规范库；上述 RAG 为本次检索的条文候选，适用性由工程师复核。"]
-
-    # --- 第五节：签署 ---
-    signing = [
-        "监测人：＿＿＿＿　计算人：＿＿＿＿　校核人：＿＿＿＿",
-        "审核人：＿＿＿＿　项目负责人：＿＿＿＿",
-        "（均为人工填写）",
-        sections["disclaimer"],
-    ]
     return [
         ("一、工况描述", condition_lines),
         ("二、简要分析及判断性结论", analysis),
-        ("三、待复核事项", reviews),
-        ("四、规范核对依据（RAG知识库检索）", evidence),
-        ("五、签署", signing),
+        ("三、待复核事项", _review_lines(
+            report,
+            patrol_note="巡视记录未提供；未生成附表G，不得据此判定巡视正常。",
+        )),
+        ("四、规范核对依据（RAG知识库检索）", _evidence_lines(report)),
+        ("五、签署", _signing_lines(report)),
     ]
 
 
+def cover_blocks(report: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    """日报正文分节。隧道按 GB 50911-2013 第 11.0.5 条组织，基坑保持 service-v5。"""
+    scenario = str((report["sections"].get("project") or {}).get("scenario_id") or active_report_scenario())
+    if scenario == "tunnel":
+        return _tunnel_cover_blocks(report)
+    return _jikeng_cover_blocks(report)
+
+
 def _appendix_form(metric_name: str) -> str | None:
-    for form in DEFAULT_FORM_MAP.get("order", []):
-        if any(
-            keyword and keyword in metric_name
-            for keyword in DEFAULT_FORM_MAP.get("rules", {}).get(form, [])
-        ):
-            return form
-    return None
+    """测项名 → 附表代号。映射来源由场景画像决定（基坑 = 附录 A~G）。"""
+    return appendix_form_of(metric_name)
 
 
 def _adapt_item(item: dict[str, Any]) -> dict[str, Any]:
@@ -403,8 +715,12 @@ def build_report(
     daily_report_input: dict[str, Any],
     evidence_payload: Any = None,
     analysis_payload: Any = None,
-    template_version: str = TEMPLATE_VERSION,
+    template_version: str | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, str]], list[dict[str, str]], dict[str, Any]]:
+    # 表式未确认的场景（如隧道骨架）必须拒绝出报，
+    # 不得沿用基坑附录表头拼出一份"看起来完整"的日报。
+    assert_renderable()
+    template_version = template_version or scenario_template_version()
     items = [_adapt_item(item) for item in daily_report_input.get("items", [])]
     evidence = _extract_evidence(evidence_payload)
     for entry in evidence:
@@ -460,6 +776,26 @@ def build_report(
             + "。"
         )
 
+    patrol = deepcopy(daily_report_input.get("patrol") or {})
+    if str(project.get("scenario_id") or active_report_scenario()) == "tunnel":
+        missing_header = [
+            label for label, value in (
+                ("仪器型号", project.get("instrument_model")),
+                ("仪器出厂编号", project.get("instrument_serial")),
+                ("检定日期", project.get("instrument_calibrated_at")),
+                ("天气情况", patrol.get("weather") or project.get("weather")),
+            ) if value in (None, "")
+        ]
+        if missing_header:
+            review_gaps.append(
+                "监测项目日报表表头缺：" + "、".join(missing_header)
+                + "；表头已保留空位，需现场填写后方可归档（GB 50911-2013 第 11.0.5 条第 1 款第 3 项）。"
+            )
+        if not (patrol.get("records") or []):
+            review_gaps.append(
+                "本期未提供现场巡查记录，未生成附录 C 现场巡查报表；不得据此判定现场巡查正常。"
+            )
+
     period = deepcopy(daily_report_input.get("period"))
     report_label = period["label"] if period else "监测日报"
     if period:
@@ -482,6 +818,8 @@ def build_report(
                 "items": deepcopy(daily_report_input.get("review_queue") or [])
             },
             "data_quality": deepcopy(daily_report_input.get("data_quality") or {}),
+            "patrol": patrol,
+            "section_judgment": deepcopy(daily_report_input.get("sections") or {}),
             "work_condition_analysis": analysis,
             "standard_evidence": {
                 "project_standards": deepcopy(evidence_payload.get("project_standards") or []) if isinstance(evidence_payload, dict) else [],
@@ -578,6 +916,8 @@ def build_report(
         "review_count": len(daily_report_input.get("review_queue") or []),
         "evidence_ids": [item["id"] for item in evidence],
         "review_gaps": review_gaps,
+        "patrol_record_count": len(patrol.get("records") or []),
+        "section_count": len((daily_report_input.get("sections") or {}).get("sections") or []),
         "calculation_performed": False,
         "risk_reclassified": False,
     }

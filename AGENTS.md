@@ -509,3 +509,82 @@ sqlite3 data/chroma_db/chroma.sqlite3 "SELECT COUNT(*) FROM embeddings;"        
 - 原文件BLOB、切片、FTS5索引在独立项目SQLite库；按ID与哈希冻结到运行，禁用不删除历史，续跑不重新读取当前启用列表。同编号每项目只启用一个来源。
 - 字体乱码/扫描PDF没有可靠文字层时拒绝并提示OCR，不把空索引当作成功。模型必须引用各份已命中的项目文档；候选适用性、实际执行和数值差异由工程师确认。
 - 验证：`npm run test:project-standards`；真实PDF通过 `EXCAVAGUARD_TEST_STANDARD_PDF` 显式提供。真实模型只用公开标准与合成观测，详见18号说明。
+
+## 场景画像与多场景适配（2026-11-03）
+
+- 场景相关假设一律写入 `确定性计算层/scenarios/<id>.json`，引擎只读画像，**不得再按场景硬编码**：
+  判据库目录、条件维度、比例参照长度、监测项别名、问题类别、差值型派生、日报表式、RAG collection/namespace。
+- `scenarios/jikeng.json` 是基线画像，取值必须与改造前的内置默认逐项一致；
+  `pipeline/tests/test_pipeline_stages.py` 与 `scenarios/tests/test_scenarios.py` 共同守住这条等价性。
+  默认场景为 jikeng，切换用环境变量 `EXCAVAGUARD_SCENARIO` 或 `options.scenario`。
+- 画像**不含阈值数字**。阈值只能来自 `standards/<场景>/` 下的判据库，且每条 rules 必须带
+  `evidence.standard` 与 `evidence.clause`。判据库缺失时测项一律弃权（`NO_APPLICABLE_RULE`），
+  **不得**因"没有超限证据"判为正常，也不得为凑齐输出而填入无出处数字。
+- `status=skeleton` 的画像（当前 `tunnel`）不得产出工程结论：`scenario_ready=false` 会进入载荷，
+  日报渲染侧由 `skills/render-daily-report/scripts/scenario_forms.py` 的 `assert_renderable()` 直接拒绝出报，
+  禁止沿用基坑附录表头拼接。
+- 差值型派生（隧道断面净空收敛）必须由调用方显式给出点对，禁止按点号前缀猜测配对。
+- 比例类限值优先用 `cumulative_pct_ref = {"ref": <埋深/跨度/外径>, "pct": <百分比>}`；
+  缺参照长度时绝对量只作上界并弃权（`MISSING_REF_LENGTH`），不得用绝对量替代比例限值。
+- 新增场景的步骤见 `确定性计算层/scenarios/README.md`；隧道规范 RAG 接入见 `tunnel_rag_plan.md`。
+- 已验证命令：
+  `cd 确定性计算层 && python -B pipeline/tests/test_pipeline_stages.py`（244 项）、
+  `python -B scenarios/tests/test_scenarios.py`（69 项）、
+  `node tools/bridge-smoke/run_judgement.mjs`（13 项）。
+
+## 隧道判据库与新增判定能力（2026-11-03）
+
+- 判据库：`确定性计算层/standards/tunnel/thresholds_tunnel_gb50911_jtg3660.json`，43 条规则 / 29 个测项 /
+  8 条危险报警条件，**每条 rules 必须带 `evidence.standard` 与 `evidence.clause`**（回归里有强制断言）。
+  来源限定 GB 50911-2013（第9章控制值与第9.1.6条警情）与 JTG/T 3660-2020（18.6.3 稳定性与管理等级、18.5.21 爆破振动）。
+- 规范是扫描件：16 本中 14 本无文字层。语料工具 `确定性计算层/tools/build_tunnel_corpus.py`（文本抽取，
+  标记 `needs_ocr`）与 `tools/ocr_scanned_norms.py`（RapidOCR，参数化）。**关键表格必须渲染原页逐格核对**，
+  OCR 的跨行表格会错位，不得直接采信。
+- 规范明确"控制值应由设计文件明确"（GB 50911-2013 9.2.1/9.2.2/9.2.3）。判据库取的是"无地方经验时"的表格值，
+  实际工程应以设计文件/专项方案为准并按其覆盖；不得把表格值当作项目最终控制值对外签发。
+- 规范未给数值控制值的测项（地下水位、管片椭圆度/接缝张开、深层水平位移、裂缝宽度等）**rules 留空**，
+  在 note 写明原因，判定时弃权 `NO_APPLICABLE_RULE`。禁止为"看起来完整"而填入无出处数字。
+- 新增 `section_judge.py`（断面级综合判定）：只按显式「测点→断面」映射归组，取同断面最不利；
+  缺必测项（拱顶沉降、净空收敛，GB 50911-2013 表4.2.3）或存在不可判定条目时，断面**不得判为正常**。
+- 新增 `convergence.py`（收敛稳定/可停测 + 速率分档 + 位移管理等级）：阈值与连续期数全部来自判据库
+  （`stability_criterion`），代码不含数字；缺设计极限位移 U0 时不给管理等级，打 `MGMT_LEVEL_NOT_EVALUATED`；
+  稳定性结论只回答"是否满足规范量化条件"，停测由工程师决定。
+- 载荷新增顶层可选字段 `sections`（非断面场景为 null）；`items` 新增 `management_level` / `stability` / `section_id`。
+- 角色边界再确认：五级分级档位（0.5/0.7/1.0/1.2）是本系统统一口径，不是隧道规范原文；
+  隧道规范的三档（U/U0）与速率三档作为并列结论输出，不得互相替代或改写。
+- 新增验证：`python -B scenarios/tests/test_tunnel_judgement.py`（64 项）。
+
+## 隧道日报表式（GB 50911-2013 附录 D，2026-11-03）
+
+- **表式不能照搬基坑附录 A~G**。依据 GB 50911-2013 第 11.0.5 条"监测项目日报表可采用本规范附录 D 的样式"：
+  附录 D 只有 4 张（D.0.1 水平/竖向位移、D.0.2 深层水平位移、D.0.3 轴力（拉力）、D.0.4 应力/压力），
+  拱顶沉降与净空收敛同属 D.0.1；附录 C 现场巡查按工法分 C.0.1/C.0.2/C.0.3。
+- 表式注册表：`skills/render-daily-report/scripts/tunnel_appendix_forms.py`；
+  渲染器按场景选表式族（`report_artifacts._form_titles/_form_template`），支持两行合并表头。
+  基坑侧行为不变，`pipeline/tests/test_period_reports.py` 为回归基线。
+- D 表与基坑表的关键差异：控制值（累计/速率两子列）、初始值、上次累计变化量、预警等级为**独立列**；
+  监测日期放表头不逐行重复；轴力表用"上次测值/本次测值"绝对读数。不得用基坑表凑。
+- 控制值列必须取**冻结判据的 limit**（`checks[].limit`），审计逐单元格核对，渲染时不得重算。
+- 附录 D 未涵盖的测项（地下水位、裂缝宽度、爆破振动速度）**不生成附表、不挪用基坑表**，
+  在画像 `report.unsupported_form_metrics/unsupported_form_note` 披露，等项目模板。
+- 现场巡查表需巡视记录结构；载荷未提供时不出表，且禁止写成"巡视正常"。
+- 规范通读结论：GB/T 51310-2018 13.1.6、GB/T 50299-2018 3.1.7 均把监控量测指向 GB 50911，
+  新增可量化判据为 0 条；JTG 3370.1-2018 表8.4.1（预留变形量）仅作 U0 参考，**不自动套用**。
+- 新增验证：`python -B scenarios/tests/test_tunnel_report.py`（32 项，含三件套落盘与独立审计）。
+
+## 隧道日报格式（GB 50911-2013 第 11.0.5 条，2026-11-03）
+
+- 隧道日报正文固定五节（工程施工概况 / 现场巡查信息 / 监测项目日报表 /
+  监测数据、现场巡查信息的分析与说明 / 结论与建议），其后为待复核、规范核对依据、签署三个附列章节。
+  基坑仍为 service-v5 五节，两者是独立分支，**不得相互套用或合并文案**。
+- 现场巡查按工法选附录 C 表：明挖/盖挖→C.0.1、盾构→C.0.2、矿山法→C.0.3；**工法未知不出表**。
+  无 `patrol.records` 时不出附表 C，正文第二节与待复核必须写明"不得判定现场巡查正常"；
+  "未填写"不等于"正常"，巡查结果不参与五级分级。
+- 巡查记录按规范应巡查内容逐条对齐（归一化整串比对），对不上的按原文保留在"其他"，
+  不丢记录、不做语义猜测、不编造结果。
+- 附录 D 表头要素（仪器型号/出厂编号/检定日期/监测日期/观测时间/天气/控制值/平面位置图）
+  缺值时保留"＿＿＿＿"并写入待复核，不得用"—"或占位数字顶替。
+- 监测点平面位置图只输出测点清单（点号/名称/测项/里程/可选坐标），必须声明
+  "正式图由项目提供、不用于放样"，不得冒充测量成果图。
+- 载荷 `patrol` 为可选顶层字段；`items` 新增可选 `mileage`/`x`/`y`（来自 `points_meta`）。
+- 验证：`cd 确定性计算层 && python -B scenarios/tests/test_tunnel_report.py`（82 项）。

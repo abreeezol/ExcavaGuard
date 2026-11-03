@@ -719,3 +719,44 @@ ExcavaGuard/
 - 1GB 服务器采用云端 Pinecone，不在容器内加载本地 Torch/Chroma。模板日报可独立验证；AI 模式需配置模型与检索服务。
 - 环境密钥单独保存在服务器 `deploy/server.env`；账号、项目规范 SQLite 与本地产物挂载到 `deploy/state`，更新镜像时保留。部署步骤见 `deploy/README.md`。
 - 首次通过 SSH 隧道访问服务器 loopback 端口；多人公网使用需另行配置域名与 HTTPS。业务协作功能需先执行对应 Supabase 迁移。
+## 2026-11-03 隧道施工场景适配（场景画像层，本地未推送）
+
+- 新增 `确定性计算层/scenarios/`：`scenario.py` 画像加载器 + `jikeng.json`（基坑基线，与改造前内置默认逐项一致）+ `tunnel.json`（status=skeleton）+ 契约 + README + `tunnel_rag_plan.md` + `tests/test_scenarios.py`（69 项）。
+- 引擎改造（全部向后兼容）：条件维度改为画像声明并遍历匹配；新增 `cumulative_pct_ref`（埋深/跨度比例限值）与弃权码 `MISSING_REF_LENGTH`；问题类别与监测项别名可追加；规范来源显示名改为取注册表；新增速度量纲 cm/s（爆破振动）；新增 `derived_pairs.py` 差值型派生（断面净空收敛，显式配对、默认关闭）；载荷 `project` 段只增场景字段（顶层契约未变）。
+- 入口同步：`run_judgement.py` / `normalize_records.py` / `check_strictness.py` 支持 `scenario`、`conditions`、`reference_lengths`、`derived_pairs`。
+- 日报侧只做接缝与拦截：`skills/render-daily-report/scripts/scenario_forms.py`；`report.renderable=false` 时 `build_report()` 抛 `ReportFormError`，防止 `T-A` 被截成 `A` 静默套用基坑表头。隧道表式与三件套、`validate-report`、服务端 TS 与前端均未改。
+- 判据库 `standards/tunnel/thresholds_tunnel_PENDING.json` 只登记 25 个测项，rules 全空：隧道数据目前一律弃权（`NO_APPLICABLE_RULE`），`alerts=[]`，符合"无条文不判定"边界。
+- 验证：引擎 244 通过（原 242 + 2 项速度量纲；原「mm/s 属未知单位」断言改为「MPa/m」）、场景 69 通过、桥接 13 通过；周期回归 8/11，3 项因缺 openpyxl/tzdata 跳过（环境问题）。未运行 `npm run check`（无 node_modules）。
+- 待用户输入：隧道真实监测表、判据条文（含条文号与表格位置）、日报表式、规范 PDF、仓库授权。核查表见 `方案与迭代note/23_隧道施工场景适配与核查.md`。
+
+## 2026-11-03 隧道判据库与三项判定能力（本地未推送）
+
+- 规范实况：`隧道施工相关规范` 16 本 / 2602 页，**14 本为扫描件无文字层**（文本层只有住建部水印）。新增语料工具 `tools/build_tunnel_corpus.py`（文本抽取 + needs_ocr 标记）与 `tools/ocr_scanned_norms.py`（RapidOCR 参数化），已 OCR 4 本核心规范 554 页：JTG/T 3660-2020(246p)、GB 50086-2015(150p)、GB 50911-2013(93p)、GB 50446-2017(65p)。关键表格全部渲染原页逐格核对（OCR 跨行表格会错位）。
+- 判据库 `standards/tunnel/thresholds_tunnel_gb50911_jtg3660.json`：43 规则 / 29 测项 / 8 危险报警条件。来源：GB 50911-2013 表9.2.2-1/-2、表9.2.3-1/-2、表9.3.3、表9.3.4、9.3.1-3、9.1.6；JTG/T 3660-2020 表18.6.3、18.6.3-2~4、表18.5.21。区间取严；盾构净空收敛 0.2%D、管片差异 0.04%Ls、管线差异 0.3/0.25%Lg 均用 cumulative_pct_ref。
+- 新增能力：`section_judge.py` 断面级综合判定（显式映射、取最不利、缺必测项不得判正常）；`convergence.py` 收敛稳定/可停测（0.2mm/d × 连续3期）+ 速率三档 + 位移管理等级（表18.6.3，需 U0）。载荷新增顶层 `sections`，items 新增 management_level/stability/section_id；schema 已加可选 sections。
+- 引擎侧配套：`requires_conditions`（缺管型/保护对象时弃权而非随机命中）、`cumulative_pct_ref`、`MISSING_REF_LENGTH`、`MGMT_LEVEL_NOT_EVALUATED`；条件维度新增 soil_type/protection_object/frequency_band/section_location（区间/车站），`section_type` 保持"断面形式"语义。
+- 环境：按 requirements.txt 安装 pymupdf 1.26.7 / openpyxl 3.1.5 / rapidocr-onnxruntime 1.2.3 / tzdata，周期报告 11 项全通过（此前 3 项因缺依赖跳过）。
+- 验证：引擎 244、场景 92、隧道判定 64、桥接 13 全通过；周期 11 OK。文档 `方案与迭代note/24_隧道判据库摘录与新增判定能力.md`。
+- 未做：明挖段判据（建议复用基坑库）、RAG 切片与向量库、效力复核文件、日报 T-A~T-G 表式与三件套。五级档位仍是系统统一口径，隧道规范的 U/U0 三档与速率三档作为并列结论输出。
+
+## 2026-11-03 隧道规范通读与日报表式（本地未推送）
+
+- 16 本规范全部可读：2 本原生文本 + 14 本 OCR（2602 页，约 360 万字）。新增工具 `tools/build_tunnel_corpus.py`、`tools/ocr_scanned_norms.py`（参数化、记录 DPI/页数/低文本页）。
+- 通读结论：GB/T 51310-2018 13.1.6 与 GB/T 50299-2018 3.1.7 均指向 GB 50911，未带来新增数值判据；JTG 3370.1-2018 表8.4.1 预留变形量仅作 U0 参考（列序易错，未自动套用）。判据库仍 43 条。
+- 表式判断：**不能照搬基坑附录 A~G**。GB 50911 第11.0.5 条指向附录 D；D.0.1~D.0.4 四张，拱顶沉降+净空收敛同属 D.0.1；差异：控制值(累计/速率)、初始值、上次累计变化量、预警等级为独立列，监测日期移入表头，轴力表用上次/本次测值。附录 C 巡查按工法 C.0.1/C.0.2/C.0.3。
+- 已改造：新增 `tunnel_appendix_forms.py`（4 张表式，两行合并表头）；`report_artifacts` 按场景选表式族、支持 header_rows/merge_groups；`scenario_forms` 增 `active_report_scenario()`；tunnel 画像 report 段改为 gb50911_appendix_D、renderable=true、模板版本 tunnel-monitoring-report/gb50911-v1。
+- 映射：拱顶/收敛/地表沉降→表D1；深层水平位移→表D2；锚杆/支撑轴力→表D3；围岩压力/钢架/衬砌/孔隙水压→表D4。控制值列取冻结 checks.limit。
+- 缺口（已披露）：巡查表需巡视数据结构；地下水位/裂缝宽度/爆破振动速度无附录D表式，不自造不挪用，走项目模板。
+- 验证：引擎 244、场景 92、隧道判定 64、隧道日报 32、基坑周期 11 全通过；审计 validate-report 返回 ok=true。
+- 文档：`方案与迭代note/25_隧道规范通读与日报表式判断.md`。
+
+## 2026-11-03 隧道日报按 GB 50911-2013 第 11.0.5 条优化（本地未推送）
+
+- 结构：隧道正文改为规范五项 + 附列三节（待复核/规范依据/签署），与基坑 service-v5 分支隔离。
+- 新增附录 C 巡查表（C.0.1/C.0.2/C.0.3，按工法选表，工法未知不出表），规范应巡查内容全量登记（C.0.3 共 21 项）；
+  有记录时生成附表 C 并排在附表 D 前，未记录项标"未填写"；无记录只披露缺失，禁止"巡查正常"。
+- 附表 D 表头改为占位符注入（仪器型号/出厂编号/检定日期/天气/本次监测时间），缺值保留"＿＿＿＿"并进待复核。
+- 新增"监测点平面位置图"工作表（测点清单+可选坐标），声明正式图由项目提供、不用于放样；
+  `build_daily_report_input` 透传 points_meta 的 mileage/x/y。
+- 载荷契约新增可选 `patrol`；画像 `report.daily_report_structure` 登记五节与表式规则。
+- 验证：隧道日报 82、引擎 244、场景 92、隧道判定 64、基坑周期 11、桥接 13 全通过。文档 26。
