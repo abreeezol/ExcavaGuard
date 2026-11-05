@@ -1,0 +1,520 @@
+{
+  "schema": "excavaguard.knowledge_manifest/v1",
+  "adapter_id": "tunnel-monitoring",
+  "index_sha256": "6e5b6aefb7fced6e01b2dbf03011622d14ffcd65920d2f9369ad1b82984ad017",
+  "record_count": 2595,
+  "source_count": 16,
+  "page_count": 2602,
+  "sources": [
+    {
+      "code": "JTG3370.1-2018",
+      "name": "公路隧道设计规范 第一册 土建工程",
+      "relative_path": "公路隧道/JTG 3370.1-2018 公路隧道设计规范 第一册 土建工程.pdf",
+      "systems": [
+        "highway"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "原PDF发布公告及工程师复核；未进行完整全网有效性认证",
+      "source_sha256": "2c1e0b49bdcdc16e74e7ab685909e0512694a2d2962dc6a5fa380e4cc6613cd1",
+      "page_count": 287,
+      "record_count": 289,
+      "excluded_pages": [],
+      "empty_pages": [
+        176,
+        178,
+        180
+      ],
+      "ocr_pages": 287,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "JTGH12-2015",
+      "name": "公路隧道养护技术规范",
+      "relative_path": "公路隧道/JTG H12-2015 公路隧道养护技术规范.pdf",
+      "systems": [
+        "highway"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "maintenance"
+      ],
+      "special_condition": null,
+      "effective_status": "inactive",
+      "revoked_clauses": [],
+      "status_note": "已被JTG5130-2026替代，仅历史检索",
+      "status_reference": "https://xxgk.mot.gov.cn/jigou/glj/202607/t20260714_4209592.html",
+      "source_sha256": "7e52735a26a263115e1030149b65768324fa98f30eef0ef265b8afb66a26b432",
+      "page_count": 99,
+      "record_count": 99,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "ocr_pages": 99,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "JTG/T3373-2024",
+      "name": "公路岩溶隧道设计与施工技术规范",
+      "relative_path": "公路隧道/JTG-T 3373-2024 公路岩溶隧道设计与施工技术规范.pdf",
+      "systems": [
+        "highway"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction"
+      ],
+      "special_condition": "karst",
+      "effective_status": "active",
+      "revoked_clauses": [],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "https://xxgk.mot.gov.cn/2020/jigou/glj/202408/t20240805_4145907.html",
+      "source_sha256": "80a7e9bf0707d16bfeab8d49aff3d548b7c41a53d4aa6388c6a721873cc65970",
+      "page_count": 92,
+      "record_count": 92,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "ocr_pages": 92,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "JTG/T3374-2020",
+      "name": "公路瓦斯隧道设计与施工技术规范",
+      "relative_path": "公路隧道/JTG-T 3374-2020 公路瓦斯隧道设计与施工技术规范.pdf",
+      "systems": [
+        "highway"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction"
+      ],
+      "special_condition": "gas",
+      "effective_status": "active",
+      "revoked_clauses": [],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "https://xxgk.mot.gov.cn/jigou/glj/202006/t20200623_3313208.html",
+      "source_sha256": "1aff8bd53c93d65a87eb349f87c52436a54c9d549caa14dfbcbd10307a31704e",
+      "page_count": 99,
+      "record_count": 104,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "ocr_pages": 0,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "JTG/T3660-2020",
+      "name": "公路隧道施工技术规范",
+      "relative_path": "公路隧道/JTG-T 3660-2020 公路隧道施工技术规范.pdf",
+      "systems": [
+        "highway"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "原PDF发布公告及工程师复核；未进行完整全网有效性认证",
+      "source_sha256": "b93ffa77affb71db1a9a9381ce1263ef53e639197d1a3dd39d3289451fc74e2d",
+      "page_count": 246,
+      "record_count": 250,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "ocr_pages": 246,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "JTG/T5440-2018",
+      "name": "公路隧道加固技术规范",
+      "relative_path": "公路隧道/JTG-T 5440-2018 公路隧道加固技术规范.pdf",
+      "systems": [
+        "highway"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "reinforcement"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "https://xxgk.mot.gov.cn/jigou/glj/202006/t20200623_3313115.html",
+      "source_sha256": "4e561337e76efc3f671d23c0b490af4b16d5f9a1a1f0c1bd0e921c64ad03f0eb",
+      "page_count": 184,
+      "record_count": 184,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "ocr_pages": 184,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "CJJ217-2014",
+      "name": "盾构法开仓及气压作业技术规范",
+      "relative_path": "盾构隧道/CJJ 217-2014 盾构法开仓及气压作业技术规范.pdf",
+      "systems": [
+        "rail",
+        "highway",
+        "urban_road"
+      ],
+      "methods": [
+        "shield"
+      ],
+      "stages": [
+        "construction"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [
+        "3.0.5",
+        "5.1.3"
+      ],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "https://www.mohurd.gov.cn/gongkai/zc/wjk/art/2024/art_17339_767715.html",
+      "source_sha256": "90e34b966be412cb2fc872db7cc78838cd7c4567cddd16c4f0d3f0cb8866c394",
+      "page_count": 19,
+      "record_count": 17,
+      "excluded_pages": [
+        8,
+        11
+      ],
+      "empty_pages": [],
+      "ocr_pages": 19,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "GB50446-2017",
+      "name": "盾构法隧道施工及验收规范",
+      "relative_path": "盾构隧道/GB 50446-2017 盾构法隧道施工及验收规范.pdf",
+      "systems": [
+        "rail",
+        "highway",
+        "urban_road"
+      ],
+      "methods": [
+        "shield"
+      ],
+      "stages": [
+        "construction"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [
+        "3.0.3",
+        "7.8.6"
+      ],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证；仅预制管片拼装式盾构施工验收，需进一步核对条款具体条件",
+      "status_reference": "https://www.mohurd.gov.cn/gongkai/zc/wjk/art/2024/art_17339_767715.html",
+      "source_sha256": "2ed04d432c486f62c28879c54f8354ed3a7d3b1815ac6d8adc29b96287fd2c9b",
+      "page_count": 65,
+      "record_count": 63,
+      "excluded_pages": [
+        12,
+        39
+      ],
+      "empty_pages": [],
+      "ocr_pages": 65,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "GB55011-2021",
+      "name": "城市道路交通工程项目规范",
+      "relative_path": "盾构隧道/GB 55011-2021 城市道路交通工程项目规范.pdf",
+      "systems": [
+        "urban_road"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction",
+        "maintenance",
+        "reinforcement"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "原PDF发布公告及工程师复核；未进行完整全网有效性认证",
+      "source_sha256": "4329faf0f6c5d393b23fdd33e70aa99781653f74c1f32320a306afa5489d8d57",
+      "page_count": 34,
+      "record_count": 34,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "ocr_pages": 34,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "GB55033-2022",
+      "name": "城市轨道交通工程项目规范",
+      "relative_path": "盾构隧道/GB 55033-2022 城市轨道交通工程项目规范.pdf",
+      "systems": [
+        "rail"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction",
+        "maintenance",
+        "reinforcement"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "原PDF发布公告及工程师复核；未进行完整全网有效性认证",
+      "source_sha256": "907ffd92c569f79f163121904cccce69bc20905f9563854960bd184ca76f6fef",
+      "page_count": 42,
+      "record_count": 42,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "ocr_pages": 42,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "GB50911-2013",
+      "name": "城市轨道交通工程监测技术规范",
+      "relative_path": "轨道交通配套/GB 50911-2013 城市轨道交通工程监测技术规范.pdf",
+      "systems": [
+        "rail"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [
+        "3.1.1",
+        "9.1.1",
+        "9.1.5"
+      ],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "https://www.mohurd.gov.cn/gongkai/zc/wjk/art/2024/art_17339_767715.html",
+      "source_sha256": "c47a3f03a4f36866f987e655b0eeb7daecf9f06302452a7ef3057690c7678ebd",
+      "page_count": 93,
+      "record_count": 89,
+      "excluded_pages": [
+        13,
+        54,
+        58,
+        59
+      ],
+      "empty_pages": [],
+      "ocr_pages": 93,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "GB/T50299-2018",
+      "name": "地下铁道工程施工质量验收标准",
+      "relative_path": "轨道交通配套/GB-T 50299-2018 地下铁道工程施工质量验收标准.pdf",
+      "systems": [
+        "rail"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "原PDF发布公告及工程师复核；未进行完整全网有效性认证",
+      "source_sha256": "f6a05f244251fdda3730c17c76e0868d8c47a808619474553617f53bc368cd10",
+      "page_count": 407,
+      "record_count": 407,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "ocr_pages": 407,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "GB/T51310-2018",
+      "name": "地下铁道工程施工标准",
+      "relative_path": "轨道交通配套/GB-T 51310-2018 地下铁道工程施工标准.pdf",
+      "systems": [
+        "rail"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "原PDF发布公告及工程师复核；未进行完整全网有效性认证",
+      "source_sha256": "d39e032e809b369e332f5d0f76c66ccbedb59b9d3550111e9fd5b0373d14d172",
+      "page_count": 394,
+      "record_count": 394,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "ocr_pages": 394,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "GB50026-2020",
+      "name": "工程测量标准",
+      "relative_path": "通用基础/GB 50026-2020 工程测量标准.pdf",
+      "systems": [
+        "rail",
+        "highway",
+        "urban_road"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction",
+        "maintenance",
+        "reinforcement"
+      ],
+      "special_condition": null,
+      "effective_status": "unknown",
+      "revoked_clauses": [],
+      "status_note": "强条更新范围待复核，暂不作为有效依据",
+      "status_reference": "https://www.beijing.gov.cn/zhengce/zhengcefagui/qtwj/202204/t20220408_2669514.html",
+      "source_sha256": "fdb93069faf82c17a93fe16cca4d2879700184b4f12101a0cb68ee419137658c",
+      "page_count": 218,
+      "record_count": 217,
+      "excluded_pages": [],
+      "empty_pages": [
+        216
+      ],
+      "ocr_pages": 218,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "GB50086-2015",
+      "name": "岩土锚杆与喷射混凝土支护工程技术规范",
+      "relative_path": "通用基础/GB 50086-2015 岩土锚杆与喷射混凝土支护工程技术规范.pdf",
+      "systems": [
+        "rail",
+        "highway",
+        "urban_road"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction",
+        "maintenance",
+        "reinforcement"
+      ],
+      "special_condition": null,
+      "effective_status": "unknown",
+      "revoked_clauses": [],
+      "status_note": "强条更新范围待复核，暂不作为有效依据",
+      "status_reference": "原PDF发布公告及工程师复核；未进行完整全网有效性认证",
+      "source_sha256": "07ff685115e7a4ab446901e906fd83adf1962b06b336de6b1485f0b6e8027e52",
+      "page_count": 150,
+      "record_count": 150,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "ocr_pages": 150,
+      "extraction": "page_candidates_require_original_review"
+    },
+    {
+      "code": "GB50208-2011",
+      "name": "地下防水工程质量验收规范",
+      "relative_path": "通用基础/GB 50208-2011 地下防水工程质量验收规范.pdf",
+      "systems": [
+        "rail",
+        "highway",
+        "urban_road"
+      ],
+      "methods": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "stages": [
+        "construction",
+        "maintenance",
+        "reinforcement"
+      ],
+      "special_condition": null,
+      "effective_status": "active",
+      "revoked_clauses": [
+        "4.1.16",
+        "4.4.8",
+        "5.2.3",
+        "5.3.4",
+        "7.2.12"
+      ],
+      "status_note": "原始标准候选；部分废止过滤不等于全面有效性认证",
+      "status_reference": "https://www.mohurd.gov.cn/gongkai/zc/wjk/art/2022/art_17339_768499.html",
+      "source_sha256": "afa5f01022bac7ae571fc40ecaaa3ec9efc383c804c908949bcb98cf9c3281e6",
+      "page_count": 173,
+      "record_count": 164,
+      "excluded_pages": [
+        3,
+        23,
+        30,
+        38,
+        39,
+        58,
+        112,
+        138,
+        140,
+        143,
+        160
+      ],
+      "empty_pages": [],
+      "ocr_pages": 0,
+      "extraction": "page_candidates_require_original_review"
+    }
+  ],
+  "notice": "全部原件均建候选；废止仅历史检索、unknown不得作为已确认依据；OCR和条件适用性须原页复核。"
+}

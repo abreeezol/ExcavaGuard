@@ -6,6 +6,7 @@ import { reportPeriodSchema } from "@/contracts/report-period";
 import {
   agentRunStateSchema,
   artifactRefSchema,
+  artifactEnvelopeSchema,
   supervisorActionSchema,
 } from "@/contracts/agent-runtime";
 import {
@@ -32,18 +33,7 @@ import {
  * 此时含 `%H` 的累计值判据无法换算，引擎会**弃权**而不是退回绝对量限值
  * （见 `AGENTS.md` 工程安全边界与 `06_..._目标实现度评估.md` P1-2）。
  */
-export const projectContextSchema = z.strictObject({
-  safety_level: z.enum(["一级", "二级", "三级"]),
-  support_type: z.string().trim().min(1),
-  excavation_depth_m: z.number().positive().max(200).nullable(),
-  post_slab_from: z.iso.date().nullable().optional(),
-  pipeline_type: z.string().trim().min(1).nullable().optional(),
-  road_type: z.string().trim().min(1).nullable().optional(),
-  design_values: z.record(z.string(), z.number()).optional(),
-  danger_signals: z.record(z.string(), z.boolean()).optional(),
-});
-
-export type ProjectContextInput = z.infer<typeof projectContextSchema>;
+export { projectContextSchema, type ProjectContextInput } from "@/contracts/legacy-pit-context";
 
 export const createRunRequestSchema = z.strictObject({
   project_id: z.uuid(),
@@ -52,7 +42,7 @@ export const createRunRequestSchema = z.strictObject({
   additional_monitoring_file_ids: z.array(z.uuid()).max(9).optional(),
   report_date: z.iso.date(),
   report_period: reportPeriodSchema.optional(),
-  context: projectContextSchema,
+  context: z.record(z.string(), z.unknown()),
   /** 用户上传规范文件；未提供时使用默认规范库，且**不作任何特殊处理**。 */
   standards_file_id: z.uuid().nullable().optional(),
   /** Omit: all enabled standards in this project; []: explicitly none. Frozen at run creation. */
@@ -96,6 +86,7 @@ export type CreateRunRequest = z.infer<typeof createRunRequestSchema>;
  * 审计、人工复核状态与已通过审计的下载清单。
  */
 export const runResultSchema = z.looseObject({
+  supporting_context: z.unknown().optional(),
   project_standards: z.array(projectStandardDocumentSchema).optional(),
   run_id: z.uuid(),
   created_at: z.iso.datetime(),
@@ -199,6 +190,7 @@ export const persistedRunSchema = z.strictObject({
   execution_status: z.enum(["running", "completed", "waiting", "failed"]),
   lease_until: z.iso.datetime().nullable(),
   request: createRunRequestSchema,
+  revision_feedback: artifactEnvelopeSchema.optional(),
   result: runResultSchema.nullable(),
   error: z.strictObject({ code: z.string(), message: z.string() }).nullable(),
   review: z.strictObject({

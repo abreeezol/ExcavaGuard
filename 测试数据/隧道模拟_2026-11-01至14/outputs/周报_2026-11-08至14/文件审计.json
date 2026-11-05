@@ -1,0 +1,34 @@
+{
+  "ref": {
+    "artifact_id": "c24547f6-cdc2-4f77-9bbb-2b2fe2ecb14d",
+    "schema": "excavaguard.audit_result/v1",
+    "version": 1,
+    "content_hash": "745a3db61bbbafb8829ef2310e2e081c5ac514a2f964f1e6ac830e364afcb6a7"
+  },
+  "draft_ref": {
+    "artifact_id": "076c815f-3838-474f-b261-fc35f78d7412",
+    "schema": "excavaguard.report_draft/v1",
+    "version": 1,
+    "content_hash": "9bda8cd7e40632b06b61ba30215495ff89bdfbf6bfd6b04f57c5d4612d74af9c"
+  },
+  "valid": true,
+  "stages": {
+    "deterministic": "passed",
+    "semantic": "not_required"
+  },
+  "checks": [
+    {
+      "name": "frozen_report_projection",
+      "valid": true
+    },
+    {
+      "name": "independent_cell_check",
+      "valid": true
+    },
+    {
+      "name": "common_artifacts_and_citations",
+      "valid": true
+    }
+  ],
+  "issues": []
+}

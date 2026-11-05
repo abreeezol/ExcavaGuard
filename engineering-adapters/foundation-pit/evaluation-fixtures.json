@@ -1,0 +1,98 @@
+{
+  "simulation_only": true,
+  "report_date": "2026-10-02",
+  "notice": "输入、预期与软件结果供实际工程师复核，不能自动替代专业确认。内联records返回两日观测；items.1为报告日，items.0为前一日基准观测。 缺深度样例累计判据应未知；独立有效的速率检查可提示关注，但必须保留MISSING_H及待核标记。",
+  "cases": [
+    {
+      "case_id": "pit-unit",
+      "context": {
+        "safety_level": "一级",
+        "support_type": "地下连续墙",
+        "excavation_depth_m": 20
+      },
+      "records": [
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "timestamp": "2026-10-01",
+          "metric_key": "wall_top_horizontal_displacement",
+          "value": 0,
+          "unit": "cm",
+          "data_origin": "simulated"
+        },
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "timestamp": "2026-10-02",
+          "metric_key": "wall_top_horizontal_displacement",
+          "value": 2.7,
+          "unit": "cm",
+          "data_origin": "simulated"
+        }
+      ],
+      "expected_fields": {
+        "items.1.current": 27,
+        "items.1.cumulative": 27
+      }
+    },
+    {
+      "case_id": "pit-depth",
+      "context": {
+        "safety_level": "一级",
+        "support_type": "地下连续墙",
+        "excavation_depth_m": null
+      },
+      "records": [
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "timestamp": "2026-10-01",
+          "metric_key": "wall_top_horizontal_displacement",
+          "value": 0,
+          "unit": "cm",
+          "data_origin": "simulated"
+        },
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "timestamp": "2026-10-02",
+          "metric_key": "wall_top_horizontal_displacement",
+          "value": 0.1,
+          "unit": "cm",
+          "data_origin": "simulated"
+        }
+      ],
+      "expected_fields": {
+        "items.1.checks.0.verdict": "未知",
+        "items.1.abstain.0": "MISSING_H",
+        "items.1.needs_review": true,
+        "items.1.risk_level": "关注"
+      }
+    },
+    {
+      "case_id": "pit-source",
+      "context": {
+        "safety_level": "一级",
+        "support_type": "地下连续墙",
+        "excavation_depth_m": 20
+      },
+      "records": [
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "timestamp": "2026-10-01",
+          "metric_key": "wall_top_horizontal_displacement",
+          "value": 0,
+          "unit": "cm",
+          "data_origin": "simulated"
+        },
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "timestamp": "2026-10-02",
+          "metric_key": "wall_top_horizontal_displacement",
+          "value": 2.7,
+          "unit": "cm",
+          "data_origin": "simulated"
+        }
+      ],
+      "expected_fields": {
+        "items.1.effective_standard.source_id": "GB50497-2019"
+      }
+    }
+  ]
+}

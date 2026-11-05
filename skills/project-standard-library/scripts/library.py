@@ -143,6 +143,14 @@ def main(req):
             if req.get("require_active") and any(not d["active"] for d in selected):
                 raise ValueError("所选规范已停用，请重新选择。")
             return selected
+        if action == "review_source":
+            row = db.execute(f"SELECT {DOC_COLUMNS},original FROM documents WHERE id=? AND project_id=?", (req["document_id"], project)).fetchone()
+            if not row or not row['active']:
+                raise ValueError("未找到当前项目已启用的规范。")
+            if hashlib.sha256(row['original']).hexdigest() != row['sha256']:
+                raise ValueError("规范原件完整性校验失败。")
+            return {"document": document(row), "chunks": [dict(c) for c in db.execute(
+                "SELECT id,page,clause,text FROM chunks WHERE document_id=? ORDER BY page,rowid", (req["document_id"],))]}
         if action == "search":
             ids = req.get("document_ids", [])
             if not ids:

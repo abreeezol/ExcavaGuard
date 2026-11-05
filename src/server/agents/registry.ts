@@ -12,8 +12,8 @@ type AgentDefinition = {
 export const agentRegistry: Record<AgentId, AgentDefinition> = {
   supervisor: {
     name: "Supervisor",
-    responsibility: "规划报告重点，按目录逐规范和全部测项检索并记录覆盖与缺口，维护共享状态，控制有限退回与人工接管。",
-    tools: ["retrieve-standard-evidence"],
+    responsibility: "依据冻结事实和工程师意见规划重点，提出最多三项绑定事实的定向查证；程序保证基础目录覆盖，记录新增证据与缺口，控制有限修订和人工接管。",
+    tools: ["retrieve-standard-evidence", "retrieve-similar-cases", "analyze-work-condition"],
     status: "implemented",
   },
   "report-delivery": {

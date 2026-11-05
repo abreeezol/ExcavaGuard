@@ -1,0 +1,77 @@
+{
+  "type": "object",
+  "properties": {
+    "section_aliases": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "point_sections": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "case_context": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string"
+        },
+        "soil": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "groundwater": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "value_semantics": {
+      "type": "string",
+      "enum": [
+        "cumulative_settlement",
+        "elevation"
+      ]
+    },
+    "control_source": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "cumulative_limit_mm": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rate_limit_mm_per_day": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "control_values_confirmed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "value_semantics"
+  ],
+  "additionalProperties": false
+}

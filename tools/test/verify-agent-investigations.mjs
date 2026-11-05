@@ -1,0 +1,13 @@
+import{readFileSync,writeFileSync}from'node:fs';import{resolve}from'node:path';
+import{executeInvestigations,validateInvestigations}from'@/server/agents/investigations';
+import{createStandardEvidenceRetriever}from'@/server/evidence/factory';
+import{retrieveStandardEvidence}from'@/server/skills/retrieve-standard-evidence/runner';
+import{buildReportModelContext}from'@/server/agents/report-model';
+const root=resolve(process.env.EXCAVAGUARD_AGENT_EVAL_ROOT??'../验收结果/2026-11-04_三Agent作用验证');const state=JSON.parse(readFileSync(resolve(root,'C_完整三Agent_真实模型/execution.json'),'utf8')).state;
+const payload=state.engine_snapshot.payload;const model=buildReportModelContext(payload);const add=(path,v)=>{if(v&&typeof v==='object')Object.entries(v).forEach(([k,x])=>add(path+'.'+k,x));else model.facts[path]=v;};add('project.supporting_context',state.context_snapshot.payload);
+const plan=state.plan_snapshot.payload;validateInvestigations(plan,model.facts,model.items.length,model.evidence_topics);
+const retriever=createStandardEvidenceRetriever({adapterId:'tunnel-monitoring',sceneParameters:payload.project.professional_parameters});const evidence=state.evidence_snapshot.artifact.payload;const baselineIds=evidence.coverage.standards.flatMap(s=>s.retained_ids);
+const check=await executeInvestigations({plan,enginePayload:payload,baselineIds,search:q=>retrieveStandardEvidence(q,{retriever})});
+const actual=[...new Set(check.review.checks.flatMap(c=>c.additional_evidence_ids))].sort();const expected=[...new Set(evidence.supervisor_investigations.checks.flatMap(c=>c.additional_evidence_ids))].sort();
+if(JSON.stringify(actual)!==JSON.stringify(expected))throw new Error('追加查证重放与原始结果不一致，请核对知识库与适用范围。');
+const result={current_allowlist_enforced:true,recorded_queries_replayed:true,new_candidates:actual.length,candidate_ids:actual,notice:'仅重放程序查询，无模型调用，不重编历史报告。'};writeFileSync(resolve(root,'定向查证程序重放.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));

@@ -1,0 +1,68 @@
+{
+  "standards": {
+    "JTG3370.1-2018": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "JTGH12-2015": {
+      "effective_status": "inactive",
+      "preferred_category": "tunnel"
+    },
+    "JTG/T3373-2024": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "JTG/T3374-2020": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "JTG/T3660-2020": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "JTG/T5440-2018": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "CJJ217-2014": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "GB50446-2017": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "GB55011-2021": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "GB55033-2022": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "GB50911-2013": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "GB/T50299-2018": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "GB/T51310-2018": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "GB50026-2020": {
+      "effective_status": "unknown",
+      "preferred_category": "tunnel"
+    },
+    "GB50086-2015": {
+      "effective_status": "unknown",
+      "preferred_category": "tunnel"
+    },
+    "GB50208-2011": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    }
+  }
+}

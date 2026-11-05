@@ -1,0 +1,16 @@
+{
+  "standards": {
+    "GB55033-2022": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "GB50911-2013": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    },
+    "GB50446-2017": {
+      "effective_status": "active",
+      "preferred_category": "tunnel"
+    }
+  }
+}

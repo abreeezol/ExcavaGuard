@@ -10,6 +10,8 @@ COPY src ./src
 COPY skills ./skills
 COPY 确定性计算层 ./确定性计算层
 COPY rag/standard-status.json ./rag/standard-status.json
+COPY engineering-adapters ./engineering-adapters
+COPY source/adapter_runtime ./source/adapter_runtime
 RUN npm run build
 
 # Install target-specific optional binaries without emulating npm itself.
@@ -42,6 +44,8 @@ COPY --from=build /app/src ./src
 COPY --from=build /app/skills ./skills
 COPY --from=build /app/确定性计算层 ./确定性计算层
 COPY --from=build /app/rag ./rag
+COPY --from=build /app/engineering-adapters ./engineering-adapters
+COPY --from=build /app/source/adapter_runtime ./source/adapter_runtime
 COPY tools/access/manage.mjs ./tools/access/manage.mjs
 RUN groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --no-create-home app \
@@ -52,6 +56,7 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
     EXCAVAGUARD_PYTHON=/app/.venv/bin/python \
     EXCAVAGUARD_ACCESS_FILE=/app/var/access/directory.json \
     EXCAVAGUARD_PROJECT_STANDARDS_ROOT=/app/var/project-standards \
+    EXCAVAGUARD_PROJECT_CONTEXT_ROOT=/app/var/project-context \
     EXCAVAGUARD_UPLOAD_ROOT=/app/var/uploads \
     EXCAVAGUARD_RUN_ROOT=/app/var/runs
 USER app

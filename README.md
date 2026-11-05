@@ -1,443 +1,301 @@
-# ExcavaGuard
+# ExcavaGuard · 基坑智守
 
-ExcavaGuard 是面向基坑监测工程师的 AI 监测日报助手。系统读取监测数据和工程条件，通过确定性规则完成数据准备、数值计算和规范比对，再生成供工程师复核的日报草稿。
+面向工程监测研判与可复核报告生成的多智能体系统。以基坑为首个应用场景，目前已接入隧道变形监测，通过**通用三Agent、通用Skill与工程场景适配器**复用同一条业务链。
 
-## 多端协作与共享日报（2026-11-02）
+系统承担数据整理、确定性计算、规则核查、规范查证和报告编写，为工程师提供有据可查的草稿与问题清单。确定性程序负责计算与规则核查的可靠执行，Agent承担上下文分析、证据组织和意见驱动修订，工程师保留最终判断。**计算与风险等级由程序产生，模型组织分析与建议，工程师保留最终判断。**系统内的接受不等于正式工程签发，不自动发布预警。
 
-同一工程的成员可在不同浏览器登录各自账号，读取共享文件、日报和复核记录。工作台每15秒及回到页面时同步共享列表；当前运行有新版本时提示显式加载，避免覆盖未保存评价。列表支持报告日期、待工程师复核筛选，范围为本工程最近100次运行。
+> 更新日期：2026-11-05。本文说明当前工作区实现；历史方案与验收记录见文末链接。最新变更待用户确认后推送，不代表已经发布到上游仓库。
 
-1. 上传者上传监测文件，文件保存实际上传者。
-2. 生成者选择一份文件，按需展开“追加成员文件，统一生成报告”，选择其他成员上传的数据。最多10份、合计100 MB。
-3. 多份输入进入同一运行，沿用三阶段计算与日报三件套；同通道跨文件重复观测、单位/量值语义/来源/表布局冲突须核对来源后重试。
-4. 复核工程师打开同一运行，逐项评价后点击“暂存风险评价”；另一端可加载最新运行查看填写人、时间及暂存总评。
-5. 最终接受、退回或拒绝继续绑定当前草稿及修订号。接受须覆盖全部已判定非正常风险且无异议，正式签发仍由工程师完成。
+## 本轮整体优化
 
-`POST /api/runs` 新增可选 `additional_monitoring_file_ids`（除主文件外最多9份）；
-`POST /api/runs/<run_id>/evaluations` 接收 `expected_revision`、`draft_ref`、
-非空 `evaluations` 和可选 `reason`，逐项合并共享暂存评价；仅 `admin/reviewer` 可写，
-并发旧版本返回409。最终复核未传 `evaluations` 时使用已暂存条目。
+以“指定工程、指定周期的可复核报告草稿”为交付目标，主线为：**场景适配与判据匹配 → 确定性计算、规则判级与事实冻结 → Supervisor查证 → 报告Agent编报 → 审计Agent核验 → 工程师确认**。三Agent继续负责查证重点、证据组织和独立审查，计算与判级由程序执行。
 
-**现有 Supabase 项目启用前需在 SQL Editor 执行**
-[上传者字段迁移](supabase/migrations/202611020001_collaboration.sql)，然后运行
-`npm run supabase:check`，确认 `collaboration_ready=true`。旧文件上传者显示为未知，不补造身份。
-缺该迁移时历史文件仍可读，新增监测上传明确报迁移未完成。
+准备层和Agent层共用事实一致性校验；辅助资料随事实冻结，续跑不能替换，保存检查点使用副本。规范检索覆盖与实际可执行规则分别展示；项目新规范经提取、校验与集中确认后才能形成执行规则。详见[整体框架与边界](方案与迭代note/34_第一性原理与整体框架边界.md)。
 
-开发验证可以先用独立浏览器会话。异地使用需要将 Next.js 部署到共同访问的地址；
-沿用 [账号授权操作说明](方案与迭代note/20_登录与项目授权切换验收.md)，并将两人授权到相同工程 UUID。
-服务端账号目录、项目补充规范 SQLite 和 Python/RAG 资产需按部署方案持久化；
-Supabase Secret 仅放服务端。详情见 [协作设计与验证](方案与迭代note/23_多端协作与共享日报.md)。
+## 当前使用流程
 
-项目原则是：**规则主判、RAG 举证、模型表达、工程师签发**。系统不会自动发布预警，也不会替代工程师审核或正式签发报告。
+```text
+登录 → 选择获授权工程
+         └─ 新建工程时只选择：基坑工程 / 隧道工程
+    ↓
+确认必要工程条件，保存后日常复用
+    ↓
+上传或选择监测数据，可汇集同工程多位成员的文件
+    ↓
+程序识别测项与时间范围 → 推荐日报、周报、月报或阶段区间
+    ↓
+确认本次报告周期；按实际测项补充必要控制要求
+    ↓
+生成报告 → 查看审查结果与具名依据 → 工程师接受、退回或拒绝
+```
 
-> **第一次拿到本项目？** 完整部署步骤见 [`DEPLOY.md`](DEPLOY.md)：两条启动路径、前置条件（含 Git LFS 权重）、
-> 常见问题与 2026-10-15 在 Windows 11 上的实测验证记录都在里面。
+用户通过工程类型和业务参数操作。适配器、知识库连接及版本由后台管理，用户无需选择数据库或编辑工程配置JSON。隧道的工程类别、工法、阶段和特殊地质属于同一工程的参数；测项与日期由程序读取，不从一列监测数值猜测真实工法或项目归属。
 
-## 初版提交状态
+## 主要框架
 
-当前版本已支持**独立账号、授权项目切换和项目内协作**，兼容原共享密码模式：
+```mermaid
+flowchart TD
+    U[登录与获授权工程] --> C[工程类型及必要参数]
+    C --> A[后台加载工程场景适配器]
+    D[监测数据] --> P[解析、归一化与报告周期识别]
+    A --> P
+    P --> E[程序执行指标计算与结构化规则核查]
+    X[本工程案例、工况与巡视资料] --> K[案例检索与时空关联]
+    E --> K
+    K --> F[冻结事实、来源、工程参数与能力版本]
+    F --> S[Supervisor规划重点与检索主题]
+    A --> S
+    S --> R[按规范效力和工程范围逐本检索及主题对照]
+    N[工程类型规范库及本项目补充规范] --> R
+    R --> V[冻结本次规范证据]
+    V --> W[报告Agent依据冻结事实和证据编报]
+    W --> Q[审计Agent：文件核验与独立模型语义审查]
+    Q -->|文字需修订，最多两轮| W
+    Q -->|通过| H[工程师最终复核]
+    Q -->|预算耗尽或需工程判断| M[保留检查点与问题，转人工]
+    H -->|提出意见退回| B[结合意见建立关联重编与审计]
+    B --> P
+```
 
-- 可在本地启动 Next.js 工作台，进入 `/workbench` 完成上传、分析、报告生成、审计、下载和人工复核。
-- 确定性主链已接通：「阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对」。
-- 日报三件套已接通：`xlsx + 封面 Markdown + 附表及清单 Markdown`。
-- 三 Agent 首版已接通：Supervisor、报告交付、独立审计，支持轨迹展示、最多两轮自动退回、人工接受/退回/拒绝。
-- Supabase 应用 Provider 已接通：新上传文件、运行 revision 和三件套报告进入 Supabase 私有存储与元数据表。
-- 全栈检查和真实 Supabase 纵向验收已通过，见下方“开发检查”。
+### 三Agent共用一套职责与编排
 
-已实现本地账号目录及服务端项目成员权限，尚未接入 Supabase Auth / 企业 SSO、正式签发归档和部署 CI。账号目录与项目规范专库需单独持久化。
+| 角色 | 通用职责 | 专业差异的来源 |
+|---|---|---|
+| Supervisor | 依据冻结事实与意见规划最多三项定向查证，记录新增证据与缺口、管理有限修订 | 适配器中的专业策略、规范目录、适用条件 |
+| 报告Agent | 根据冻结事实与本次证据编写分析和建议，调用报告生成Skill | 适配器中的表式、分类和专业表达要求 |
+| 审计Agent | 文件核验与独立模型语义审查，形成问题清单并交回对应角色 | 适配器中的专业检查要求；通用来源与完整性检查始终执行 |
 
-## 登录与项目切换
+工程事实冻结后，模型不能改写计算结果或风险等级，不能引用本次证据范围外的条文。自动修订最多两轮，未解决的问题交由人工处理。工程师退回意见进入关联运行，保留逐项回应与前后对照；涉及事实变更时需要对应的新数据或人工确认。
 
-工作流：登录 → 选择获授权工程 → 自动加载该工程的监测文件、阈值文件、补充规范和历史报告 → 上传、生成和下载均绑定当前工程。系统管理员可在页面创建工程；成员授权由本机管理工具设置。
+### 八个业务Skill共用接口
 
-首次启用独立账号（仓库根目录、Node 24）：
+| Skill | 用途 |
+|---|---|
+| `parse-monitoring-data` | 解析监测文件、识别字段和可用数据范围 |
+| `normalize-monitoring-data` | 数据归一化、单位与来源整理 |
+| `evaluate-thresholds` | 调用专业程序计算指标、执行规则、生成弃权原因 |
+| `retrieve-standard-evidence` | 检索适用规范，保留版本、定位与查询轨迹 |
+| `retrieve-similar-cases` | 按测项、文本和已提供工程条件匹配案例 |
+| `analyze-work-condition` | 关联时间与区段，披露缺失、冲突和待核事项 |
+| `render-daily-report` | 按对应工程表式生成受控报告文件 |
+| `validate-report` | 核验文件、事实绑定、引用范围与专业输出 |
+
+六类Python处理入口由后台按适配器的`manifest.handlers`选择；案例、工况及规范检索读取对应专业策略。正式主链在基坑和隧道之间复用，专业计算与表式实现留在适配器内。`skills/deep-pit-monitoring-report/`为基坑历史参考资源，其独立重判与RAG脚本不接入通用主链。
+
+### 工程场景适配器承载专业知识与执行能力
+
+| 内容 | 具体职责 |
+|---|---|
+| 测项字典与数据语义 | 字段别名、测项映射、量纲、方向及输入含义 |
+| 计算与规则 | 可执行的计算处理器、适用条件、控制值来源、缺项弃权 |
+| 规范检索 | 独立知识库、规范目录、效力状态、工程范围与废止条款过滤 |
+| 报告与核验 | 专业表式、表达要求、文件审计和专业检查 |
+| 版本与评价 | 资产指纹、知识库清单、测试输入与预期、软件对照及工程师复核记录 |
+
+新增工程场景需要制作并验证完整的专业适配内容、登记工程类型，随后接入通用三Agent与Skill。单独更换RAG不等于完成迁移；规范原文也不会自动变为可执行的数值判据。
+
+隧道共用一个在用处理入口。盾构、矿山／钻爆、明挖及不同测项通过工程参数和数据路由处理，不各建一套子适配器。历史参数与辅助资料兼容保留，历史资源不作为另一个用户选项。
+
+## 主要更新
+
+| 更新 | 当前实现与意义 |
+|---|---|
+| 工程类型统一 | 前端只显示基坑工程、隧道工程；必要条件一次确认后复用，专业配置留在后台 |
+| 三Agent与Skill通用化 | 调度、编报、审计闭环共用；计算、规范与报告差异由适配器提供 |
+| 隧道全规范知识库 | 已处理16本PDF、2602页，形成2595条候选；逐本验证原件哈希及实际召回，与基坑库隔离 |
+| 数据驱动的参数与周期界面 | 上传后识别测项和时间范围；隧道按实际测项提供输入含义、控制值依据及限值确认表单 |
+| 多周期报告 | 日报、连续7个日历日周报、完整自然月报、自定义区间；展示逐日变化、阶段风险、缺测与待核事项 |
+| 多日预警追加查证 | 同点同测项至少两天预警时扩大主题查证，继续遵守工程范围和有效版本门禁 |
+| 项目补充规范 | 本工程地方标准、行业标准及专项要求独立保存，进入本工程报告检索；不推广到其他项目 |
+| 案例与工况接入 | 支持CSV、可搜索PDF等资料，结合工程条件匹配案例，按时间区间和位置关联工况／巡视 |
+| 工程师意见闭环 | 接受、退回、拒绝绑定当前草稿和修订；退回意见用于关联重编，保留问题回应与修订轨迹 |
+| 多端协作与权限 | 独立账号、获授权工程、四类角色；同工程共享数据和报告，多文件可统一生成报告 |
+| 追溯与发布管理 | 原件与产物哈希、事实和证据快照、不可变运行修订、知识库与专业资产版本、发布归档验证 |
+| 专业评价入口 | 可下载测试输入、预期及软件结果，授权工程师逐项评价；软件通过不自动等同专业认可 |
+
+近期详细记录：[通用框架重构](方案与迭代note/26_通用三Agent与场景适配器重构.md)、[案例与工况接入](方案与迭代note/27_案例检索工况分析与迁移提升.md)、[隧道全规范RAG](方案与迭代note/29_隧道全规范RAG与分类适配器.md)、[工程类型统一](方案与迭代note/30_工程类型统一入口与隧道参数路由.md)。
+
+## 计算、RAG与报告的边界
+
+### 计算及规则核查
+
+程序依据数据语义计算累计量、本次变化、实际间隔速率和趋势，并使用结构化规则及已确认的项目控制要求判定。专业条件或依据不足时返回“未知”及原因，进入待核队列，不能解释为安全。
+
+当前隧道数值能力覆盖**地表沉降、建筑沉降、拱顶沉降、净空收敛**。控制值按测项分别确认，沉降与收敛不互借限值；原始断面距离不能直接当累计收敛量。高程基准变化须核对，时间统一按上海时区归属报告并保留原始时间。气体、应力、水压等其他隧道测项尚不属于已验证数值能力。
+
+### RAG调度与隔离
+
+结构化数值规则核查发生在事实冻结前；运行时RAG在Supervisor阶段用于规范要求查证、条件对照和分析举证，不自动覆盖冻结判据。
+
+| 资料范围 | 检索与使用方式 |
+|---|---|
+| 基坑公共规范 | 当前配置目录包含29个规范编号，可走Pinecone或本地BGE＋Chroma证据服务；按适配器绑定和服务配置选择 |
+| 隧道公共规范 | 独立SQLite候选库，中文关键词与BM25风格排序；按工程系统、工法、阶段和特殊条件筛选 |
+| 项目补充规范 | 仅当前获授权工程参与检索，保存原件及版本；同编号上传不能绕过已知效力和适用范围门禁 |
+| 项目案例、工况及巡视 | 辅助关联与核验资料，单独管理；不能充当规范阈值或证明因果 |
+
+程序先逐项检查规范目录的效力与适用范围，对可用规范逐本检索，再围绕实际测项跨规范查证。结果记录命中、缺口、跳过原因和同主题对照；用户可见引用展示**规范名称、编号及条文／PDF页码**。未命中不代表没有要求，追加检索也不等于实时全网标准查新。
+
+隧道2595条内容是经过提取／OCR的检索候选，属于知识库构建，未微调大模型，也不是向量模型训练。其中13本标为有效候选、2本效力更新待核、1本为历史废止资料；后两类不进入现行依据分析。已识别废止条文所在页保守排除，另有4个文字不足页面未生成文本候选。OCR、图表公式及具体条文适用性仍需原页复核，详见[隧道入库与有效性说明](方案与迭代note/29_隧道全规范RAG与分类适配器.md)。
+
+### 报告与人工复核
+
+交付为`Excel + 封面Markdown + 附表及清单Markdown`，表式由工程专业配置决定。周期附表保留每通道区间最严重的原观测及日期，不将其写成期末值。缺失巡视资料明确披露“未提供”，不写“巡视正常”；关联线索与记录冲突交工程师核验。
+
+文件完整性与事实／引用绑定核验、独立模型语义审查均通过后，AI草稿进入工程师复核。模板模式用于计算与表式检查，不代表已经完成模型语义审查。审查失败、预算耗尽或依赖不可用时保留检查点及明确状态，不以未完成结果冒充完整AI报告。
+
+## 协作、权限与存储
+
+- 登录后只可选择获授权工程；上传、生成、查询、下载和复核均绑定当前工程。
+- 角色为项目管理员、复核工程师、工程师、只读成员；接受前须完成已判定非正常风险的逐项评价。
+- 同一工程可汇集最多10份、合计100 MB监测文件；跨文件重复观测或语义冲突须核对来源。
+- 同工程共享文件、历史和评价，工作台定时同步；旧修订并发写入返回冲突，不覆盖他人修改。
+- 监测文件、运行修订及报告可采用本地存储或Supabase私有存储，以部署配置为准。
+- 账号目录、项目补充规范库、辅助资料及专业复核记录等本地状态需要单独持久化；切换存储Provider不会自动迁移原有资产。
+
+Supabase服务端凭证仅供受保护后端使用，业务权限校验不能由数据库管理员权限替代。现有Supabase部署还需执行[协作字段迁移](supabase/migrations/202611020001_collaboration.sql)，并检查`collaboration_ready`。账号与成员操作见[登录与项目授权](方案与迭代note/20_登录与项目授权切换验收.md)，部署见[服务器部署说明](deploy/README.md)。
+
+## 本地启动
+
+Node版本要求以`package.json`为准；当前WSL已使用Node 24验证，`.nvmrc`另记录Node 26.3.1。Python需安装报告与文件读取依赖。以下在项目根目录执行：
+
+```bash
+# 使用Linux环境中的node/npm；先确认当前路径
+pwd
+which node
+which npm
+
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r deploy/requirements.txt
+npm ci
+```
+
+首次配置时将`.env.example`复制为`.env.local`；已有配置应保留，按需补充。基本本地模式设置`EXCAVAGUARD_STORAGE_PROVIDER=local`。AI模式还需配置`LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`及当前工程类型的检索资源；模板模式不调用LLM，公共规范RAG也不调用，但可使用本项目补充规范。
+
+```bash
+npm run dev
+```
+
+打开 <http://localhost:3000/workbench>。端口占用时使用`npm run dev -- --port 3001`。指定Python解释器可设置`EXCAVAGUARD_PYTHON`。
+
+**WSL启动需使用WSL内的Node/npm。**若命中了Windows的`npm.cmd`，可能出现UNC路径、React或app目录找不到等错误。项目本机若已配置`.tools/node`，可先执行：
+
+```bash
+export PATH="$PWD/.tools/node/bin:$PATH"
+source .venv/bin/activate
+npm run dev
+```
+
+首次初始化独立管理员账号：
 
 ```bash
 node --env-file-if-exists=.env.local tools/access/manage.mjs init --username admin --name 管理员
 ```
 
-初始密码写入本机 `var/access/credentials/admin.txt`（0600，不进入Git），读取后登录；未执行初始化时仍沿用原访问配置。初始化保留原工程UUID和数据，并把原工程授权交给首个管理员。成员创建、角色分配与验收见 [登录与项目授权切换](方案与迭代note/20_登录与项目授权切换验收.md)。
+工具只在首次初始化时生成本地凭证文件，并打印实际位置；已有账号使用管理工具维护，不重复初始化。私有账号文件和`.env.local`不进入Git。完整安装及平台差异见[部署指引](DEPLOY.md)。
 
-## 多规范检索与引用
+### 隧道知识库部署
 
-AI报告逐本查询已配置目录中的29个规范编号，再对实际测项跨规范检索，保留多日预警追加核查；结果提供覆盖、缺口和要求对照。用户可见引用统一显示规范名称、编号和条文，内部ID仍用于追溯。新增“规范证据索引”“规范检索覆盖”“多规范要求对照”三张工作表。
+生成的隧道SQLite索引不随Git提交。新克隆部署应离线构建或复制经过清单校验的索引；仅拉取代码不保证隧道AI检索已就绪。本地打包会携带已生成的索引。
 
-规范查询使用8路滚动并发，保留完整覆盖与独立审计。检查：`npm run test:standards`。设计及实际验收见 [全规范检索与引用验收](方案与迭代note/16_全规范检索与引用验收.md)。
-
-## 多周期报告
-
-工作台已支持日报、连续7天周报、完整自然月报、自定义起止日期（含首尾，最多366天）。上传含历史的数据后选择周期并分析；系统保留必要历史，输出阶段风险、逐日明细、缺测和待核事项。周期附表为最严重原观测，并非期末值。
-
-AI 模式下，同点同测项至少两天预警将追加跨规范检索；只提供现有知识库内补充候选及来源，未命中仍需人工查证，不能当作实时全网规范更新核验。模板模式不调用公共 RAG，但可检索本工程补充规范。
-
-API 及测试说明见 [多周期报告使用与验收](方案与迭代note/14_多周期报告使用与验收.md)。
-
-## 本地启动
-
-已在 macOS arm64、Node.js `26.3.1`、npm `11.16.0` 下验证。`.nvmrc` 固定本次验证的 Node 版本；使用 nvm 时先执行 `nvm use`。
+持有目录内原始规范PDF时，可在Python虚拟环境中执行：
 
 ```bash
-npm ci
-npm run dev
+python -m pip install -r tools/knowledge/requirements-ocr.txt
+python tools/knowledge/build_tunnel.py --workers 8
+npm run tunnel:verify
 ```
 
-打开 <http://localhost:3000>；可视化测试工作台在 <http://localhost:3000/workbench>。端口被占用时可使用 `npm run dev -- --port 3001`。
+构建读取工作区的`隧道施工相关规范/`及受控源清单，原件保持只读，按文件哈希缓存逐页结果；OCR只在离线构建时运行。资源位置、配置校验与专业边界见[隧道专业配置说明](engineering-adapters/tunnel-monitoring/README.md)。基坑本地BGE＋Chroma服务的模型依赖、Git LFS资产和独立Demo见[source/README.md](source/README.md)，它不是统一工作台的替代入口。
 
-**前置条件：本机需有可用的 Python。** 确定性计算引擎由 Node 以子进程调用。
-默认优先使用仓库 `.venv/bin/python`，再尝试 PATH 上的 `python3`、`python`；
-三件套导出需要 `openpyxl`。想指定解释器就在 `.env.local` 写
-`EXCAVAGUARD_PYTHON=<绝对路径>`。找不到时会明确返回 `[ENGINE_UNAVAILABLE]`。
+## 验证状态
 
-### 启动离线 RAG Demo（可选，5 分钟看效果）
+以下为截至2026-11-04的验收记录，不是每次启动自动执行的结果，也不代表真实工程效果评价。
 
-如果只想快速验证「输一段监测描述 → 规范核对 → 生成日报」，可以只跑 Python 侧的离线 Demo，
-不必安装 486 个 npm 包。项目自带跨平台启动器：
-
-```bash
-# Windows
-.venv\Scripts\python.exe start_demo.py --open
-
-# macOS / Linux
-.venv/bin/python start_demo.py --open
-```
-
-也可以直接双击 `start_demo.bat`（Windows）或执行 `./start_demo.sh`（macOS / Linux）。
-
-**端口不要写死。** 8600 在部分 Windows 机器上落在 Hyper-V / WSL / Docker 的动态保留段，
-会直接报 `WinError 10013`，且该保留段**因机器而异、重启后会漂移**。
-启动器会对 `127.0.0.1:<port>` 做真实 bind 探测并自动避让，然后把本机实际可用的地址打印出来：
-
-```text
-✅ 服务已就绪： http://127.0.0.1:8666
-```
-
-请以终端输出的这一行为准——换一台电脑端口可能不同，但这一行始终正确。
-`source/server.py` 自身同样内置避让，因此沿用旧的 `--port 8600` 命令也不会再报错。
-
-| 启动器参数 | 作用 |
+| 检查 | 结果与范围 |
 |---|---|
-| `--open` | 启动后自动打开浏览器 |
-| `--port <n>` | 首选端口（仍会自动避让占用与保留段） |
-| `--check-only` | 只打印可用地址后退出，适合脚本调用 |
+| 全量Web／服务端回归 | 236项通过，6项外部服务测试默认跳过 |
+| 架构与工程类型复核 | 最近针对迁移、路由和报告链的32项测试通过 |
+| Python确定性引擎 | 242项通过 |
+| Node周期报告 | 13项通过 |
+| 工程质量检查 | TypeScript、ESLint、Next.js生产构建通过 |
+| 隧道全库 | 16本原件哈希与逐本候选召回验证通过 |
+| 多场景报告重放 | 轨道矿山、公路岩溶矿山、轨道盾构使用真实本地RAG与模拟模型生成日报，通过文件审计；区间样例验证多日预警追加检索 |
+| 真实模型样例 | 公路岩溶日报使用模拟监测数据与真实本地RAG，约28.3秒、5次模型调用、1轮自动修订，最终文件与独立语义审查通过 |
+| 专业评价 | 隧道6项软件对照通过、1项待人工核查；尚无真实工程师正式签认 |
 
-启动后页面顶部应显示「知识库 8698 个条款块 / 30 部规范」；若显示 0 或「未就绪」，
-通常是 Git LFS 权重没拉取（真实文件应为 95,842,633 字节，LFS 指针只有 133 字节），
-执行 `git lfs install && git lfs pull` 即可。更多排查见 [`DEPLOY.md`](DEPLOY.md)。
+真实模型样例证明一次闭环可运行，不是稳定性、引用准确率、工程风险准确率或生产时延承诺。工作区测试数据及验收产物按日期保存在`测试数据/`、`验收结果/`，中间日志在`process_file/`；这些工作区资料不等同于仓库克隆后的默认资产。
 
-## 初版使用路径
+开发与复核命令：
 
-启动后进入 <http://localhost:3000/workbench>，按页面从上到下操作：
+```bash
+npm run check
+npm run build
+npm run test:period
+npm run test:standards
+npm run test:project-standards
+npm run adapter:validate -- tunnel-monitoring
+npm run adapter:evaluate -- tunnel-monitoring
+```
 
-1. 填写工程条件：安全等级、支护形式、基坑设计深度 H、报告日期等。
-2. 上传监测数据：点击截图中原生按钮 **「选择文件」**，或虚线框里的 **「选择监测数据文件」**，选择 `.csv/.tsv/.txt/.xlsx/.xlsm` 文件。
-3. 可选上传用户规范：不上传时直接使用默认规范库，不报错、不提示缺失。
-4. 点击 **「运行分析」**。工作台默认勾选“生成并审计日报三件套”，成功后会显示运行轨迹、下载入口和人工复核按钮。
+本机已有独立账号时，接口测试宜指向专用临时账号目录，避免开发测试受到真实登录设置影响；不要为测试覆盖真实凭证。外部服务回归需单独配置并显式运行`npm run ai:test`、`npm run rag:test`、`npm run supabase:test`，默认跳过不视为外部服务已验证。
 
-报告审计通过后，项目管理员或复核工程师可在下载区下方对「关注 / 预警 / 报警 /
-危险报警」逐项填写评价，再提交草稿接受、退回或拒绝。接受前必须评价全部已判定风险；
-有异议时需退回并建立关联运行。评价不会改写确定性风险等级；「未知」仍按弃权队列处理。
-具体契约见 [工程师风险评价闭环](方案与迭代note/21_工程师风险评价闭环.md)。
-
-上传文件必须包含 5 个必填列：测点编号、观测日期、监测项目、本次观测值、单位。基准值、上次值和间隔天数可以缺失，由阶段一按测点时序派生。`.xlsx` 读取需要 Python 环境里安装 `openpyxl`；CSV 路径是纯标准库。
-
-## 当前数据存储与 RAG
-
-当前本机 `.env.local` 已设置 `EXCAVAGUARD_STORAGE_PROVIDER=supabase`。因此本地启动时，通过工作台上传的新文件会进入 Supabase：
-
-- 原始监测文件和用户规范：写入 Supabase private bucket `excavaguard-private`，元数据写入 `excavaguard_files`。
-- 运行记录和人工复核：写入 `excavaguard_run_revisions`，按不可变 revision 保存。
-- 日报三件套：文件写入 private bucket，元数据写入 `excavaguard_report_artifacts`，下载时重新校验大小和 SHA-256。
-
-如果把 `EXCAVAGUARD_STORAGE_PROVIDER` 改回 `local`，上传和运行记录会落到仓库 `var/` 目录；这只是开发回退路径，不是当前初版推荐交付路径。
-
-RAG 目前分两层看：
-
-- 当前 `.env.local` 的 `RAG_PROVIDER=pinecone`，AI 日报模式会由 Supervisor 在运行时调用
-  `retrieve-standard-evidence`，走在线 Pinecone 索引 `excava-guard` / namespace `standards-v1`。
-- 本地 RAG sidecar 已可用，启动 `source/server.py --port 8600` 并改为 `RAG_PROVIDER=local` 后，会走本地 BGE + Chroma 运行副本。
-- RAG 只为日报第四节提供可追溯条文证据，不参与风险判定；阈值和风险等级仍来自确定性规范库。
-- LLM 日报需要 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`。当前本机这三项未配置，因此真实模型质量尚未验收；可用 mock 测试验证接线和失败保护。
-
-## 目录
+## 代码与资料位置
 
 ```text
-src/
-├── app/
-│   ├── layout.tsx                  # 页面布局与元信息
-│   ├── page.tsx                    # 工作台首页
-│   ├── workbench/                  # 可视化测试工作台（page + client）
-│   ├── globals.css                 # 响应式样式
-│   └── api/
-│       ├── health/route.ts         # 应用存活检查
-│       ├── monitoring-files/       # 上传监测数据（含上传即解析报告）+ 示例数据
-│       ├── standards/route.ts      # 上传用户规范（上传即校验阈值严格程度）
-│       ├── runs/route.ts           # 三阶段分析；可显式开启报告/审计
-│       └── report-artifacts/       # 三件套只读下载；URL 仅在审计通过后返回
-├── components/                    # 服务端界面组件
-├── contracts/                     # Zod 请求契约、角色和 Skill 标识
-└── server/
-    ├── config.ts                  # 按服务读取环境变量
-    ├── api/respond.ts             # 统一错误响应与异常映射
-    ├── storage/                   # local / Supabase 文件、运行与报告 Provider
-    ├── agents/                    # 三 Agent 注册 + Supervisor + 同步执行器
-    ├── evidence/                  # 规范证据检索接口与双 Provider 适配器
-    ├── skills/
-    │   ├── registry.ts            # 八个 Skill 的契约路径与实现状态
-    │   ├── python-bridge.ts       # Node → Python 子进程桥接
-    │   └── {parse-monitoring-data,evaluate-thresholds}/runner.ts
-    └── integrations/              # LLM、Supabase、Pinecone 客户端入口
-tests/                             # 接口边界、契约一致性、上传到分析端到端
-skills/                            # 业务契约；scripts/ 下是引擎桥接脚本（Python）
-rag/                               # RAG 接入合同与规范有效性审核清单
-方案与迭代note/                     # 业务方案、架构和实现范围
-确定性计算层/                       # 三阶段确定性引擎（242 项回归测试）
-var/uploads/                       # 切换前的本地上传资产（gitignore，保留）
-var/report-artifacts/              # 报告渲染临时目录及旧本地产物（gitignore）
-var/runs/                          # 切换前的本地运行修订（gitignore，保留）
+src/app/workbench/              统一工程工作台
+src/app/api/                    登录、工程、上传、运行、报告与复核接口
+src/server/agents/              通用三Agent编排、模型调用与审查
+src/server/skills/              八个业务Skill的通用服务端接口
+src/server/engineering-adapters/ 专业配置加载、工程类型路由与版本核对
+src/server/evidence/            规范证据接口、检索与工程范围门禁
+src/server/context/             本工程辅助资料管理与冻结
+src/server/storage/             本地／Supabase存储
+src/contracts/                  数据与运行契约
+engineering-adapters/           专业计算、规则、规范、报告与评价资产
+skills/                         Skill契约、桥接入口及历史参考资源
+确定性计算层/                   计算引擎及基坑专业基础实现
+tools/knowledge/                隧道离线知识库构建与逐本验证
+tools/adapters/                 专业配置校验、评价及发布归档
+tests/                          契约、权限、接口、计算及编报审计回归
+var/                            本机私有数据、运行与生成资源（不提交）
+方案与迭代note/                 设计、变更和验收记录
 ```
 
-页面与 Route Handlers 共用一个 Next.js 应用。`src/server/` 使用 `server-only` 隔离，禁止从 Client Component 导入。`src/contracts/` 只放可共享的数据契约，不引用服务端模块。
+Web前后端共用Next.js应用，`src/server/`通过`server-only`隔离；Node通过受控Python子进程调用专业实现。当前主要依赖为Next.js 16.4.3、React 19.3.0、TypeScript 6.0.3、Zod 4.6.5，精确版本以`package-lock.json`为准。
 
-**引擎不重写为 TypeScript。** 判定逻辑已有 242 项回归测试覆盖，二次实现会给「同一输入必得同一输出」这条确定性性质引入偏差；Web 侧只做协议转换。
+## 三Agent作用的验证
 
-## 依赖基线
+保持原三角色和确定性计算、冻结事实主链，新增有界的Supervisor查证任务及界面贡献展示。真实模型的同场景对照中，完整三Agent提出3项查证，补充5条基础检索未保留的候选，其中4条用于正文；报告Agent回应2条模拟工程师意见；语义故障注入验证了审计对“关联写成因果、无依据认定现场正常”的拦截。各组冻结输入与计算判级一致。
 
-| 用途 | 已安装版本 |
-| --- | --- |
-| Web 全栈 | Next.js 16.4.0、React 19.3.0 |
-| 类型与校验 | TypeScript 6.0.3、Zod 4.6.5 |
-| 模型适配 | AI SDK 7.0.136、OpenAI 适配包 4.0.91 |
-| 持久化客户端 | Supabase JS 2.117.3 |
-| 向量库客户端 | Pinecone 9.0.0 |
-| 检查与测试 | ESLint 9.39.5、Vitest 4.1.11 |
+初轮还发现自动审计漏检了计数当等级、部分超限写成全部超限和确认主体扩张，现已补强并保留失败产物。上述为模拟场景的功能证据，不能宣称三Agent在所有任务都不可替代或工程效果已获专业认可。方法、成本与边界见[三Agent作用验证](方案与迭代note/31_三Agent作用验证与受控查证.md)。
 
-版本以 `package-lock.json` 为准。TypeScript 7 尚不被当前 `eslint-config-next` 的解析器支持，因此固定 TypeScript 6。LangGraph.js、Embedding、rerank 和 DOCX 工具尚未引入。
+## 待完善与迁移条件
 
-## 服务端配置
+- 获授权的真实工程配套数据、工程师确认的规则与报告样例，以及系统性的引用质量与风险评价。
+- OCR原页校订、图表／公式核验、待核规范效力确认及尚缺新版规范补齐。
+- 其他隧道测项、工法细节与更多工程场景的专业计算和判据验证，不能以增加规范数量替代适配。
+- 异步worker／任务队列、自动恢复和多实例状态管理；当前为同步执行器、检查点及显式续跑。
+- 自助注册、企业SSO／Supabase Auth、多实例授权，以及正式签发与工程档案系统。
+- 温度补偿等尚未实现的专业处理、持续部署及真实业务条件下的稳定性评测。
 
-需要接入外部服务时，将 `.env.example` 复制为 `.env.local`：
+## 继续阅读
 
-```bash
-cp .env.example .env.local
-```
+- [工程类型统一与当前业务流程](方案与迭代note/30_工程类型统一入口与隧道参数路由.md)
+- [隧道全规范RAG及有效性边界](方案与迭代note/29_隧道全规范RAG与分类适配器.md)
+- [工程场景适配器技术说明](engineering-adapters/README.md)
+- [多周期报告](方案与迭代note/14_多周期报告使用与验收.md) · [项目补充规范](方案与迭代note/18_项目补充规范上传与隔离验收.md)
+- [工程师意见重编](方案与迭代note/23_工程师意见重编与日报信息补齐.md) · [多端协作](方案与迭代note/23_多端协作与共享日报.md)
+- [部署](deploy/README.md) · [Supabase迁移](supabase/README.md) · [可复现周报样例](final_test/latest/README.md)
+- [更新记录](update.md) · [项目记忆](memory.md) · [协作约定](AGENTS.md)
 
-| 服务 | 环境变量 | 当前行为 |
-| --- | --- | --- |
-| **确定性引擎** | `EXCAVAGUARD_PYTHON`、`EXCAVAGUARD_BRIDGE_TIMEOUT_MS` | 指定 Python 解释器与调用超时；不配则优先仓库 `.venv`，再尝试 PATH 上的 `python3`、`python` |
-| **文件存储** | `EXCAVAGUARD_UPLOAD_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | `local` 或 `supabase`；当前本机已显式切至 Supabase |
-| **运行存储** | `EXCAVAGUARD_RUN_ROOT`、`EXCAVAGUARD_STORAGE_PROVIDER` | `supabase` 时写入 `excavaguard_run_revisions`；`local` 时写入 `<仓库>/var/runs/<run_id>/<revision>.json` |
-| **访问控制** | `EXCAVAGUARD_ACCESS_FILE`、`EXCAVAGUARD_ACCESS_PASSWORD`、`EXCAVAGUARD_SESSION_SECRET`、`EXCAVAGUARD_PROJECT_ID` | 独立账号及获授权项目选择；兼容共享密码，项目ID只用于默认工程初始化；开发无密码仅本机 |
-| LLM | `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` | AI 日报模式必填；创建 OpenAI 兼容 Chat 适配器，不默认指定供应商或模型 |
-| Supabase 公共连接 | `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 项目可达性已验证；publishable key 只具备 RLS 允许的低权限 |
-| Supabase 服务端 | `SUPABASE_SECRET_KEY`、`SUPABASE_STORAGE_BUCKET` | 新式 secret key 仅供受保护服务端；上传、运行 revision 和报告 Provider 已接通 |
-| RAG 选择 | `RAG_PROVIDER` | 必须显式选择 `pinecone` 或 `local`；当前本机配置为 `pinecone` |
-| Pinecone | `PINECONE_API_KEY`、`PINECONE_INDEX`、`PINECONE_TEXT_FIELD`、可选 `PINECONE_NAMESPACE` | 查询 integrated embedding 索引 |
-| Pinecone 导入 | `PINECONE_CLOUD`、`PINECONE_REGION`、`PINECONE_EMBED_MODEL` | 仅供离线建索引/批量导入工具使用 |
-| 本地 RAG | `LOCAL_RAG_BASE_URL`、`LOCAL_RAG_TIMEOUT_MS` | 调用 loopback 服务的统一证据接口 |
+## 项目补充规范：从检索到规则确认
 
-确定性引擎和不附在线证据的基础日报链可以在 `local` 存储模式下不依赖外部服务运行。当前初版演示配置已切到 Supabase，因此上传、运行 revision 和三件套下载依赖 Supabase 配置。
+工作台“项目补充规范”新增“规范变更审查与确认”：三Agent提取要求、整理关键差异并独立审计，工程师可逐条接受、修改或退回，最多两轮修订。确认后的项目规则参与后续确定性核查，并随事实冻结；支持已有记录只读影响试算和停用回退，不改写历史报告。
 
-客户端按需创建，不在页面渲染和构建时读取密钥或发送请求。配置缺失或格式不合法会抛出 `IntegrationConfigError`，错误不携带原始配置值。目标 Pinecone 索引已完成连接、配置、导入和查询验收；完整配置仍不代表 Supervisor 主链路已经接通。
+当前自动执行限定为适配器支持的毫米变形测项、正向累计量/速率固定阈值及等值条件。区间、公式和未能可靠结构化的要求保留待核，不把所有RAG文本自动当成判据。补充规则只增加提醒，不降低原等级。详见[规范变更审查与规则发布](方案与迭代note/32_项目规范变更审查与规则发布.md)。
 
-Supabase 管理客户端会绕过 RLS，因此业务 API 在访问存储前验证登录身份、当前项目和成员角色。
-授权来源为服务端私有账号目录，不依赖 Supabase Auth；浏览器不能直接修改成员授权。
-不要将任何密钥改为 `NEXT_PUBLIC_*`，也不要提交 `.env.local`。
+## 三Agent前的两个板块
 
-Supabase 基础设施准备：
-
-```bash
-npm run supabase:check    # 当前配置和只读检查，不输出 key
-npm run supabase:verify   # 迁移和 secret 配置后，执行可清理的真实写探针
-```
-
-迁移文件、控制台操作和状态说明见
-[`supabase/README.md`](supabase/README.md)。`public_connected` 只证明项目 URL 与
-publishable key 可达。当前基础设施写探针已达到 `infrastructure_verified`；
-应用 Provider 真实纵向回归也已通过并显式切换。
-
-## 规范证据 Provider
-
-`src/server/evidence/` 提供统一的 `StandardEvidenceRetriever`，上层 Skill 不区分具体向量库：
-
-这部分是已验收的证据检索能力。AI 日报模式会在 Supervisor 阶段自动调用；
-显式选择 `report_mode=template` 时只走确定性模板，不调用 LLM 或运行时 RAG，适合独立计算和表式调试。
-
-- `PineconeStandardEvidenceRetriever`：调用 integrated embedding 的 `searchRecords` 文本检索，应用规范版本、监测项、基坑等级、地区和生效状态过滤。
-- `LocalStandardEvidenceRetriever`：只接受 `localhost`、`127.0.0.1` 或 `::1`，调用 `POST /api/evidence/search`。
-- `createStandardEvidenceRetriever`：根据 `RAG_PROVIDER` 选择实现，不会在本地模式读取 Pinecone 配置。
-
-`retrieve-standard-evidence` 服务端 runner 已实现无命中弃权、非现行证据拦截、人工复核提示和查询轨迹。完整合同与 Pinecone 导入流程见 [`rag/README.md`](rag/README.md)。
-`npm run rag:prepare` 可从现有资产生成 7,180 条候选记录和审计报告，不访问云端；
-真实导入前必须在 `rag/standard-status.json` 完成 29 个规范编号的状态复核。
-当前清单已由团队人工复核，目标索引 `excava-guard` 的 `standards-v1` namespace 已写入
-7,180 条记录；真实语义查询和本地字段逐项比对通过。本地 sidecar 已实现
-统一 HTTP 合同并完成真实 Next.js Retriever/Skill 验收。启动命令：
-
-```bash
-.venv/bin/python -B source/server.py --port 8600
-```
-
-模型在启动期预加载，`/api/evidence/health` 就绪后可使用本地 Provider；
-只打开 `var/rag/chroma_db/` 运行副本，不写版本化知识资产。接口回归及真实验收命令见
-[`rag/README.md`](rag/README.md)。
-最终 7 天混合宽表已接入长表展开、累计量语义、来源留痕与日报聚合；
-日报三件套的数据来源边界和交付验收见
-[`final_test/README.md`](final_test/README.md)。
-
-## 接口
-
-### 已实现
-
-- `GET /api/health`：返回 `{"status":"ok","service":"ExcavaGuard","stage":"scaffold"}`，只表示进程能响应。
-- `GET /api/monitoring-files` / `POST /api/monitoring-files`：列出 / 上传监测数据（`multipart/form-data`，字段名 `file`）。
-  上传成功后立即返回**解析报告**：编码、分隔符、列名映射、未识别列、缺失的必填列。
-- `GET /api/monitoring-files/sample`：下载示例数据 CSV（6 列、中文表头、UTF-8 BOM）。
-- `GET /api/standards` / `POST /api/standards`：列出 / 上传用户规范。
-  **上传即校验严格程度** —— 凡比默认规范更宽松的项，连同默认值的规范名称与条文号一并返回。
-- `POST /api/runs`：创建分析任务，默认返回日报接口载荷
-  `excavaguard.daily_report_input/v1`；显式设置 `options.generate_report=true`
-  时继续执行报告、审计和人工复核交接。
-- `GET /api/report-artifacts/<draft_id>/<file_name>`：只读下载 Excel 或 Markdown
-  草稿产物；必须绑定当前项目、当前已审计草稿，重新验证文件大小和 SHA-256。
-- `GET/POST/DELETE /api/session`：访问状态、独立账号或兼容密码登录、退出，使用 HttpOnly 会话。
-- `GET/POST /api/projects`：获授权工程列表；系统管理员创建工程。
-- `POST /api/projects/select`：选择获授权工程，更新服务端签名会话。
-- `GET /api/runs` / `GET /api/runs/<run_id>`：最近 100 次摘要 / 完整请求与结果。
-- `DELETE /api/runs/<run_id>?expected_revision=<revision>`：仅项目管理员可按当前修订删除
-  单条运行历史及关联报告产物；活动运行或旧修订请求拒绝删除。
-- `POST /api/runs/<run_id>/review`：`expected_revision`、完整 `draft_ref`、
-  `decision`（accepted / needs_changes / rejected）、必填 `reason`，以及可选
-  `evaluations[]`（风险条目位置、处置结论、工程师说明）。
-  接受草稿时必须逐项覆盖全部关注及以上风险，且不能存在有异议条目；旧版本或重复决定
-  返回 409。退回和拒绝关闭下载，评价与总评随不可变 revision 留痕，不修改冻结事实。
-- `POST /api/runs/<run_id>/resume`：显式提交 `expected_revision`，只续跑已保存的
-  Agent 检查点；不重置原预算。无检查点、活动任务或预算到期时需加载输入新建关联运行。
-
-`POST /api/runs` 请求体：
-
-```jsonc
-{
-  "project_id": "uuid",
-  "monitoring_file_id": "uuid",
-  "report_date": "YYYY-MM-DD",
-  "standards_file_id": "uuid | null",     // 可选；不传则用默认规范库
-  "context": {                             // 必填，引擎不做任何默认假设
-    "safety_level": "一级",                // 一级 / 二级 / 三级
-    "support_type": "地下连续墙",
-    "excavation_depth_m": 20,              // 允许 null = 暂未提供（不会放宽判据，转为弃权）
-    "post_slab_from": "YYYY-MM-DD | null",
-    "design_values": { "support_axial_force": 1000 }
-  },
-  "project": { "name": "××基坑工程" },       // 可选，进入载荷
-  "options": {
-    "generate_report": true,                 // 可选；默认 false
-    "report_mode": "ai"                      // 可选；ai 或 template，生成报告时默认 ai
-  }
-}
-```
-
-开启报告链后，响应的 `agent_run.state` 保存 engineSnapshot、报告草稿、审计结果和轨迹；
-正常完成时状态为 `awaiting_human_review`，`agent_run.downloads` 提供固定三件套地址。
-这只表示确定性审计通过，仍不代表工程师已审核、已发布预警或已正式签发。
-响应同时包含 `record`（版本化持久化记录）。原 API 默认只分析，工作台默认显式开启
-报告链。页面「运行历史」打开已保存结果，「加载输入并新建关联运行」恢复原工程条件和
-文件引用；修正后新建 `parent_run_id` 关联运行，原记录和复核理由保留。
-
-本地启动默认绑定 localhost。独立账号由管理员创建并授权；未启用独立账号时兼容共享密码
-（至少12字符）及签名密钥（至少32字符），生产缺少访问配置时拒绝业务请求。
-会话8小时过期；改密或停用账号使原会话失效，撤销成员授权在下一请求生效。切换项目更新签名会话，旧标签页携带不同工程标识时拒绝请求。
-历史无项目字段的上传文件只归入固定默认项目，切换配置不会自动转移文件。
-`local` 存储模式下需要一起备份运行目录、上传目录和报告目录；不要直接清理有引用的文件。
-若本地上传索引写入锁因进程崩溃遗留，先停止全部服务并确认没有写入，再清理
-`var/uploads/index.json.lock` 空锁目录后重启。Supabase 模式下以云端元数据和对象指纹为准。
-
-`POST /api/runs` 的返回：
-
-| 状态码 | 错误码 | 含义 |
-| --- | --- | --- |
-| 415 | `UNSUPPORTED_MEDIA_TYPE` | 正文类型不是 `application/json` |
-| 400 | `INVALID_JSON` | JSON 解析失败 |
-| 400 | `INVALID_REQUEST` | 必填字段缺失、值无效或包含额外字段 |
-| 404 | `FILE_NOT_FOUND` | 引用的监测文件或规范文件不存在 |
-| 415 / 413 / 400 | `UNSUPPORTED_FILE_TYPE` / `FILE_TOO_LARGE` / `FILE_EMPTY` | 上传文件不合法 |
-| 422 | `MISSING_FIELD` / `DATA_QUALITY` / `FILE_UNREADABLE` | 文件缺必填列 / 无有效数据行 / 读不出来 |
-| 400 | `INVALID_STANDARD` | 用户规范结构不合法 |
-| 503 | `ENGINE_UNAVAILABLE` | 找不到 Python 解释器或引擎脚本 |
-| 500 | `ENGINE_NOT_FOUND` / `ENGINE_ERROR` | 引擎目录不完整 / 引擎运行报错（附 `engine_code`） |
-
-`payload` 中 `risk_level = "未知"` 表示**弃权，不是「安全」**，对应条目会进入 `review_queue`。
-
-### 初版暂不包含
-
-- **企业身份接入**：已有管理员配置的独立账号与项目角色，尚无自助注册、Supabase Auth、企业 SSO 或分布式账号目录。
-- **既有本地资产迁移**：Supabase Provider 已用于新上传、运行 revision 和三件套；
-  `var/` 中已有本地测试历史保留，未自动复制或删除。
-- **正式签发与归档**：接受/退回/拒绝和本地复核记录已接通，仍没有正式签发或工程档案系统。
-- **异步编排与真实模型验收**：已保存检查点并支持原预算内显式续跑；未实现异步 worker
-  或自动恢复。独立模型语义审计已接线，但当前本机缺 LLM 配置，尚未完成真实模型质量验收。
-
-## 开发检查
-
-```bash
-npm run check       # ESLint、路由类型生成、TypeScript、Vitest
-npm run build       # 生产构建，产物在 .next/
-npm start           # 运行已经构建的应用
-```
-
-`npm test` 运行固定测试，`npm run test:watch` 用于开发。测试覆盖：协议边界（媒体类型、非法 JSON/字段/日期、闰日）、上传边界（非 multipart、缺 `file`、不合法规范结构）、示例数据结构、服务配置缺失、错误不回显密钥、三 Agent 角色白名单、Supervisor 路由/失效/两轮退回/预算、Skill 契约一致性，以及两个规范证据适配器的统一结构、过滤和失败边界。
-
-`tests/upload-and-run.test.ts` 是**端到端**用例（上传 → 解析 → 分析 → 宽松阈值 → 缺 H 弃权），需要 Python；找不到解释器时整个 suite **自动跳过**，其余用例不受影响。
-
-验收（更新至 2026-10-14）：`npm run check` 118 条测试通过，4 个 live suite 共
-6 条测试默认跳过；已覆盖 16 条 Agent Executor、8 条上传/纵向端到端（含最终 85 通道宽表）、
-12 条持久化/访问边界、7 条报告/审计 Skill 用例，以及 LLM 客户端模拟服务。
-`npm run build` 生成 13 条路由；浏览器验证历史恢复、退回、关联重跑、轨迹、下载与接受。
-`npm run supabase:test` 另有 1 条真实云端纵向验收通过并自动清理测试资产。
-`npm run rag:test` 另有 1 条真实 Pinecone 纵向验收通过：最终宽表、AI 模式 mock LLM、
-真实 RAG、三件套和审计全链路打通，并逐字段比对远端返回证据与本地导入清单。
-`npm run ai:test` 需要配置 LLM 三项后显式运行；当前本机未配置，未做真实模型质量验收。
-引擎侧历史验收为 242 项回归测试、27 个模拟场景和日报契约校验通过。
-
-在限制写入用户目录的沙箱内，Next.js 命令可添加 `CI=1 NEXT_TELEMETRY_DISABLED=1`，使其配置缓存落在项目 `.next/cache/`。例如 `CI=1 NEXT_TELEMETRY_DISABLED=1 npm run build`。
-
-当前依赖审计存在 5 条开发依赖高危告警，均来自 Next.js ESLint 插件的 `fast-glob → micromatch → braces` 链；npm 当前未给出兼容修复方案。不要执行会将 Next.js ESLint 配置降到 14.x 的 `npm audit fix --force`。本次 `npm audit --omit=dev` 为 0 条告警；后续依赖升级仍需重新核验。
-
-## 初版后打磨方向
-
-1. **企业身份与部署**：在现有独立账号和项目权限基础上，接入企业 SSO / Supabase Auth，完善多实例授权目录和部署。
-2. **真实模型与引用质量评测**：配置实际 LLM 后运行 `npm run ai:test`，并围绕正式工程场景评估
-   日报正文质量、RAG 引用准确率、无命中弃权和审计问题召回。
-3. **部署与 CI**：补齐生产环境变量、构建发布、数据库迁移执行方式、自动化检查和回滚说明。
-4. **异步编排与恢复**：将当前同步执行器升级为 worker/任务队列模式，支持长任务、预算到期后的自动恢复和失败重试。
-5. **正式归档与签发**：区分“草稿复核接受”和“正式工程签发”，接入工程档案或导出归档流程。
-6. **既有资产迁移**：按需把 `var/` 中旧本地测试资产迁移到 Supabase，或明确清理策略。
-7. **业务能力补齐**：实现 `retrieve-similar-cases`、`analyze-work-condition`，并继续处理温度补偿等工程判据问题。
-8. **体验打磨**：优化大文件提示、上传进度、运行中状态、错误文案、报告预览和多次重跑对比。
-
-完整要求见 [AGENTS.md](AGENTS.md)、[项目记忆](memory.md)、
-[开发推进记录](方案与迭代note/10_开发推进记录.md)、
-[可视化测试指引](方案与迭代note/11_可视化测试指引.md) 和
-[框架设计](方案与迭代note/框架demo.md)。系统只输出工程师待复核的草稿，
-不自动发布预警或签发报告。
-
----
-
-## 离线规范 RAG 知识库原型（`source/`）
-
-与上方 Web 应用解耦的独立离线 RAG 原型：基于 `source/build_kb.py` 构建条款级向量库（bge-small-zh + ChromaDB），支持规范检索、合规核对与日报生成。
-
-- 嵌入模型 `models/bge-small-zh` 随仓库提供（Git LFS），无需联网。
-- 知识库原始规范（`data/ocr_text/`、`data/chunks.jsonl`、`data/chroma_db/`）已随仓库纳入版本管理（经权利人/作者授权决策后公开）；克隆后无需重新构建即可直接使用，或执行 `python source/build_kb.py --rebuild` 重建、`python source/server.py --port 8600` 启动本地服务。
-- 完整用法、内置规范清单与 FAQ 见 [`source/README.md`](source/README.md)。
-
-## 上传项目补充规范
-
-工作台新增“项目补充规范（全文检索）”：上传可搜索PDF或UTF-8文本，确认地区、效力与本工程范围后启用。仅当前项目参与报告检索；独立SQLite库与公共知识库隔离，日报、分类表与核查表保留具名依据。数值阈值继续使用原JSON入口。
-
-[使用方法、存储位置和验收记录](方案与迭代note/18_项目补充规范上传与隔离验收.md)。回归命令：`npm run test:project-standards`。
-
-## 最新进展与可复现周报样例
-
-- [阿里云轻量服务器部署](deploy/README.md)：在 Mac 构建 Linux 镜像，上传服务器后导入；包含账号初始化、持久目录和版本更新步骤。
-- [update.md：当前功能、验证结果和剩余任务](update.md)。
-- [final_test/latest：合成测试输入、冻结快照、可读周报三件套及验收记录](final_test/latest/README.md)。
-- 离线复现：`.venv/bin/python tools/test/verify-weekly-sample.py`，不调用外部模型或检索服务。
+前置流程统一为“①场景适配与判据匹配 → ②确定性计算、规则判级与事实冻结”。前者固定本次工程设置与判据来源，后者执行计算并形成来源清楚、可校验的事实包；结果页展示实际采用依据、观测范围及待核数量。专业差异继续由工程适配器提供，三Agent主体保持一致。见[前两板块与事实交接](方案与迭代note/33_三Agent前两板块与事实交接.md)。

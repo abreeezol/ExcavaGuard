@@ -1,23 +1,32 @@
+import { scopeQueryConditions } from "@/server/engineering-adapters/standard-scope";
+import { adapterIdFromPayload, readScenePolicy, type ScenePolicy } from "@/server/engineering-adapters/registry";
 import type { StandardEvidence } from "@/contracts/standard-evidence";
 import type { StandardCoverage } from "@/contracts/evidence-display";
 import type { StandardEvidenceSkillResult } from "@/server/skills/retrieve-standard-evidence/runner";
 import { readStandardCatalog, type CatalogStandard } from "@/server/evidence/standard-catalog";
 
 export const STANDARD_REVIEW_STRATEGY = "catalogue-and-topic-review/v1";
-export const COVERAGE_NOTICE = "已按配置目录逐规范检索候选，非逐字穷举全部条文或全网最新法规核验；无命中不代表无要求，适用性及条文差异须工程师确认，检索不改写判据。";
+export const COVERAGE_NOTICE = "已逐项检查配置目录的效力与工程适用范围，并对可用规范逐本检索候选；非逐字穷举全部条文或全网最新法规核验；无命中不代表无要求，适用性及条文差异须工程师确认，检索不改写判据。";
 export type StandardSearchRequest = { query: string; filters: { effective_status: "active"; standard_versions?: string[] }; limit: number };
 type Result = StandardEvidenceSkillResult;
 type Query = { scope: "catalogue" | "topic"; topic: string; request: StandardSearchRequest; standard?: CatalogStandard };
 export type StandardQueryReview = { scope: Query["scope"]; topic: string; standard_name?: string;
   standard_version?: string; accepted_ids: string[]; trace: Result["trace"]; status: Result["status"]; code?: string };
 
-export function relevantStandardEvidence(item: StandardEvidence, topics: string[]): boolean {
+export function excludedStandardEvidence(item: StandardEvidence, policy: ScenePolicy): boolean {
+  const normalized=item.metadata.standard_version.toUpperCase().replace(/[^A-Z0-9]/g,"");
+  const rules=Object.entries(policy.excluded_clauses).find(([version])=>version.toUpperCase().replace(/[^A-Z0-9]/g,"")===normalized)?.[1]??[];
+  const text=(item.metadata.clause+"；"+item.text).replace(/\s/g,"");
+  return rules.includes("*") || rules.some(clause=>new RegExp("(?<![0-9.])"+clause.replace(/\./g,"\\.")+"(?![0-9.])").test(text));
+}
+
+export function relevantStandardEvidence(item: StandardEvidence, topics: string[], policy: ScenePolicy = readScenePolicy()): boolean {
   const terms = topics.flatMap((topic) => topic.includes("：") ? topic.split("：")[1].split("、") : []);
   const text = `${item.text} ${item.metadata.monitoring_item ?? ""}`;
-  return item.metadata.effective_status === "active" && item.text.length <= 8000 && /应|宜|不得|必须/.test(item.text) && (
+  return !excludedStandardEvidence(item,policy) && item.metadata.effective_status === "active" && item.text.length <= 8000 && /应|宜|不得|必须/.test(item.text) && (
     terms.some((term) => term.length > 1 && text.includes(term)) ||
     /监测|复测|巡视|预警|报警|设计方/.test(text) ||
-    (/基坑|支护|地下水/.test(text) && /开挖|施工|稳定|安全|处置|验收|控制/.test(text))
+    (policy.relevance_terms.some(term => text.includes(term)) && /开挖|施工|稳定|安全|处置|验收|控制/.test(text))
   );
 }
 
@@ -50,22 +59,25 @@ export async function reviewAllStandards(input: {
   catalog?: CatalogStandard[];
   onQuery?: (query: StandardQueryReview, result: Result) => Promise<void>;
 }) {
-  const catalog = input.catalog ?? readStandardCatalog();
+  const adapterId = adapterIdFromPayload(input.enginePayload);
+  const policy = readScenePolicy(adapterId);
+  const parameters=(input.enginePayload as {project?:{professional_parameters?:Record<string,unknown>}})?.project?.professional_parameters??{};
+  const catalog = input.catalog ?? readStandardCatalog(adapterId,parameters);
   if (!catalog.length || new Set(catalog.map(s=>s.standard_version)).size !== catalog.length) throw new Error("STANDARD_CATALOG_INVALID：规范目录为空或编号重复。");
   const topics = [...new Set(input.topics)];
-  const activeVersions = new Set(catalog.filter(s=>s.effective_status==='active').map(s=>s.standard_version));
+  const activeVersions = new Set(catalog.filter(s=>s.effective_status==='active'&&s.applicable!==false).map(s=>s.standard_version));
   const engine = input.enginePayload as { project?: Record<string, unknown>; summary?: Record<string, unknown> };
-  const conditions = [engine.project?.safety_level, engine.project?.support_type, engine.summary?.overall_risk_level].filter(Boolean).join(" ");
+  const conditions = [...scopeQueryConditions(adapterId,parameters),...policy.query_context_fields.map(field => (engine.project?.professional_parameters as Record<string, unknown> | undefined)?.[field] ?? engine.project?.[field]), engine.summary?.overall_risk_level].filter(Boolean).join(" ");
   const allTopics = topics.join("；");
   const entries: StandardCoverage["standards"] = catalog.map(s=>({standard_name:s.standard_name,
     standard_version:s.standard_version,effective_status:s.effective_status,
-    status:s.effective_status==='active'?'pending':'skipped_status',candidate_ids:[],retained_ids:[],
-    reason:s.effective_status==='active'?'尚未查询':'效力未确认或非现行，不能作为确定依据'}));
+    status:s.applicable===false?'skipped_scope':s.effective_status==='active'?'pending':'skipped_status',candidate_ids:[],retained_ids:[],
+    reason:s.applicable===false?s.scope_reason??'不属于本工程适用范围':s.effective_status==='active'?'尚未查询':`效力未确认或非现行，不能作为确定依据；${s.scope_note}`}));
   const queries: Query[] = [
-    ...catalog.filter(s=>s.effective_status==='active').map(standard=>({scope:'catalogue' as const,topic:allTopics,standard,
-      request:{query:`基坑监测 ${conditions} ${allTopics} 监测要求 允许变形 预警 复测 风险处置`.slice(0,1000),
+    ...catalog.filter(s=>s.effective_status==='active'&&s.applicable!==false).map(standard=>({scope:'catalogue' as const,topic:allTopics,standard,
+      request:{query:`${policy.query_prefix} ${conditions} ${allTopics} 监测要求 允许变形 预警 复测 风险处置`.slice(0,1000),
         filters:{effective_status:'active' as const,standard_versions:[standard.standard_version]},limit:4}})),
-    ...topics.map(topic=>({scope:'topic' as const,topic,request:{query:`基坑工程 ${topic} ${conditions} 监测方法 精度 布点 预警 复核 处置要求`.slice(0,1000),
+    ...topics.map(topic=>({scope:'topic' as const,topic,request:{query:`${policy.topic_prefix} ${topic} ${conditions} 监测方法 精度 布点 预警 复核 处置要求`.slice(0,1000),
       filters:{effective_status:'active' as const},limit:8}})),
   ];
   const evidence: StandardEvidence[] = [], queryReviews: StandardQueryReview[] = [], gaps: string[] = [];
@@ -74,8 +86,9 @@ export async function reviewAllStandards(input: {
   let callbackError: unknown = null;
   let progress: Promise<void> = Promise.resolve();
   const processResult = async (query: Query, result: Result) => {
-    const accepted=result.status==='success' ? result.evidence.filter(item=>activeVersions.has(item.metadata.standard_version) && relevantStandardEvidence(item,topics) &&
+    const accepted=result.status==='success' ? result.evidence.filter(item=>activeVersions.has(item.metadata.standard_version) && relevantStandardEvidence(item,topics,policy) &&
       (!query.standard || item.metadata.standard_version===query.standard.standard_version)) : [];
+    if(result.evidence.some(item=>excludedStandardEvidence(item,policy)))gaps.push(`${query.topic}：已按已知效力配置排除废止条文候选，不能据无命中认定无要求。`);
     evidence.push(...accepted);
     const entry=entries.find(s=>s.standard_version===query.standard?.standard_version);
     if(entry) {
@@ -118,7 +131,7 @@ export async function reviewAllStandards(input: {
     if(entry.status!=='matched') gaps.push(`《${entry.standard_name}》${entry.standard_version}：${entry.reason}。`);
   }
   const coverage:StandardCoverage={strategy:STANDARD_REVIEW_STRATEGY,catalogue_count:catalog.length,
-    queried_count:entries.filter(s=>!['pending','skipped_status'].includes(s.status)).length,
+    queried_count:entries.filter(s=>!['pending','skipped_status','skipped_scope'].includes(s.status)).length,
     completed:entries.every(s=>s.status!=='pending'&&s.status!=='unavailable'),candidate_count:unique.size,
     retained_count:retained.length,omitted_count:unique.size-retained.length,notice:COVERAGE_NOTICE,standards:entries};
   const comparisons = topics.map(topic => {

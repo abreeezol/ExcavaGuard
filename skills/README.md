@@ -45,7 +45,8 @@
 | `retrieve-standard-evidence` | `implemented` | `src/server/skills/retrieve-standard-evidence/runner.ts` |
 | `render-daily-report` | `implemented` | `scripts/render_daily_report.py` + 服务端 runner |
 | `validate-report` | `implemented` | `scripts/validate_report.py` + 服务端 runner |
-| 其余两个 | `not_implemented` | — |
+| `retrieve-similar-cases` | `implemented` | 项目隔离案例检索runner |
+| `analyze-work-condition` | `implemented` | 日期/位置关联及结构化冲突核验runner |
 
 **确定性计算实现放在对应 `scripts/` 中，由服务端工具层以子进程方式调用。**
 
@@ -107,3 +108,13 @@
 
 归档资产中的脚本可能包含独立计算、重判或本地 RAG 路径；除非先完成契约评审和服务端适配，
 不得直接接入主链。
+
+
+## 2026-11-04 场景适配器执行方式
+
+通用Skill契约不含基坑判据；六个已实现能力由通用桥接按manifest.handlers选择专业实现。基坑入口/模板/审计位于engineering-adapters/foundation-pit/runtime，原scripts路径为兼容薄入口。三Agent要求、检索策略和分类由policy加载，工程参数由场景schema校验。案例检索、工况分析仍仅契约，未因本次重构成为可调用实现。详见../engineering-adapters/README.md。
+
+
+## 2026-11-04 辅助资料条件调用
+
+两个原契约Skill现已接通：案例检索按明确测项或关键词关联；工况/巡视按同日和位置关联并披露结构化冲突。项目辅助资料独立保存，可启停，报告冻结本次来源与结果。只有启用资料参与当前运行，案例不能充当规范、阈值或因果证据。策略在适配器supporting_context中定义。此节更新前文历史“仅契约”状态，详情见27号记录。

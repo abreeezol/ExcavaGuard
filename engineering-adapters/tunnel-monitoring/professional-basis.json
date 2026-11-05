@@ -1,0 +1,54 @@
+{
+  "schema": "excavaguard.professional_basis/v1",
+  "status": "developer_tested_pending_engineer_review",
+  "metrics": {
+    "ground_settlement": {
+      "definition": "向下为正累计沉降",
+      "units": "mm",
+      "candidate_codes": [
+        "GB50911-2013",
+        "JTG3370.1-2018",
+        "JTG/T3660-2020"
+      ]
+    },
+    "building_settlement": {
+      "definition": "向下为正建筑累计沉降",
+      "units": "mm",
+      "candidate_codes": [
+        "GB50911-2013"
+      ]
+    },
+    "crown_settlement": {
+      "definition": "向下为正拱顶累计沉降",
+      "units": "mm",
+      "candidate_codes": [
+        "GB50911-2013",
+        "JTG/T3660-2020"
+      ]
+    },
+    "tunnel_convergence": {
+      "definition": "向内为正累计净空收敛",
+      "units": "mm",
+      "candidate_codes": [
+        "GB50911-2013",
+        "JTG/T3660-2020"
+      ]
+    }
+  },
+  "formulae": {
+    "elevation_settlement": "(initial_elevation-current_elevation)*unit_factor",
+    "cumulative_input": "input_value*unit_factor；不按上传窗口首值重新归零",
+    "single_change": "current_cumulative-previous_cumulative，基准一致时",
+    "absolute_rate": "abs(single_change)/actual_interval_days",
+    "trend": "available累计变形与时间的最小二乘斜率，至少三点"
+  },
+  "limits": "每测项确认项目控制值；上述候选代码并非全国统一数值判据，不把检索片段直接执行为代码",
+  "abstention": [
+    "无确认来源或限值",
+    "未知测项",
+    "输入语义不相容",
+    "高程无初始基准",
+    "反向变形未配置判据",
+    "前值或实际时间间隔不足"
+  ]
+}

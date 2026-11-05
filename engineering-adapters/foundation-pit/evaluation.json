@@ -1,0 +1,24 @@
+{
+  "status": "pending_engineer_review",
+  "notice": "样例由开发者整理，软件测试不等于工程师确认；实际复核记录由授权人员提交。",
+  "cases": [
+    {
+      "case_id": "pit-unit",
+      "scenario": "单位换算",
+      "expected": "2.7cm应归一为27mm，不能误标为2.7mm",
+      "evidence_reference": "现有规则来源、设计确认文件及原始数据"
+    },
+    {
+      "case_id": "pit-depth",
+      "scenario": "深度缺失",
+      "expected": "需要%H的判据缺H时不得用绝对限值冒充完整判定",
+      "evidence_reference": "现有规则来源、设计确认文件及原始数据"
+    },
+    {
+      "case_id": "pit-source",
+      "scenario": "依据与风险",
+      "expected": "规范证据与已确认规则分开；RAG不改写风险",
+      "evidence_reference": "现有规则来源、设计确认文件及原始数据"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import "server-only";
 import { callSkillScript, type SkillEnvelope } from "@/server/skills/python-bridge";
 
 export type NormalizeMonitoringRequest = {
+  adapterId?: string;
   filePath?: string;
   records?: unknown[];
   reportDate?: string | null;
@@ -27,5 +28,5 @@ export async function normalizeMonitoringData(
       ? { expected_interval_days: request.expectedIntervalDays }
       : {}),
     include_records: request.includeRecords ?? false,
-  });
+  }, { adapterId: request.adapterId });
 }

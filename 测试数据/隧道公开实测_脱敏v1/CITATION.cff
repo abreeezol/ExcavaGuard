@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "Please cite this dataset using the DOI below."
+type: dataset
+title: "De-identified Multi-Sensor Tunnel Monitoring Data and Weak-Supervision Outputs"
+version: 1.0.0
+license: CC-BY-4.0
+doi: "10.5281/zenodo.20768869"
+date-released: 2026-06-20
+url: "https://doi.org/10.5281/zenodo.20768869"
+authors:
+  - given-names: "Zhiyuan"
+    family-names: "Liu"
+  - given-names: "Zeng"
+    family-names: "Li"
+  - given-names: "Zhuqiang"
+    family-names: "Liao"
+  - given-names: "Taolin"
+    family-names: "Zhang"
+  - given-names: "Jiao"
+    family-names: "Cai"
+  - given-names: "Peng"
+    family-names: "Liang"
+  - given-names: "Rui"
+    family-names: "Wang"
+  - given-names: "Binjing"
+    family-names: "Xu"
+keywords:
+  - structural health monitoring
+  - tunnel monitoring
+  - weak supervision
+  - anomaly detection
+  - sparse time series

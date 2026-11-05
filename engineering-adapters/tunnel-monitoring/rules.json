@@ -1,0 +1,57 @@
+{
+  "source_id": "PROJECT-TUNNEL-CONTROL",
+  "metrics": {
+    "ground_settlement": {
+      "display_name": "地表沉降",
+      "unit": "mm",
+      "aliases": [
+        "地表沉降",
+        "地面沉降"
+      ],
+      "semantics": [
+        "cumulative_settlement",
+        "elevation"
+      ]
+    },
+    "building_settlement": {
+      "display_name": "建筑沉降",
+      "unit": "mm",
+      "aliases": [
+        "建筑沉降",
+        "建筑物沉降"
+      ],
+      "semantics": [
+        "cumulative_settlement",
+        "elevation"
+      ]
+    },
+    "crown_settlement": {
+      "display_name": "拱顶沉降",
+      "unit": "mm",
+      "aliases": [
+        "拱顶沉降",
+        "拱顶下沉",
+        "vault_settlement"
+      ],
+      "semantics": [
+        "cumulative_settlement",
+        "elevation"
+      ]
+    },
+    "tunnel_convergence": {
+      "display_name": "净空收敛",
+      "unit": "mm",
+      "aliases": [
+        "净空收敛",
+        "周边收敛",
+        "水平收敛",
+        "收敛",
+        "convergence"
+      ],
+      "semantics": [
+        "cumulative_displacement"
+      ]
+    }
+  },
+  "note": "无内置统一数值阈值，使用工程师确认的项目控制要求"
+}

@@ -1,0 +1,469 @@
+{
+  "adapter_id": "foundation-pit",
+  "producer_adapter_digest": "2c19ee37682f21f96d2d78a194a47ce52c6350dec72a27c2c43b5ccaa2082541",
+  "fixture_sha256": "2e436ba4d1a66be0377a2c56cdd6fda68d552e0b78a1fb36234e6a68249a5401",
+  "simulation_only": true,
+  "professional_review": "pending_engineer_review",
+  "cases": [
+    {
+      "case_id": "pit-unit",
+      "status": "software_passed",
+      "comparisons": [
+        {
+          "path": "items.1.current",
+          "expected": 27,
+          "actual": 27,
+          "matches": true
+        },
+        {
+          "path": "items.1.cumulative",
+          "expected": 27,
+          "actual": 27,
+          "matches": true
+        }
+      ],
+      "actual_items": [
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "wall_top_horizontal_displacement",
+          "metric_name": "围护墙（边坡）顶部水平位移",
+          "timestamp": "2026-10-01 00:00:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": null,
+          "current": 0,
+          "unit": "mm",
+          "interval_days": null,
+          "measurement_semantics": "raw_observation",
+          "source_flags": [],
+          "source_metadata": {},
+          "cumulative": 0,
+          "single_change": null,
+          "rate": null,
+          "slope": null,
+          "problem_category": "变形过大",
+          "risk_level": "未知",
+          "utilization": 0,
+          "checks": [
+            {
+              "check": "累计值",
+              "value": 0,
+              "limit": 20,
+              "limit_basis": "min(绝对量 20 mm, 0.2%×H=40 mm) = 20 mm",
+              "utilization": 0,
+              "verdict": "正常"
+            }
+          ],
+          "effective_standard": {
+            "origin": "default_library",
+            "origin_display": "默认规范库（基坑智守项目相关规范）",
+            "source_id": "GB50497-2019",
+            "source_label": "GB 50497-2019《建筑基坑工程监测技术标准》",
+            "rule_id": "WTHD-L1-PILE",
+            "overridden_fields": [],
+            "looser_details": []
+          },
+          "rule_id": "WTHD-L1-PILE",
+          "evidence": {
+            "standard": "GB 50497-2019",
+            "clause": "表8.0.4",
+            "note": "灌注桩、地下连续墙、钢板桩、型钢水泥土墙"
+          },
+          "abstain": [
+            "MISSING_PREVIOUS"
+          ],
+          "abstain_reasons": [
+            "MISSING_PREVIOUS"
+          ],
+          "flags": [
+            "BASELINE_DERIVED",
+            "RATE_NOT_EVALUATED"
+          ],
+          "needs_review": true
+        },
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "wall_top_horizontal_displacement",
+          "metric_name": "围护墙（边坡）顶部水平位移",
+          "timestamp": "2026-10-02 00:00:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": 0,
+          "current": 27,
+          "unit": "mm",
+          "interval_days": 1,
+          "measurement_semantics": "raw_observation",
+          "source_flags": [],
+          "source_metadata": {},
+          "cumulative": 27,
+          "single_change": 27,
+          "rate": 27,
+          "slope": null,
+          "problem_category": "变形过大",
+          "risk_level": "危险报警",
+          "utilization": 13.5,
+          "checks": [
+            {
+              "check": "累计值",
+              "value": 27,
+              "limit": 20,
+              "limit_basis": "min(绝对量 20 mm, 0.2%×H=40 mm) = 20 mm",
+              "utilization": 1.35,
+              "verdict": "危险报警"
+            },
+            {
+              "check": "变化速率",
+              "value": 27,
+              "limit": 2,
+              "limit_basis": "规范速率预警值",
+              "utilization": 13.5,
+              "consecutive_over_70": false,
+              "verdict": "危险报警"
+            }
+          ],
+          "effective_standard": {
+            "origin": "default_library",
+            "origin_display": "默认规范库（基坑智守项目相关规范）",
+            "source_id": "GB50497-2019",
+            "source_label": "GB 50497-2019《建筑基坑工程监测技术标准》",
+            "rule_id": "WTHD-L1-PILE",
+            "overridden_fields": [],
+            "looser_details": []
+          },
+          "rule_id": "WTHD-L1-PILE",
+          "evidence": {
+            "standard": "GB 50497-2019",
+            "clause": "表8.0.4",
+            "note": "灌注桩、地下连续墙、钢板桩、型钢水泥土墙"
+          },
+          "abstain": [],
+          "abstain_reasons": [],
+          "flags": [
+            "BASELINE_DERIVED",
+            "PREVIOUS_DERIVED",
+            "INTERVAL_DERIVED"
+          ],
+          "needs_review": false
+        }
+      ]
+    },
+    {
+      "case_id": "pit-depth",
+      "status": "software_passed",
+      "comparisons": [
+        {
+          "path": "items.1.checks.0.verdict",
+          "expected": "未知",
+          "actual": "未知",
+          "matches": true
+        },
+        {
+          "path": "items.1.abstain.0",
+          "expected": "MISSING_H",
+          "actual": "MISSING_H",
+          "matches": true
+        },
+        {
+          "path": "items.1.needs_review",
+          "expected": true,
+          "actual": true,
+          "matches": true
+        },
+        {
+          "path": "items.1.risk_level",
+          "expected": "关注",
+          "actual": "关注",
+          "matches": true
+        }
+      ],
+      "actual_items": [
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "wall_top_horizontal_displacement",
+          "metric_name": "围护墙（边坡）顶部水平位移",
+          "timestamp": "2026-10-01 00:00:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": null,
+          "current": 0,
+          "unit": "mm",
+          "interval_days": null,
+          "measurement_semantics": "raw_observation",
+          "source_flags": [],
+          "source_metadata": {},
+          "cumulative": 0,
+          "single_change": null,
+          "rate": null,
+          "slope": null,
+          "problem_category": "变形过大",
+          "risk_level": "未知",
+          "utilization": null,
+          "checks": [
+            {
+              "check": "累计值（缺 H，不可判定）",
+              "value": 0,
+              "limit": 20,
+              "limit_basis": "⚠ 未提供基坑设计深度 H，无法换算 0.2%×H；绝对量限值 20 mm 仅作为**上界**（真实限值 = min(绝对量, 0.2%×H) ≤ 20 mm），实测值未超上界时不得判为正常",
+              "utilization": 0,
+              "limit_is_upper_bound": true,
+              "verdict": "未知",
+              "note": "未提供基坑设计深度 H，累计值限值只能给出上界；实测值未超上界，但无法排除真实限值更小，按安全原则不判定"
+            }
+          ],
+          "effective_standard": {
+            "origin": "default_library",
+            "origin_display": "默认规范库（基坑智守项目相关规范）",
+            "source_id": "GB50497-2019",
+            "source_label": "GB 50497-2019《建筑基坑工程监测技术标准》",
+            "rule_id": "WTHD-L1-PILE",
+            "overridden_fields": [],
+            "looser_details": []
+          },
+          "rule_id": "WTHD-L1-PILE",
+          "evidence": {
+            "standard": "GB 50497-2019",
+            "clause": "表8.0.4",
+            "note": "灌注桩、地下连续墙、钢板桩、型钢水泥土墙"
+          },
+          "abstain": [
+            "MISSING_PREVIOUS",
+            "MISSING_H"
+          ],
+          "abstain_reasons": [
+            "MISSING_PREVIOUS",
+            "该监测项需按基坑设计深度 H 校核，但未提供 H"
+          ],
+          "flags": [
+            "BASELINE_DERIVED",
+            "PCT_H_NOT_EVALUATED",
+            "MISSING_H",
+            "H_MISSING_CUMULATIVE_ABSTAINED",
+            "RATE_NOT_EVALUATED"
+          ],
+          "needs_review": true
+        },
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "wall_top_horizontal_displacement",
+          "metric_name": "围护墙（边坡）顶部水平位移",
+          "timestamp": "2026-10-02 00:00:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": 0,
+          "current": 1,
+          "unit": "mm",
+          "interval_days": 1,
+          "measurement_semantics": "raw_observation",
+          "source_flags": [],
+          "source_metadata": {},
+          "cumulative": 1,
+          "single_change": 1,
+          "rate": 1,
+          "slope": null,
+          "problem_category": "变形过大",
+          "risk_level": "关注",
+          "utilization": 0.5,
+          "checks": [
+            {
+              "check": "累计值（缺 H，不可判定）",
+              "value": 1,
+              "limit": 20,
+              "limit_basis": "⚠ 未提供基坑设计深度 H，无法换算 0.2%×H；绝对量限值 20 mm 仅作为**上界**（真实限值 = min(绝对量, 0.2%×H) ≤ 20 mm），实测值未超上界时不得判为正常",
+              "utilization": 0.05,
+              "limit_is_upper_bound": true,
+              "verdict": "未知",
+              "note": "未提供基坑设计深度 H，累计值限值只能给出上界；实测值未超上界，但无法排除真实限值更小，按安全原则不判定"
+            },
+            {
+              "check": "变化速率",
+              "value": 1,
+              "limit": 2,
+              "limit_basis": "规范速率预警值",
+              "utilization": 0.5,
+              "consecutive_over_70": false,
+              "verdict": "关注"
+            }
+          ],
+          "effective_standard": {
+            "origin": "default_library",
+            "origin_display": "默认规范库（基坑智守项目相关规范）",
+            "source_id": "GB50497-2019",
+            "source_label": "GB 50497-2019《建筑基坑工程监测技术标准》",
+            "rule_id": "WTHD-L1-PILE",
+            "overridden_fields": [],
+            "looser_details": []
+          },
+          "rule_id": "WTHD-L1-PILE",
+          "evidence": {
+            "standard": "GB 50497-2019",
+            "clause": "表8.0.4",
+            "note": "灌注桩、地下连续墙、钢板桩、型钢水泥土墙"
+          },
+          "abstain": [
+            "MISSING_H"
+          ],
+          "abstain_reasons": [
+            "该监测项需按基坑设计深度 H 校核，但未提供 H"
+          ],
+          "flags": [
+            "BASELINE_DERIVED",
+            "PREVIOUS_DERIVED",
+            "INTERVAL_DERIVED",
+            "PCT_H_NOT_EVALUATED",
+            "MISSING_H",
+            "H_MISSING_CUMULATIVE_ABSTAINED"
+          ],
+          "needs_review": true
+        }
+      ]
+    },
+    {
+      "case_id": "pit-source",
+      "status": "software_passed",
+      "comparisons": [
+        {
+          "path": "items.1.effective_standard.source_id",
+          "expected": "GB50497-2019",
+          "actual": "GB50497-2019",
+          "matches": true
+        }
+      ],
+      "actual_items": [
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "wall_top_horizontal_displacement",
+          "metric_name": "围护墙（边坡）顶部水平位移",
+          "timestamp": "2026-10-01 00:00:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": null,
+          "current": 0,
+          "unit": "mm",
+          "interval_days": null,
+          "measurement_semantics": "raw_observation",
+          "source_flags": [],
+          "source_metadata": {},
+          "cumulative": 0,
+          "single_change": null,
+          "rate": null,
+          "slope": null,
+          "problem_category": "变形过大",
+          "risk_level": "未知",
+          "utilization": 0,
+          "checks": [
+            {
+              "check": "累计值",
+              "value": 0,
+              "limit": 20,
+              "limit_basis": "min(绝对量 20 mm, 0.2%×H=40 mm) = 20 mm",
+              "utilization": 0,
+              "verdict": "正常"
+            }
+          ],
+          "effective_standard": {
+            "origin": "default_library",
+            "origin_display": "默认规范库（基坑智守项目相关规范）",
+            "source_id": "GB50497-2019",
+            "source_label": "GB 50497-2019《建筑基坑工程监测技术标准》",
+            "rule_id": "WTHD-L1-PILE",
+            "overridden_fields": [],
+            "looser_details": []
+          },
+          "rule_id": "WTHD-L1-PILE",
+          "evidence": {
+            "standard": "GB 50497-2019",
+            "clause": "表8.0.4",
+            "note": "灌注桩、地下连续墙、钢板桩、型钢水泥土墙"
+          },
+          "abstain": [
+            "MISSING_PREVIOUS"
+          ],
+          "abstain_reasons": [
+            "MISSING_PREVIOUS"
+          ],
+          "flags": [
+            "BASELINE_DERIVED",
+            "RATE_NOT_EVALUATED"
+          ],
+          "needs_review": true
+        },
+        {
+          "point_id": "SIM-PIT-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "wall_top_horizontal_displacement",
+          "metric_name": "围护墙（边坡）顶部水平位移",
+          "timestamp": "2026-10-02 00:00:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": 0,
+          "current": 27,
+          "unit": "mm",
+          "interval_days": 1,
+          "measurement_semantics": "raw_observation",
+          "source_flags": [],
+          "source_metadata": {},
+          "cumulative": 27,
+          "single_change": 27,
+          "rate": 27,
+          "slope": null,
+          "problem_category": "变形过大",
+          "risk_level": "危险报警",
+          "utilization": 13.5,
+          "checks": [
+            {
+              "check": "累计值",
+              "value": 27,
+              "limit": 20,
+              "limit_basis": "min(绝对量 20 mm, 0.2%×H=40 mm) = 20 mm",
+              "utilization": 1.35,
+              "verdict": "危险报警"
+            },
+            {
+              "check": "变化速率",
+              "value": 27,
+              "limit": 2,
+              "limit_basis": "规范速率预警值",
+              "utilization": 13.5,
+              "consecutive_over_70": false,
+              "verdict": "危险报警"
+            }
+          ],
+          "effective_standard": {
+            "origin": "default_library",
+            "origin_display": "默认规范库（基坑智守项目相关规范）",
+            "source_id": "GB50497-2019",
+            "source_label": "GB 50497-2019《建筑基坑工程监测技术标准》",
+            "rule_id": "WTHD-L1-PILE",
+            "overridden_fields": [],
+            "looser_details": []
+          },
+          "rule_id": "WTHD-L1-PILE",
+          "evidence": {
+            "standard": "GB 50497-2019",
+            "clause": "表8.0.4",
+            "note": "灌注桩、地下连续墙、钢板桩、型钢水泥土墙"
+          },
+          "abstain": [],
+          "abstain_reasons": [],
+          "flags": [
+            "BASELINE_DERIVED",
+            "PREVIOUS_DERIVED",
+            "INTERVAL_DERIVED"
+          ],
+          "needs_review": false
+        }
+      ]
+    }
+  ]
+}

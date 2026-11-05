@@ -550,6 +550,8 @@ def aggregate_daily_records(
                 "last_value": numeric[-1][1] if numeric else None,
                 "minimum": min((value for _ts, value in numeric), default=None),
                 "maximum": max((value for _ts, value in numeric), default=None),
+                "minimum_at": min(numeric, key=lambda pair: pair[1])[0].isoformat(sep=" ") if numeric else None,
+                "maximum_at": max(numeric, key=lambda pair: pair[1])[0].isoformat(sep=" ") if numeric else None,
                 "max_abs_step": max_step,
                 "max_abs_step_at": max_step_at,
             }

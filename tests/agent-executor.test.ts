@@ -327,7 +327,7 @@ describe("实际模型接口编排与失败保护（模拟响应）", () => {
     expect(result.terminalAction.reason_code).toBe("AUDIT_PASSED");
   });
 
-  it("语义审计模型连续失败时不阻断已通过的确定性审计和人工复核", async () => {
+  it("语义审计连续失败保留文件校验通过但阻断完整交付", async () => {
     const dependencies = aiDependencies();
     const model = dependencies.model;
     dependencies.model = async (request) => {
@@ -335,14 +335,65 @@ describe("实际模型接口编排与失败保护（模拟响应）", () => {
       return model(request);
     };
     const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
-    expect(result.terminalAction.reason_code).toBe("AUDIT_PASSED");
-    expect(result.state.audit_result?.valid).toBe(true);
-    expect(result.state.audit_result?.issues).toEqual([]);
+    expect(result.terminalAction.reason_code).toBe("SEMANTIC_AUDIT_UNAVAILABLE");
+    expect(result.state.audit_result?.valid).toBe(false);
+    expect(result.state.audit_result?.stages).toEqual({ deterministic: "passed", semantic: "unavailable" });
+    expect(result.state.audit_result?.issues[0].blocking).toBe(true);
+    expect(result.state.run.status).not.toBe("awaiting_human_review");
+    expect(result.state.run.revision_count).toBe(0);
     expect(result.state.audit_result?.checks.at(-1)).toMatchObject({
       name: "independent-llm-semantic-audit",
-      valid: true,
+      valid: false,
     });
-    expect(result.state.audit_result?.checks.at(-1)?.details).toContain("LLM 语义审查暂不可用");
+    expect(result.state.audit_result?.checks.at(-1)?.details).toContain("完整审查尚未通过");
+  });
+
+  it("非法语义响应重试后记为不可用而不是通过", async () => {
+    const dependencies = aiDependencies(); const model = dependencies.model;
+    dependencies.model = async request => request.role === "audit"
+      ? { object: {}, model: "synthetic-invalid-audit", usage: { input_tokens: 1, output_tokens: 1 } }
+      : model(request);
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
+    expect(result.state.audit_result?.valid).toBe(false);
+    expect(result.state.audit_result?.stages?.semantic).toBe("unavailable");
+    expect(result.state.limits.model_calls_used).toBe(4);
+    expect(result.terminalAction.reason_code).toBe("SEMANTIC_AUDIT_UNAVAILABLE");
+  });
+
+  it.each(["calls", "deadline", "late-response"])("语义审查%s预算耗尽不能产生通过状态", async kind => {
+    let saved: AgentRunState | null = null;
+    await expect(executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, {
+      ...aiDependencies(), checkpoint: async ({ state }) => {
+        if (state.report_draft) { saved = state; throw new Error("synthetic storage interruption"); }
+      },
+    })).rejects.toThrow("synthetic storage interruption");
+    const state = saved! as AgentRunState;
+    if (kind === "calls") state.limits.max_model_calls = state.limits.model_calls_used + 1;
+    let at = new Date(NOW); let requests = 0;
+    const result = await executeAgentRun({ enginePayload: null, initialState: state }, {
+      ...aiDependencies(), now: () => at, model: async () => {
+        requests += 1;
+        if (kind !== "calls") at = new Date(Date.parse(state.limits.deadline_at) + 1);
+        if (kind === "late-response") return { object: { issues: [] }, model: "synthetic-late-response", usage: { input_tokens: 1, output_tokens: 1 } };
+        throw new Error("synthetic audit failure");
+      },
+    });
+    expect(requests).toBe(1);
+    expect(result.state.audit_result?.valid).toBe(false);
+    expect(result.state.audit_result?.stages).toEqual({ deterministic: "passed", semantic: "not_completed" });
+    expect(result.terminalAction.reason_code).not.toBe("AUDIT_PASSED");
+    expect(result.state.run.revision_count).toBe(0);
+  });
+
+  it("AI文件检查未通过仍修订文件，不误作语义服务故障", async () => {
+    const dependencies = aiDependencies();
+    dependencies.validate = async ({ draft }) => ({ audit: { ...auditFor(draft, false),
+      issues: [{ issue_id: "file-mismatch", code: "FILE_MISMATCH", severity: "error" as const,
+        blocking: true, responsibility: "report-delivery" as const, path: "artifacts", message: "合成文件不一致" }] }, trace: {} });
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
+    expect(result.state.run.revision_count).toBe(2);
+    expect(result.state.audit_result?.stages).toEqual({ deterministic: "failed", semantic: "not_completed" });
+    expect(result.terminalAction.reason_code).toBe("REVISION_LIMIT_REACHED");
   });
 
   it("语义审计问题反馈给下一次写作，两轮仍不通过时保留阻断", async () => {
@@ -377,6 +428,64 @@ describe("实际模型接口编排与失败保护（模拟响应）", () => {
     const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
     expect(result.terminalAction.reason_code).toBe("UPSTREAM_ISSUE_REQUIRES_HUMAN");
     expect(result.state.run.revision_count).toBe(0);
+  });
+
+  it.each(["addressed", "requires_human"] as const)("工程师意见进入编报及审计，回应=%s时保留对应门禁", async (status) => {
+    const dependencies = aiDependencies();
+    const feedback: ArtifactEnvelope = { ref: { artifact_id: randomUUID(), schema: "excavaguard.engineer_feedback/v1", version: 1, content_hash: "f".repeat(64) },
+      payload: { schema: "excavaguard.engineer_feedback/v1", items: [{ feedback_id: "review", comment: "请说明资料缺失，禁止自行降低风险。" }] } };
+    const model = dependencies.model;
+    dependencies.model = async (request) => {
+      const response = await model(request);
+      if (request.role === "report-delivery") response.object = { ...narrativeFor(),
+        feedback_responses: [{ feedback_id: "review", status, response: paragraph("已明确缺失资料；事实与风险保持冻结口径。") }] };
+      return response;
+    };
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW, revisionFeedback: feedback }, dependencies);
+    expect(result.state.revision_feedback).toEqual(feedback);
+    for (const call of dependencies.calls.filter(call => call.role !== "supervisor")) {
+      expect((call.context as { engineer_feedback: unknown }).engineer_feedback).toEqual(feedback.payload);
+    }
+    expect(result.state.engine_snapshot.payload).toEqual(AI_INPUT);
+    expect(result.state.audit_result?.valid).toBe(status === "addressed");
+    if (status === "requires_human") {
+      expect(result.terminalAction.reason_code).toBe("UPSTREAM_ISSUE_REQUIRES_HUMAN");
+      expect(result.state.run.revision_count).toBe(0);
+    }
+  });
+
+  it("已给出的工程条件与观测单位不能在正文中误称缺失", () => {
+    const payload = { ...AI_INPUT, project: { name: "测试", safety_level: "一级", excavation_depth_m: 12 },
+      items: AI_INPUT.items.map(item => ({ ...item, unit: "mm" })) };
+    const context = buildReportModelContext(payload);
+    expect(() => validateNarrativeGrounding(narrativeFor("开挖深度未提供。"), context.facts, [], context.forms)).toThrow("PROVIDED_CONTEXT_OMITTED");
+    expect(() => validateNarrativeGrounding(narrativeFor("观测单位未提供。"), context.facts, [], context.forms)).toThrow("PROVIDED_UNIT_OMITTED");
+  });
+
+  it("类别计数不能冒充类别名称，附表不能混入其他类别测点", () => {
+    const input = { ...AI_INPUT, summary: { by_problem_category: { 变形过大: 1 } }, items: [
+      AI_INPUT.items[0], { ...AI_INPUT.items[0], metric_name: "地表竖向位移" },
+    ] };
+    const context = buildReportModelContext(input);
+    const wrongCount = { ...narrativeFor("问题类别均为{{fact:summary.by_problem_category.变形过大}}。"),
+      appendix_analysis: ["A", "E"].map(form => ({ form: form as "A" | "E", analysis: paragraph(), recommendation: paragraph() })) };
+    expect(() => validateNarrativeGrounding(wrongCount, context.facts, [], context.forms)).toThrow("COUNT_AS_CATEGORY");
+    const wrongForm = { ...wrongCount, analysis: [paragraph("仅引用冻结事实。")], appendix_analysis: [
+      { form: "A" as const, analysis: paragraph("{{fact:items.1.point_id}}为地表沉降测点。"), recommendation: paragraph() },
+      { form: "E" as const, analysis: paragraph(), recommendation: paragraph() },
+    ] };
+    expect(() => validateNarrativeGrounding(wrongForm, context.facts, [], context.forms)).toThrow("APPENDIX_ITEM_MISMATCH");
+  });
+
+  it("遗漏工程师意见回应不能出报，模板不能冒充已自动修订", async () => {
+    const feedback: ArtifactEnvelope = { ref: { artifact_id: randomUUID(), schema: "excavaguard.engineer_feedback/v1", version: 1, content_hash: "f".repeat(64) },
+      payload: { items: [{ feedback_id: "review", comment: "补充说明" }] } };
+    const dependencies = aiDependencies();
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW, revisionFeedback: feedback }, dependencies);
+    expect(result.state.report_draft).toBeNull();
+    const template = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "template", createdAt: NOW, revisionFeedback: feedback }, dependencies);
+    expect(template.state.audit_result?.valid).toBe(false);
+    expect(template.state.audit_result?.issues.some(issue => issue.code === "ENGINEER_FEEDBACK_UNRESOLVED")).toBe(true);
   });
 
   it("缺少 LLM 配置时保留计算结果，没有模板回退或伪造调用", async () => {

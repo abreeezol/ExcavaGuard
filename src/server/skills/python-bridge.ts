@@ -1,4 +1,5 @@
 import "server-only";
+import { loadEngineeringAdapter, adapterAssetPath } from "@/server/engineering-adapters/registry";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -66,6 +67,7 @@ const DEFAULT_TIMEOUT_MS = Number(process.env.EXCAVAGUARD_BRIDGE_TIMEOUT_MS ?? 3
 
 type CallSkillScriptOptions = {
   timeoutMs?: number;
+  adapterId?: string;
 };
 
 /** 引擎脚本位置：`<repo>/skills/<skill>/scripts/<file>`（远程 README 规定的位置）。 */
@@ -159,7 +161,11 @@ export async function callSkillScript(
   request: unknown,
   options?: CallSkillScriptOptions,
 ): Promise<SkillEnvelope> {
-  const script = skillScriptPath(skill, file);
+  const shared = (skill === "prepare-engineering-facts" && file === "finalize_facts.py") || (skill === "review-standard-changes" && file === "apply_rules.py") || (skill === "project-standard-library" && file === "library.py") || (skill === "project-context-library" && file === "import_context.py") || (skill === "adapter-knowledge" && file === "query.py");
+  const { adapter } = loadEngineeringAdapter(options?.adapterId);
+  const entrypoint = adapter.handlers[`${skill}/${file}`];
+  if (!shared && !entrypoint) throw new EngineUnavailableError("ADAPTER_CAPABILITY_UNSUPPORTED");
+  const script = shared ? skillScriptPath(skill, file) : adapterAssetPath(entrypoint);
   if (!existsSync(script)) {
     throw new EngineUnavailableError(`引擎脚本不存在：${script}`);
   }

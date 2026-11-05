@@ -14,6 +14,8 @@ export function WorkbenchClient() {
   const [session, setSession] = useState<AccessStatus | null>(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [engineeringTypes, setEngineeringTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [engineeringType, setEngineeringType] = useState("foundation_pit");
   const [newProject, setNewProject] = useState("");
   const [pending, setPending] = useState(false);
   const [projectBusy, setProjectBusy] = useState(false);
@@ -34,6 +36,12 @@ export function WorkbenchClient() {
   async function selectProject(id: string) {
     await responseBody(await fetch("/api/projects/select", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: id }) }));
   }
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    let cancelled = false;
+    void fetch("/api/projects").then(responseBody).then(body => { if (!cancelled) setEngineeringTypes(body.engineering_types ?? []); }).catch(caught => { if (!cancelled) setError(caught.message); });
+    return () => { cancelled = true; };
+  }, [session?.authenticated]);
   const selected = session?.projects?.find(p => p.id === session.project_id);
   return <>
     <section className="wb-card" aria-label="登录与项目选择">
@@ -72,10 +80,11 @@ export function WorkbenchClient() {
         </div>
         {session.can_create_project && <form className="wb-project-create" onSubmit={event => {
           event.preventDefault(); void perform(async () => {
-            const body = await responseBody(await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newProject }) }));
+            const body = await responseBody(await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newProject, engineering_type: engineeringType }) }));
             await selectProject(body.project.id); setNewProject("");
           });
         }}>
+          <label className="wb-field">工程类型<select value={engineeringType} onChange={event => setEngineeringType(event.target.value)}>{engineeringTypes.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
           <label className="wb-field">新建工程<input required maxLength={100} value={newProject} disabled={pending || projectBusy} onChange={event => setNewProject(event.target.value)} placeholder="例如：杭州一期基坑工程" /></label>
           <button className="wb-btn wb-btn-sm" disabled={pending || projectBusy || !newProject.trim()}>创建并切换</button>
         </form>}

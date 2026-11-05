@@ -1,0 +1,53 @@
+{
+  "form_rules": [
+    [
+      "M",
+      [
+        "验证测量"
+      ]
+    ]
+  ],
+  "context_checks": [
+    [
+      "segment",
+      "区段"
+    ]
+  ],
+  "query_prefix": "验证场景",
+  "topic_prefix": "验证测量",
+  "relevance_terms": [
+    "验证场景"
+  ],
+  "query_context_fields": [
+    "segment"
+  ],
+  "recurring_groups": [
+    [
+      "验证测量",
+      [
+        "验证测量"
+      ]
+    ]
+  ],
+  "recurring_fallback": "验证测量",
+  "model_instructions": {
+    "supervisor": "SIMULATED接口验证；不得产生工程安全结论。",
+    "report-delivery": "SIMULATED接口验证；不得产生工程安全结论。",
+    "audit": "SIMULATED接口验证；不得产生工程安全结论。"
+  },
+  "supporting_context": {
+    "max_case_hits": 5,
+    "max_links": 80,
+    "section_fields": [
+      "source_metadata.section_id",
+      "source_metadata.section",
+      "section_id"
+    ],
+    "time_policy": "same_day",
+    "timezone": "Asia/Shanghai",
+    "utc_offset": "+08:00",
+    "time_window_hours": 24,
+    "case_defaults": {}
+  },
+  "excluded_clauses": {}
+}

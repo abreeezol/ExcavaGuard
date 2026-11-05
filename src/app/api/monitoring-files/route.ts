@@ -1,3 +1,4 @@
+import { projectEngineering } from "@/server/engineering-adapters/project";
 import { apiError, apiErrorFromException, apiOk } from "@/server/api/respond";
 import { EngineError, EngineUnavailableError } from "@/server/skills/python-bridge";
 import { inspectMonitoringFile } from "@/server/skills/parse-monitoring-data/runner";
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     const materialized = await materializeStoredFile(stored.file_id);
     if (materialized) {
       try {
-        readReport = (await inspectMonitoringFile(materialized.path)).report;
+        readReport = (await inspectMonitoringFile(materialized.path, projectEngineering(access.project_id).adapter.id)).report;
       } catch (error) {
         if (error instanceof EngineError || error instanceof EngineUnavailableError) {
           readReport = { ok: false, errors: [error.message] };

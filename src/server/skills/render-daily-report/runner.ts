@@ -1,4 +1,5 @@
 import "server-only";
+import { adapterIdFromPayload, loadEngineeringAdapter, assertAdapterSnapshot } from "@/server/engineering-adapters/registry";
 import { createHash, randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -76,6 +77,7 @@ export async function renderDailyReport(
   request: RenderDailyReportRequest,
 ): Promise<RenderDailyReportResult> {
   const engineSnapshot = artifactEnvelopeSchema.parse(request.engineSnapshot);
+  assertAdapterSnapshot(engineSnapshot.payload);
   const acceptedSchemas = ["excavaguard.daily_report_input/v1", "excavaguard.period_report_input/v1"];
   if (!acceptedSchemas.includes(engineSnapshot.ref.schema) ||
       (engineSnapshot.payload as { schema?: unknown })?.schema !== engineSnapshot.ref.schema) {
@@ -89,7 +91,7 @@ export async function renderDailyReport(
     .string()
     .trim()
     .min(1)
-    .parse(request.templateVersion ?? "deep-pit-monitoring-report/service-v4");
+    .parse(request.templateVersion ?? loadEngineeringAdapter(adapterIdFromPayload(engineSnapshot.payload)).adapter.template_version);
   const artifactId = randomUUID();
   const artifactOutputDir = resolve(
     process.cwd(),
@@ -110,7 +112,7 @@ export async function renderDailyReport(
         artifact_id: artifactId,
         artifact_output_dir: artifactOutputDir,
       },
-      { timeoutMs: REPORT_SCRIPT_TIMEOUT_MS },
+      { timeoutMs: REPORT_SCRIPT_TIMEOUT_MS, adapterId: adapterIdFromPayload(engineSnapshot.payload) },
     );
     const result = rendererResultSchema.parse(envelope.result);
     const sourceRefs = {

@@ -1,5 +1,7 @@
 "use client";
 
+import { PreparationSummary } from "./preparation-summary";
+import { auditStages, isAuditComplete, AUDIT_STAGE_LABELS } from "@/contracts/audit-status";
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import type { PersistedRun, ReviewRequest } from "@/contracts/runs";
@@ -65,6 +67,7 @@ export function RunDelivery({
   const evidencePayload = state?.evidence_snapshot?.artifact?.payload;
   const extendedReview = evidencePayload && typeof evidencePayload === "object" && "extended_review" in evidencePayload
     ? evidencePayload.extended_review as { status?: string; notice?: string; checks?: Array<{ group: string; additional_evidence_ids: string[] }> } : null;
+  const investigationReview=evidencePayload&&typeof evidencePayload==='object'&&'supervisor_investigations'in evidencePayload?evidencePayload.supervisor_investigations as {checks?:Array<{question:string;rationale:string;additional_evidence_ids:string[];status:string}>}:null;
   const coverage = evidencePayload && typeof evidencePayload === "object" && "coverage" in evidencePayload
     ? evidencePayload.coverage as StandardCoverage : null;
   const candidates = evidencePayload && typeof evidencePayload === "object" && "evidence" in evidencePayload
@@ -74,10 +77,14 @@ export function RunDelivery({
     return parsed.success ? [parsed.data] : [];
   });
   const reportPayload = state?.report_draft?.payload;
+  const feedbackItems=((record.revision_feedback?.payload??state?.revision_feedback?.payload) as {items?:Array<{feedback_id:string;comment:string}>}|undefined)?.items??[];
+  const feedbackResponses=reportPayload&&typeof reportPayload==='object'&&'sections'in reportPayload?(reportPayload.sections as {narrative?:{feedback_responses?:Array<{feedback_id:string;status:string;response:{text:string;evidence_ids:string[]}}>}})?.narrative?.feedback_responses??[]:[];
   const markdown = reportPayload && typeof reportPayload === "object" && "markdown" in reportPayload
     && typeof reportPayload.markdown === "string" ? reportPayload.markdown : null;
+  const auditComplete = isAuditComplete(state?.audit_result, state?.report_mode);
+  const stages = auditStages(state?.audit_result, state?.report_mode);
   const canReview = canReviewRole && record.execution_status === "completed" &&
-    state?.run.status === "awaiting_human_review" && state.audit_result?.valid &&
+    state?.run.status === "awaiting_human_review" && auditComplete &&
     !record.review && state.human_review.decision === null;
   const evaluationTargets = useMemo(
     () => riskEvaluationTargets(record.result?.payload),
@@ -131,7 +138,7 @@ export function RunDelivery({
       <div className="wb-meta">
         <span className="wb-chip">运行 {record.run_id.slice(0, 8)} · 修订 {record.revision}</span>
         <span className="wb-chip">{executionLabel(record.execution_status)}</span>
-        {state && <span className="wb-chip">{record.review ? decisionLabel(record.review.decision) : executionLabel(state.run.status)}</span>}
+        {state && <span className="wb-chip">{record.review ? decisionLabel(record.review.decision) : state.audit_result && !auditComplete ? "审查未通过或未完成" : executionLabel(state.run.status)}</span>}
         {state && <span className="wb-chip">自动修订 {state.run.revision_count}/{state.limits.max_revision_rounds}</span>}
         {state && <span className="wb-chip">{state.report_mode === "ai" ? "AI 报告" : "确定性模板"} · 模型调用 {state.limits.model_calls_used}/{state.limits.max_model_calls}</span>}
         {models.map((model) => <span className="wb-chip" key={model}>{model}</span>)}
@@ -143,9 +150,11 @@ export function RunDelivery({
           {file.original_name} · 上传者：{file.uploaded_by?.name ?? "历史记录未保存上传者"} · {file.created_at}
         </p>)}
       </details>}
+      <PreparationSummary payload={record.result?.payload} />
+      {record.revision_feedback && <p className="wb-hint">本稿已载入工程师退回意见，请核对下方逐项回应与报告正文。未解决事项须人工确认，不能直接接受草稿。</p>}
       {record.error && <div className="wb-alert wb-alert-error" role="alert">{record.error.code}：{record.error.message}</div>}
       <div className="wb-actions">
-        <button className="wb-btn wb-btn-sm" disabled={disabled} onClick={onLoadInputs}>加载输入并新建关联运行</button>
+        <button className="wb-btn wb-btn-sm" disabled={disabled} onClick={onLoadInputs}>{record.review?.decision === "needs_changes" || (!record.review && record.revision_feedback) ? "载入输入并按退回意见重编" : "加载输入并新建关联运行"}</button>
         {canWrite && state && record.execution_status !== "completed" && !record.review && (
           <button className="wb-btn wb-btn-sm" disabled={disabled} onClick={onResume}>从检查点续跑</button>
         )}
@@ -153,12 +162,12 @@ export function RunDelivery({
       {!state && <p className="wb-hint">本次运行未生成报告。可加载输入并勾选报告生成后重新运行。</p>}
       {execution && (
         <>
-          <p className="wb-hint">{execution.terminal_action.details}</p>
-          {state?.audit_result && (
-            <p className="wb-hint">独立一致性审计：{state.audit_result.valid ? "通过" : "未通过"}。所有报告仍为草稿，需工程师复核。</p>
+          <p className="wb-hint">{state?.audit_result && !auditComplete && execution.terminal_action.reason_code === "AUDIT_PASSED" ? "历史记录的语义审查未完成，需重新运行并完成审查。" : execution.terminal_action.details}</p>
+          {state?.report_draft && (
+            <p className="wb-hint">文件校验：{AUDIT_STAGE_LABELS[stages.deterministic]}；语义审查：{AUDIT_STAGE_LABELS[stages.semantic]}。{auditComplete ? "本模式所需审查已通过，仍需工程师复核。" : "完整审查尚未通过，仅保留草稿供排查。"}</p>
           )}
           <div className="wb-actions">
-            {execution.downloads.map((artifact) => (
+            {(auditComplete ? execution.downloads : []).map((artifact) => (
               <button className="wb-btn wb-btn-sm" disabled={disabled}
                 key={artifact.kind} onClick={() => onDownload(artifact.url, artifact.file_name)}>
                 <Download size={14} aria-hidden="true" />
@@ -171,10 +180,12 @@ export function RunDelivery({
           ))}
           {markdown && (
             <details className="wb-accordion">
-              <summary>监测报告正文预览{state?.audit_result?.valid ? "（审计通过，待工程师复核）" : "（未通过审计）"}</summary>
+              <summary>监测报告正文预览{auditComplete ? "（本模式审查通过，待工程师复核）" : "（审查未通过或未完成，仅供排查）"}</summary>
               <pre style={{ whiteSpace: "pre-wrap" }}>{markdown}</pre>
             </details>
           )}
+          {!!feedbackResponses.length&&<details className="wb-accordion"><summary>报告Agent · 工程师意见逐项回应</summary>{feedbackResponses.map(response=><div key={response.feedback_id}><strong>{response.status==='addressed'?'已回应修改要求':'需工程师确认'}</strong><p>原意见：{feedbackItems.find(item=>item.feedback_id===response.feedback_id)?.comment??'本次冻结的工程师意见'}</p><p>回应：{response.response.text}</p><p className="wb-hint">依据：{evidenceReferences(response.response.evidence_ids,evidence)||'冻结事实或已提供资料'}；回应完成不代表现场事实已核实。</p></div>)}</details>}
+          {!!investigationReview?.checks?.length&&<details className="wb-accordion"><summary>Supervisor · 定向查证 {investigationReview.checks.length} 项</summary>{investigationReview.checks.map((check,index)=><div key={index}><strong>{check.question}</strong><p>目的：{check.rationale}</p><p>{check.additional_evidence_ids.length?`新增候选 ${check.additional_evidence_ids.length} 条`:'未增加新候选，不代表不存在相关要求。'}</p><p className="wb-hint">{evidenceReferences(check.additional_evidence_ids,evidence)}</p></div>)}</details>}
           {state?.evidence_snapshot && (
             <details className="wb-accordion">
               <summary>本次 RAG 规范依据 · {evidence.length} 条</summary>
@@ -200,6 +211,7 @@ export function RunDelivery({
               ))}
             </details>
           )}
+          {state?.audit_result && !auditComplete && <p className="wb-hint">当前审查未通过，以下保留原始轨迹用于追溯，不作为通过依据。</p>}
           {state?.trace.map((event, index) => (
             <details className="wb-accordion" key={event.event_id}>
               <summary>{index + 1}. {AGENTS[event.agent]} · {event.capability} · {event.status}</summary>

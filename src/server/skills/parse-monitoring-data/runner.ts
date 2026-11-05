@@ -8,7 +8,7 @@ import { callSkillScript } from "@/server/skills/python-bridge";
  * 上传后立即调用，把「文件是什么编码、哪些列被识别、是否缺必填列」告诉用户。
  * 只读取与映射，不做任何计算或推断。
  */
-export async function inspectMonitoringFile(filePath: string): Promise<{
+export async function inspectMonitoringFile(filePath: string, adapterId?: string): Promise<{
   report: ReadReport;
   records: number;
   elapsedMs: number;
@@ -16,7 +16,7 @@ export async function inspectMonitoringFile(filePath: string): Promise<{
   const envelope = await callSkillScript("parse-monitoring-data", "inspect_file.py", {
     file_path: filePath,
     include_records: true,
-  });
+  }, { adapterId });
   const trace = (envelope.trace ?? {}) as Record<string, unknown>;
   return {
     report: (envelope.result ?? {}) as ReadReport,

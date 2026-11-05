@@ -1,3 +1,4 @@
+import { projectEngineering } from "@/server/engineering-adapters/project";
 import { apiError, apiErrorFromException, apiOk } from "@/server/api/respond";
 import { userStandardPayloadSchema } from "@/contracts/monitoring-files";
 import { checkStandardStrictness } from "@/server/skills/evaluate-thresholds/runner";
@@ -5,18 +6,6 @@ import { listFiles, saveFile } from "@/server/storage/monitoring-file-store";
 import { requireAccess, requireProjectAction } from "@/server/access";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type StrictnessContext = {
-  safety_level: "一级" | "二级" | "三级";
-  support_type: string;
-  excavation_depth_m: number | null;
-};
-
-const DEFAULT_CONTEXT: StrictnessContext = {
-  safety_level: "一级",
-  support_type: "any",
-  excavation_depth_m: null,
-};
 
 /** 列出已上传的用户规范文件（新→旧）。 */
 export async function GET(request: Request) {
@@ -28,21 +17,9 @@ export async function GET(request: Request) {
   }
 }
 
-function parseContext(raw: unknown): StrictnessContext {
-  if (!raw) return DEFAULT_CONTEXT;
+function parseContext(raw: unknown): Record<string, unknown> {
   const parsed = typeof raw === "string" ? safeJson(raw) : raw;
-  if (!parsed || typeof parsed !== "object") return DEFAULT_CONTEXT;
-  const record = parsed as Record<string, unknown>;
-  const level = record.safety_level;
-  const depth = record.excavation_depth_m;
-  return {
-    safety_level: level === "一级" || level === "二级" || level === "三级" ? level : "一级",
-    support_type: typeof record.support_type === "string" && record.support_type.trim()
-      ? record.support_type.trim()
-      : "any",
-    excavation_depth_m:
-      typeof depth === "number" && Number.isFinite(depth) && depth > 0 ? depth : null,
-  };
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
 }
 
 function safeJson(text: string): unknown {
@@ -119,11 +96,11 @@ export async function POST(request: Request) {
   }
 
   const payload = parsed.data as Record<string, unknown>;
-  const context = parseContext(contextRaw);
+  const context = projectEngineering(access.project_id).parameters ?? parseContext(contextRaw);
 
   try {
     // 先校验再落盘：结构非法或引擎拒绝时不留下垃圾文件
-    const { strictness, report, problems } = await checkStandardStrictness(payload, context);
+    const { strictness, report, problems } = await checkStandardStrictness(payload, context, projectEngineering(access.project_id).adapter.id);
     if (problems.length > 0) {
       return apiError(400, "INVALID_STANDARD", problems.join("；"));
     }

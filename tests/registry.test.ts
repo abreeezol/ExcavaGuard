@@ -38,10 +38,12 @@ describe("角色与业务 Skill 契约", () => {
       .map((skill) => skill.id)
       .sort();
     expect(implemented).toEqual([
+      "analyze-work-condition",
       "evaluate-thresholds",
       "normalize-monitoring-data",
       "parse-monitoring-data",
       "render-daily-report",
+      "retrieve-similar-cases",
       "retrieve-standard-evidence",
       "validate-report",
     ]);
@@ -61,7 +63,7 @@ describe("角色与业务 Skill 契约", () => {
   });
 
   it("Supervisor 不直接计算，审计不修改源事实", () => {
-    expect(agentRegistry.supervisor.tools).toEqual(["retrieve-standard-evidence"]);
+    expect(agentRegistry.supervisor.tools).toEqual(["retrieve-standard-evidence", "retrieve-similar-cases", "analyze-work-condition"]);
     expect(agentRegistry.supervisor.tools).not.toContain("normalize-monitoring-data");
     expect(agentRegistry.supervisor.tools).not.toContain("evaluate-thresholds");
     expect(agentRegistry.supervisor.tools).not.toContain("render-daily-report");

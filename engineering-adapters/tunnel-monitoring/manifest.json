@@ -1,0 +1,174 @@
+{
+  "schema": "excavaguard.engineering_adapter/v1",
+  "id": "tunnel-monitoring",
+  "version": "1.0.0",
+  "name": "隧道工程",
+  "engineering_type": "tunnel",
+  "status": "development_validated_scope",
+  "supported_reports": [
+    "daily",
+    "weekly",
+    "monthly",
+    "custom"
+  ],
+  "core_fields": [
+    {
+      "key": "tunnel_system",
+      "label": "工程类别",
+      "input_type": "text",
+      "required": true,
+      "source": "engineer_confirmed",
+      "choices": [
+        "rail",
+        "highway",
+        "urban_road"
+      ],
+      "choice_labels": {
+        "rail": "城市轨道交通",
+        "highway": "公路隧道",
+        "urban_road": "城市道路隧道"
+      }
+    },
+    {
+      "key": "construction_method",
+      "label": "施工工法",
+      "input_type": "text",
+      "required": true,
+      "source": "engineer_confirmed",
+      "choices": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ],
+      "choice_labels": {
+        "shield": "盾构法",
+        "mining": "矿山法／钻爆法",
+        "cut_cover": "明挖法"
+      }
+    },
+    {
+      "key": "project_stage",
+      "label": "工程阶段",
+      "input_type": "text",
+      "required": true,
+      "source": "engineer_confirmed",
+      "choices": [
+        "construction",
+        "reinforcement",
+        "maintenance"
+      ],
+      "choice_labels": {
+        "construction": "施工",
+        "reinforcement": "加固",
+        "maintenance": "养护"
+      }
+    },
+    {
+      "key": "special_condition",
+      "label": "特殊地质条件",
+      "input_type": "text",
+      "required": true,
+      "source": "engineer_confirmed",
+      "choices": [
+        "none",
+        "karst",
+        "gas",
+        "karst_gas"
+      ],
+      "choice_labels": {
+        "none": "无已确认特殊条件",
+        "karst": "岩溶",
+        "gas": "瓦斯",
+        "karst_gas": "岩溶及瓦斯"
+      }
+    }
+  ],
+  "assets": {
+    "metric_mapping": "engineering-adapters/tunnel-monitoring/runtime/core.py",
+    "file_reader": "engineering-adapters/tunnel-monitoring/runtime/core.py",
+    "calculator": "engineering-adapters/tunnel-monitoring/runtime/core.py",
+    "rule_executor": "engineering-adapters/tunnel-monitoring/runtime/core.py",
+    "rule_registry": "engineering-adapters/tunnel-monitoring/runtime/core.py",
+    "rules": "engineering-adapters/tunnel-monitoring/rules.json",
+    "catalog": "engineering-adapters/tunnel-monitoring/catalog.json",
+    "standard_status": "engineering-adapters/tunnel-monitoring/standard-status.json",
+    "renderer": "engineering-adapters/tunnel-monitoring/runtime/core.py",
+    "artifacts": "engineering-adapters/tunnel-monitoring/runtime/core.py",
+    "auditor": "engineering-adapters/tunnel-monitoring/runtime/core.py",
+    "model_requirements": "src/server/agents/report-model.ts"
+  },
+  "retrieval": {
+    "scope": "tunnel-monitoring",
+    "provider": "existing_environment",
+    "project_supplements": "current_project_only",
+    "coverage": "all_catalog_standards",
+    "connection": "tunnel-monitoring-local",
+    "local_index": "engineering-adapters/tunnel-monitoring/knowledge/knowledge.sqlite3"
+  },
+  "boundaries": [
+    "支持地表沉降、建筑沉降、拱顶沉降、净空收敛；气体、应力、水压等未配置测项须弃权",
+    "项目类型、工法、阶段和特殊地质决定规范适用范围；不同测项控制值不得混用",
+    "数值控制值须来自工程师确认项目要求，RAG不自动创造或覆盖数值判据",
+    "全量规范包含历史及效力待核资料，仅已确认有效且适用的候选可进入正式分析",
+    "OCR候选及软件验证不能替代原页和专业工程师确认"
+  ],
+  "acceptance_suites": [
+    "tests/tunnel-monitoring.test.ts"
+  ],
+  "template_version": "tunnel-monitoring/v1",
+  "handlers": {
+    "parse-monitoring-data/inspect_file.py": "engineering-adapters/tunnel-monitoring/runtime/inspect_file.py",
+    "normalize-monitoring-data/normalize_records.py": "engineering-adapters/tunnel-monitoring/runtime/normalize_records.py",
+    "evaluate-thresholds/run_judgement.py": "engineering-adapters/tunnel-monitoring/runtime/run_judgement.py",
+    "evaluate-thresholds/check_strictness.py": "engineering-adapters/tunnel-monitoring/runtime/check_strictness.py",
+    "render-daily-report/render_daily_report.py": "engineering-adapters/tunnel-monitoring/runtime/render_daily_report.py",
+    "validate-report/validate_report.py": "engineering-adapters/tunnel-monitoring/runtime/validate_report.py"
+  },
+  "policy": "engineering-adapters/tunnel-monitoring/policy.json",
+  "context_schema": "engineering-adapters/tunnel-monitoring/context.schema.json",
+  "knowledge_manifest": "engineering-adapters/tunnel-monitoring/knowledge-manifest.json",
+  "additional_assets": [
+    "engineering-adapters/tunnel-monitoring/evaluation-fixtures.json",
+    "engineering-adapters/tunnel-monitoring/payload-template.json",
+    "engineering-adapters/tunnel-monitoring/professional-basis.json",
+    "engineering-adapters/tunnel-monitoring/runtime/check_strictness.py",
+    "engineering-adapters/tunnel-monitoring/runtime/core.py",
+    "engineering-adapters/tunnel-monitoring/runtime/inspect_file.py",
+    "engineering-adapters/tunnel-monitoring/runtime/normalize_records.py",
+    "engineering-adapters/tunnel-monitoring/runtime/render_daily_report.py",
+    "engineering-adapters/tunnel-monitoring/runtime/run_judgement.py",
+    "engineering-adapters/tunnel-monitoring/runtime/validate_report.py",
+    "engineering-adapters/tunnel-monitoring/scope.json",
+    "skills/adapter-knowledge/scripts/query.py",
+    "src/contracts/ai-report.ts",
+    "src/server/agents/executor.ts",
+    "src/server/agents/investigations.ts",
+    "src/server/agents/period-evidence.ts",
+    "src/server/agents/report-model.ts",
+    "src/server/agents/standard-review.ts",
+    "src/server/engineering-adapters/engineering-types.ts",
+    "src/server/engineering-adapters/registry.ts",
+    "src/server/engineering-adapters/standard-scope.ts",
+    "src/server/evidence/factory.ts",
+    "src/server/evidence/project-standard-library.ts",
+    "src/server/evidence/standard-catalog.ts",
+    "src/server/evidence/standard-version.ts",
+    "tools/knowledge/build_tunnel.py",
+    "tools/knowledge/requirements-ocr.txt",
+    "tools/knowledge/tunnel-sources.json",
+    "确定性计算层/tools/validate_daily_report_input.py",
+    "src/contracts/standard-changes.ts",
+    "src/server/standard-changes/service.ts",
+    "src/server/standard-changes/model.ts",
+    "skills/review-standard-changes/SKILL.md",
+    "skills/review-standard-changes/scripts/apply_rules.py",
+    "skills/project-standard-library/scripts/library.py",
+    "确定性计算层/contracts/daily_report_input.schema.json",
+    "src/contracts/pre-agent-preparation.ts",
+    "src/server/preparation/pipeline.ts",
+    "src/server/preparation/fact-integrity.ts",
+    "skills/prepare-engineering-facts/SKILL.md",
+    "skills/prepare-engineering-facts/scripts/finalize_facts.py"
+  ],
+  "standard_scope": "engineering-adapters/tunnel-monitoring/scope.json"
+}

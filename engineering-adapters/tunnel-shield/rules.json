@@ -1,0 +1,22 @@
+{
+  "source_id": "PROJECT-SHIELD-CONTROL",
+  "metrics": {
+    "ground_settlement": {
+      "display_name": "地表沉降",
+      "unit": "mm",
+      "aliases": [
+        "地表沉降",
+        "地面沉降"
+      ]
+    },
+    "building_settlement": {
+      "display_name": "建筑沉降",
+      "unit": "mm",
+      "aliases": [
+        "建筑沉降",
+        "建筑物沉降"
+      ]
+    }
+  },
+  "note": "无内置统一数值阈值，使用工程师确认的项目控制要求"
+}

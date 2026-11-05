@@ -1,0 +1,58 @@
+{
+  "schema": "excavaguard.engineering_adapter/v1",
+  "id": "verification-monitoring",
+  "version": "1.0.0",
+  "name": "SIMULATED_跨场景接口验证",
+  "engineering_type": "verification_only",
+  "status": "test_only",
+  "supported_reports": [
+    "daily"
+  ],
+  "core_fields": [
+    {
+      "key": "segment",
+      "label": "验证区段",
+      "required": true,
+      "source": "engineer_confirmed",
+      "input_type": "text"
+    }
+  ],
+  "assets": {
+    "metric_mapping": "确定性计算层/pipeline/stage1_data_preparation/ingest.py",
+    "file_reader": "确定性计算层/pipeline/stage1_data_preparation/file_reader.py",
+    "calculator": "engineering-adapters/verification-monitoring/runtime/judgement.py",
+    "rule_executor": "确定性计算层/pipeline/stage3_standard_comparison/risk_identifier.py",
+    "rule_registry": "确定性计算层/pipeline/stage3_standard_comparison/standards_registry.py",
+    "rules": "engineering-adapters/verification-monitoring/rules.json",
+    "catalog": "engineering-adapters/verification-monitoring/catalog.json",
+    "standard_status": "engineering-adapters/verification-monitoring/standard-status.json",
+    "renderer": "engineering-adapters/verification-monitoring/runtime/render.py",
+    "artifacts": "engineering-adapters/verification-monitoring/runtime/render.py",
+    "auditor": "engineering-adapters/verification-monitoring/runtime/audit.py",
+    "model_requirements": "src/server/agents/report-model.ts"
+  },
+  "retrieval": {
+    "scope": "verification-only",
+    "provider": "existing_environment",
+    "project_supplements": "current_project_only",
+    "coverage": "all_catalog_standards",
+    "connection": "verification-only"
+  },
+  "boundaries": [
+    "仅为接口验证，不是隧道或其他真实工程适配器；禁止生产使用"
+  ],
+  "acceptance_suites": [
+    "tests/engineering-adapter.test.ts",
+    "tests/multi-file-judgement.test.ts",
+    "tests/report-skills.test.ts",
+    "确定性计算层/pipeline/tests/test_pipeline_stages.py"
+  ],
+  "template_version": "verification-only/v1",
+  "handlers": {
+    "evaluate-thresholds/run_judgement.py": "engineering-adapters/verification-monitoring/runtime/judgement.py",
+    "render-daily-report/render_daily_report.py": "engineering-adapters/verification-monitoring/runtime/render.py",
+    "validate-report/validate_report.py": "engineering-adapters/verification-monitoring/runtime/audit.py"
+  },
+  "policy": "engineering-adapters/verification-monitoring/policy.json",
+  "context_schema": "engineering-adapters/verification-monitoring/context.schema.json"
+}

@@ -13,8 +13,12 @@ import {
 import type { ReportDraft, ReportArtifact } from "@/contracts/agent-runtime";
 import { deleteRun, readRun, saveRun, listRuns } from "@/server/storage/run-store";
 import { executeAgentRun } from "@/server/agents/executor";
-import { reviewRun, resumeRun, saveRiskEvaluations } from "@/server/runs";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
+import { RunDelivery } from "@/app/workbench/run-delivery";
+import { reviewRun, resumeRun, runView, saveRiskEvaluations } from "@/server/runs";
 import { GET as artifactGET } from "@/app/api/report-artifacts/[draftId]/[fileName]/route";
+import { freezeEngineerFeedback } from "@/server/agents/engineer-feedback";
 import { requireAccess } from "@/server/access";
 import { GET as sessionGET, POST as sessionPOST, DELETE as sessionDELETE } from "@/app/api/session/route";
 import { saveFile, listFiles, localPathOf } from "@/server/storage/monitoring-file-store";
@@ -37,6 +41,21 @@ afterEach(async () => {
   await rm(storage, { recursive: true, force: true });
   for (const directory of artifactDirectories.splice(0)) await rm(directory, { recursive: true, force: true });
   vi.unstubAllEnvs();
+});
+
+it("退回意见冻结后随子运行持久化，未解决子版本重跑继续继承", async () => {
+  const parent = await auditedRun();
+  const returned = await reviewRun(parent.run_id, { expected_revision: parent.revision,
+    draft_ref: parent.result!.agent_run!.state.report_draft!.ref,
+    decision: "needs_changes", reason: "请补充可追溯说明", evaluations: [] }, ACCESS);
+  const feedback = freezeEngineerFeedback(returned)!;
+  expect(feedback.payload).toMatchObject({ parent_run_id: returned.run_id, parent_revision: returned.revision,
+    items: [{ feedback_id: "review", comment: "请补充可追溯说明" }] });
+  const child = { ...emptyRun(), revision_feedback: feedback };
+  await saveRun(child, 0, ACCESS);
+  const restored = await readRun(child.run_id, ACCESS);
+  expect(restored.revision_feedback).toEqual(feedback);
+  expect(freezeEngineerFeedback(restored)).toEqual(feedback);
 });
 
 function emptyRun(): PersistedRun {
@@ -374,6 +393,45 @@ describe("运行持久化与复核", () => {
     const failed = await auditedRun(false);
     await expect(reviewRun(failed.run_id, reviewInput(failed), ACCESS)).rejects.toMatchObject({ code: "INVALID_TRANSITION" });
     expect((await download(failed)).status).toBe(404);
+  });
+
+  it.each(["legacy-unavailable", "legacy-missing", "new-unavailable"])("%s报告不能下载或复核，界面披露未完成", async kind => {
+    const original = await auditedRun();
+    const next = structuredClone(original);
+    const agent = next.result!.agent_run!;
+    agent.state.report_mode = "ai";
+    const audit = agent.state.audit_result!;
+    delete audit.stages;
+    if (kind !== "legacy-missing") audit.checks.push({ name: "independent-llm-semantic-audit", valid: true,
+      details: "LLM 语义审查暂不可用；已通过确定性文件审计，进入人工复核。" });
+    if (kind === "new-unavailable") {
+      audit.valid = false;
+      audit.stages = { deterministic: "passed", semantic: "unavailable" };
+      audit.checks.at(-1)!.valid = false;
+      audit.issues = [{ issue_id: "unavailable", code: "SEMANTIC_AUDIT_UNAVAILABLE", severity: "error",
+        blocking: true, responsibility: "supervisor", path: "audit.semantic", message: "合成模型故障" }];
+      agent.state.run.status = "stopped";
+      agent.state.run.current_stage = "stopped";
+    }
+    agent.downloads = [{ kind: "workbook", file_name: "合成.xlsx", url: "/api/report-artifacts/test", sha256: hash("fixture"), size_bytes: 1 }];
+    const record = await saveRun(next, original.revision, ACCESS);
+    expect(runView(record).agent_run?.downloads).toEqual([]);
+    expect(runView(record).record.result?.agent_run?.downloads).toEqual([]);
+    expect((await download(record)).status).toBe(404);
+    for (const decision of ["accepted", "needs_changes", "rejected"] as const) {
+      await expect(reviewRun(record.run_id, reviewInput(record, decision), ACCESS)).rejects.toMatchObject({ code: "INVALID_TRANSITION" });
+    }
+    await expect(saveRiskEvaluations(record.run_id, {
+      expected_revision: record.revision,
+      draft_ref: record.result!.agent_run!.state.report_draft!.ref,
+      evaluations: [], reason: "不允许对审查未完成草稿暂存评价",
+    }, ACCESS)).rejects.toMatchObject({ code: "INVALID_TRANSITION" });
+    const markup = renderToStaticMarkup(createElement(RunDelivery, { record, disabled: false,
+      onReview: () => {}, onSaveEvaluations: () => {}, onResume: () => {}, onDownload: () => {}, onLoadInputs: () => {} }));
+    expect(markup).toContain("完整审查尚未通过");
+    expect(markup).not.toContain("接受草稿");
+    expect(markup).not.toContain("下载 Excel");
+    expect(markup).toContain("当前审查未通过，以下保留原始轨迹用于追溯，不作为通过依据");
   });
 
   it("文件在审计后被替换时拒绝下载和接受，仍可记录退回", async () => {
