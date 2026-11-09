@@ -332,7 +332,11 @@ check("kN 单位不再被误判", normalize_value_unit(700.0, "kN")[2] == [], st
 check("无量纲单位原样保留", normalize_value_unit(0.0024, "1")[2] == [], str(normalize_value_unit(0.0024, "1")))
 check("cm 换算到 mm", normalize_value_unit(1.6, "cm")[0] == 16.0, str(normalize_value_unit(1.6, "cm")))
 check("MPa 换算到 kPa", normalize_value_unit(1.5, "MPa")[0] == 1500.0, str(normalize_value_unit(1.5, "MPa")))
-check("未知单位仍被标记", normalize_value_unit(1.0, "mm/s")[2] == ["UNSUPPORTED_UNIT"])
+# 2026-11：新增速度量纲（隧道爆破振动常用 cm/s），因此 "mm/s" 不再是未知单位。
+# 未知单位改用真正的组合单位／非本工程量纲来验证同一行为。
+check("未知单位仍被标记", normalize_value_unit(1.0, "MPa/m")[2] == ["UNSUPPORTED_UNIT"])
+check("速度 cm/s 换算到 mm/s", normalize_value_unit(2.5, "cm/s")[0] == 25.0, str(normalize_value_unit(2.5, "cm/s")))
+check("速度单位不再被误判为未知", normalize_value_unit(2.5, "cm/s")[2] == [], str(normalize_value_unit(2.5, "cm/s")))
 check("温度单位 ℃ 不报错且原样保留", normalize_value_unit(18.5, "℃") == (18.5, "℃", []),
       str(normalize_value_unit(18.5, "℃")))
 check("温度单位 °C 不报错", normalize_value_unit(18.5, "°C")[2] == [], str(normalize_value_unit(18.5, "°C")))
@@ -461,6 +465,8 @@ check("契约声明了明细必填字段", "item" in schema["$defs"] and len(sch
 CONTRACT_TOP = [
     "schema", "contract", "generated_from", "project", "context", "standards_sources",
     "data_quality", "summary", "alerts", "review_queue", "standard_override_warnings",
+    # 2026-11：新增断面级综合判定（隧道场景）；非断面场景为 null，字段恒定存在以保持形状稳定
+    "sections",
     "items", "disclaimer", "note",
 ]
 check("载荷顶层键与契约一致", set(rep_in.keys()) == set(CONTRACT_TOP), str(sorted(set(rep_in.keys()) ^ set(CONTRACT_TOP))))

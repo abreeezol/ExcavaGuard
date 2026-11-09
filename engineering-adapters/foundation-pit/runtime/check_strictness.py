@@ -99,26 +99,38 @@ def main() -> int:
     stage3 = engine / "pipeline" / "stage3_standard_comparison"
     if not stage3.is_dir():
         return _fail("ENGINE_NOT_FOUND", f"引擎目录不存在或不完整：{engine}", 3)
-    if str(stage3) not in sys.path:
-        sys.path.insert(0, str(stage3))
+    for path in (stage3, engine / "scenarios"):
+        if str(path) not in sys.path:
+            sys.path.insert(0, str(path))
 
     try:
         from limit_strictness import format_report
         from risk_identifier import ProjectContext
-        from standards_registry import StandardsRegistry, check_upload_strictness
+        from standards_registry import check_upload_strictness
+        import scenario as scenario_profile
 
-        # 只加载默认规范库：上传的新文件此时尚未落盘，正好用于"与默认比对"
-        registry = StandardsRegistry()
+        # 只加载**当前场景**的默认规范库：上传的新文件此时尚未落盘，
+        # 正好用于"与默认比对"。隧道场景下不能拿基坑判据做基准，否则会误报放宽/收紧。
+        profile = scenario_profile.load_profile(req.get("scenario"))
+        registry = scenario_profile.load_registry(profile)
 
         problems = registry.validate_upload(payload)
         if problems:
             return _fail("INVALID_STANDARD", "；".join(problems), 2,
                          extra={"problems": problems})
 
+        conditions_raw = ctx_raw.get("conditions")
         ctx = ProjectContext(
             safety_level=ctx_raw.get("safety_level") or "一级",
             support_type=ctx_raw.get("support_type") or "any",
             excavation_depth_m=ctx_raw.get("excavation_depth_m"),
+            conditions=dict(conditions_raw) if isinstance(conditions_raw, dict) else {},
+            reference_lengths=(
+                {str(k): float(v) for k, v in (ctx_raw.get("reference_lengths") or {}).items()
+                 if isinstance(v, (int, float))}
+                if isinstance(ctx_raw.get("reference_lengths"), dict)
+                else {}
+            ),
         )
 
         strictness = check_upload_strictness(registry, payload, ctx)
