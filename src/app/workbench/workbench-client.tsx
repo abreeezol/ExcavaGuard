@@ -223,6 +223,7 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
   const initialized = useRef(false);
   const rangePrompted = useRef(false);
   const requestController = useRef<AbortController | null>(null);
+  const applicabilityDetails = useRef<HTMLDetailsElement>(null);
   const [safetyLevel, setSafetyLevel] = useState<"" | "一级" | "二级" | "三级">("");
   const [supportType, setSupportType] = useState("");
   const [depthInput, setDepthInput] = useState("");
@@ -280,6 +281,11 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
       window.removeEventListener("beforeunload", beforeUnload);
     };
   }, [onDirtyChange]);
+  useEffect(() => {
+    if (step === "conditions" && !supportType && applicabilityDetails.current) {
+      applicabilityDetails.current.open = true;
+    }
+  }, [step, supportType]);
   useEffect(() => {
     if (step === "conditions" && !rangeConfirmed && !rangePrompted.current && canWrite) {
       rangePrompted.current = true;
@@ -565,6 +571,21 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
 
   const depth = depthInput.trim() === "" ? null : Number(depthInput);
   const depthValid = depth === null || (Number.isFinite(depth) && depth > 0 && depth <= 200);
+  const analysisPrerequisites: Array<{ id: string; message: string; step: WorkbenchStep }> = [];
+  if (!rangeConfirmed) analysisPrerequisites.push({ id: "range", message: "选择并确认报告范围", step: "conditions" });
+  if (!safetyLevel) analysisPrerequisites.push({ id: "safety", message: "选择实际安全等级", step: "conditions" });
+  if (!supportType) analysisPrerequisites.push({ id: "support", message: "确认实际支护信息（判据适用条件）", step: "conditions" });
+  if (!depthValid) analysisPrerequisites.push({ id: "depth", message: "修正设计深度 H：大于0且不超过200m，或留空表示未提供", step: "conditions" });
+  if (!monitoring) analysisPrerequisites.push({ id: "monitoring", message: "选择或上传监测文件", step: "data" });
+  else if (monitoring.read_report?.ok === false) {
+    analysisPrerequisites.push({ id: "monitoring", message: "修正监测文件的必填列并重新上传", step: "data" });
+  }
+
+  function completePrerequisite(item: typeof analysisPrerequisites[number]) {
+    if (item.id === "support" && applicabilityDetails.current) applicabilityDetails.current.open = true;
+    onStepChange(item.step);
+    if (item.id === "range") setRangeDialogOpen(true);
+  }
 
   function reset() {
     setError(null);
@@ -877,8 +898,23 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
                   <option value="三级">三级</option>
                 </select>
               </Field>
-              <Field label="工程名称（由当前工程确定）"><input value={projectName} readOnly /></Field>
+              <Field label="工程名称（项目名称，第一步选定）"><input value={projectName} readOnly /></Field>
             </div>
+            <details className="wb-accordion" ref={applicabilityDetails}>
+              <summary>判据适用条件（必填） · {supportType ? `已确认：${supportType}` : "待确认支护信息"}</summary>
+              <p className="wb-hint">实际支护信息指工程采用的支护类型，如地下连续墙、灌注桩等；请按工程资料选择，用于匹配适用规范。</p>
+              <Field label="实际支护信息（必填）">
+                <select value={supportType} onChange={event => setSupportType(event.target.value)}>
+                  <option value="">请选择实际支护类型</option>
+                  {supportType && !["地下连续墙", "灌注桩", "钢板桩", "型钢水泥土墙", "土钉墙"].includes(supportType) && <option value={supportType}>{supportType}</option>}
+                  <option value="地下连续墙">地下连续墙</option>
+                  <option value="灌注桩">灌注桩</option>
+                  <option value="钢板桩">钢板桩</option>
+                  <option value="型钢水泥土墙">型钢水泥土墙</option>
+                  <option value="土钉墙">土钉墙</option>
+                </select>
+              </Field>
+            </details>
             <div className="wb-row">
               <Field label="基坑设计深度 H（m，可留空）">
                 <input
@@ -900,21 +936,6 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
               <div><h3>报告范围</h3><p>{rangeSummary}</p></div>
               <button className="wb-btn" type="button" onClick={() => setRangeDialogOpen(true)}>{rangeConfirmed ? "修改范围" : "选择范围"}</button>
             </div>
-            <details className="wb-accordion">
-              <summary>判据适用条件 · {supportType ? `已确认：${supportType}` : "待确认"}</summary>
-              <p className="wb-hint">用于匹配实际适用规范，请按工程资料确认。当前计算规则仍针对已有基坑监测范围。</p>
-              <Field label="实际支护信息">
-                <select value={supportType} onChange={event => setSupportType(event.target.value)}>
-                  <option value="">请选择实际条件</option>
-                  {supportType && !["地下连续墙", "灌注桩", "钢板桩", "型钢水泥土墙", "土钉墙"].includes(supportType) && <option value={supportType}>{supportType}</option>}
-                  <option value="地下连续墙">地下连续墙</option>
-                  <option value="灌注桩">灌注桩</option>
-                  <option value="钢板桩">钢板桩</option>
-                  <option value="型钢水泥土墙">型钢水泥土墙</option>
-                  <option value="土钉墙">土钉墙</option>
-                </select>
-              </Field>
-            </details>
             {!depthValid && <p className="wb-hint">基坑设计深度需为 0~200 之间的数字。</p>}
             <div className="wb-actions">
               <button className="wb-btn wb-btn-primary" type="button" onClick={() => onStepChange("data")}>下一步：数据与规范</button>
@@ -1136,6 +1157,19 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
               <span className="wb-chip">{supportType ? "适用条件已确认" : "适用条件待确认"}</span>
               {parentRunId && <span className="wb-chip">关联原运行 {parentRunId.slice(0, 8)}</span>}
             </div>
+            {analysisPrerequisites.length > 0 && <div id="wb-analysis-prerequisites" className="wb-alert wb-alert-warn" role="status">
+              <div>
+                <strong>运行分析前还需完成以下内容：</strong>
+                <ul className="wb-analysis-checklist">
+                  {analysisPrerequisites.map(item => <li key={item.id}>
+                    {item.message}
+                    <button type="button" className="wb-btn wb-btn-sm" onClick={() => completePrerequisite(item)}>
+                      {item.step === "conditions" ? "返回第二步补充" : "返回第三步补充"}
+                    </button>
+                  </li>)}
+                </ul>
+              </div>
+            </div>}
             <label className="wb-report-toggle">
               <input type="checkbox" checked={generateReport} onChange={(event) => setGenerateReport(event.target.checked)} />
               生成并审计监测报告三件套
@@ -1153,7 +1187,8 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
                 className="wb-btn wb-btn-primary"
                 type="button"
                 onClick={() => void runAnalysis()}
-                disabled={busy !== null || !monitoring || !rangeConfirmed || !safetyLevel || !supportType || !depthValid || monitoring.read_report?.ok === false}
+                disabled={busy !== null || analysisPrerequisites.length > 0}
+                aria-describedby={analysisPrerequisites.length ? "wb-analysis-prerequisites" : undefined}
               >
                 {busy === "run" ? (
                   <Loader2 size={15} className="wb-spin" aria-hidden="true" />

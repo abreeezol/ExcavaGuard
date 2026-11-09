@@ -182,6 +182,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 .wb-alert-ok { background: #eaf4ec; border: 1px solid #cfe4d5; color: #2f6b45; }
 .wb-alert-info { background: #edf1e7; border: 1px solid #dce5d1; color: #506147; }
 .wb-alert pre { margin: 6px 0 0; white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+.wb-analysis-checklist { display: grid; gap: 10px; margin: 10px 0 0; padding-left: 18px; }
+.wb-analysis-checklist .wb-btn { margin-left: 10px; }
 
 .wb-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .wb-chip { padding: 3px 9px; border-radius: 20px; border: 1px solid #dfe6da; background: #f5f7f2; color: #4e6546; font-size: 10px; font-variant-numeric: tabular-nums; }
