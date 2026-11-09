@@ -1,0 +1,13 @@
+{
+  "skill": "guardian-testcase-generation",
+  "status": "skipped",
+  "gate_status": "skipped",
+  "missing_inputs": ["feature", "prd_url"],
+  "reason": "本轮按用户要求整合 main 并解决 MR #11 的工作台 UI 冲突，无 Lume feature 或飞书 PRD；按技能早退规则跳过正式 TestCases.yaml 生成。",
+  "local_validation": [
+    "tests/workbench-range.test.ts：日报合同、跨年周报、闰年月报、自定义范围边界和历史默认候选排序。",
+    "tests/workbench-ui.browser.mjs：21组隔离浏览器场景通过，覆盖基坑及隧道参数、配置复用、推荐周期不覆盖手动范围、冻结条件、审查门禁、复核保护及移动端布局；全部API拦截。",
+    "ESLint、TypeScript、生产构建通过；全量测试282项通过、10项跳过、5项失败，5项在独立main基线复现。",
+    "周期检查10项通过、3项失败；项目规范13项通过、2项跳过、1项失败，均因main已有的standard-changes/model模块加载错误，独立main基线已复现。全规范检查15项通过、2项跳过。"
+  ]
+}

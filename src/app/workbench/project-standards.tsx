@@ -54,7 +54,7 @@ export function ProjectStandards({ projectId, disabled, onBusyChange, usesProjec
   return <section className="wb-card" aria-label="项目补充规范">
     <div className="wb-card-head"><h2>项目补充规范（全文检索）</h2></div>
     <p className="wb-hint">上传本工程适用的地方标准、行业标准或专项要求。仅保存并用于当前工程分析；日报、周期报告及附表会保留检索依据。同编号重传后，新文件替换当前启用版本。{usesProjectControls?'控制值请在“监测参数”中确认。':'数值阈值变更请使用下方“用户规范 JSON”。'}</p>
-    <p className="wb-hint">当前工程标识：{projectId}。切换工程请使用工作台上方的项目选择器。</p>
+    <p className="wb-hint">当前工程标识：{projectId}。切换工程请进入“工作台启动”。</p>
     <form onSubmit={event => { event.preventDefault(); void upload(event.currentTarget); }}>
       <fieldset disabled={disabled || busy} style={{ border: 0, padding: 0 }}>
         <label className="wb-field">规范名称<input name="standard_name" required maxLength={200} placeholder="城市地下工程施工与运行监测技术规程" /></label>

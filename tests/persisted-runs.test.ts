@@ -427,7 +427,7 @@ describe("运行持久化与复核", () => {
       evaluations: [], reason: "不允许对审查未完成草稿暂存评价",
     }, ACCESS)).rejects.toMatchObject({ code: "INVALID_TRANSITION" });
     const markup = renderToStaticMarkup(createElement(RunDelivery, { record, disabled: false,
-      onReview: () => {}, onSaveEvaluations: () => {}, onResume: () => {}, onDownload: () => {}, onLoadInputs: () => {} }));
+      onReview: () => {}, onSaveEvaluations: () => {}, onResume: () => {}, onDownload: () => {}, onLoadInputs: () => {}, onDirtyChange: () => {} }));
     expect(markup).toContain("完整审查尚未通过");
     expect(markup).not.toContain("接受草稿");
     expect(markup).not.toContain("下载 Excel");

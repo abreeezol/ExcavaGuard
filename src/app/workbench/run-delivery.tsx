@@ -2,7 +2,7 @@
 
 import { PreparationSummary } from "./preparation-summary";
 import { auditStages, isAuditComplete, AUDIT_STAGE_LABELS } from "@/contracts/audit-status";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import type { PersistedRun, ReviewRequest } from "@/contracts/runs";
 import {
@@ -35,7 +35,7 @@ export function decisionLabel(value: ReviewRequest["decision"]): string {
 }
 
 export function RunDelivery({
-  record, disabled, onReview, onSaveEvaluations, onResume, onDownload, onLoadInputs, canReviewRole = true, canWrite = true,
+  record, disabled, onReview, onSaveEvaluations, onResume, onDownload, onLoadInputs, onDirtyChange, canReviewRole = true, canWrite = true,
 }: {
   record: PersistedRun;
   canReviewRole?: boolean;
@@ -50,6 +50,7 @@ export function RunDelivery({
   onSaveEvaluations: (evaluations: EngineerRiskEvaluationInput[], reason: string) => void;
   onDownload: (url: string, fileName: string) => void;
   onLoadInputs: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const [reason, setReason] = useState(record.evaluation_draft?.reason ?? "");
   const [riskEvaluations, setRiskEvaluations] = useState<Record<number, {
@@ -117,6 +118,17 @@ export function RunDelivery({
   const activeRiskEvaluation = activeRiskTarget
     ? riskEvaluations[activeRiskTarget.risk_item_index] ?? { disposition: "", comment: "" }
     : null;
+  useEffect(() => {
+    const saved = Object.fromEntries((record.evaluation_draft?.evaluations ?? []).map(item =>
+      [item.risk_item_index, { disposition: item.disposition, comment: item.comment }],
+    ));
+    const changed = reason !== (record.evaluation_draft?.reason ?? "") ||
+      Object.entries(riskEvaluations).some(([key, value]) => {
+        const original = saved[key];
+        return value.disposition !== (original?.disposition ?? "") || value.comment !== (original?.comment ?? "");
+      });
+    onDirtyChange(changed);
+  }, [reason, riskEvaluations, record.evaluation_draft, onDirtyChange]);
 
   function updateRiskEvaluation(
     riskItemIndex: number,
@@ -154,7 +166,7 @@ export function RunDelivery({
       {record.revision_feedback && <p className="wb-hint">本稿已载入工程师退回意见，请核对下方逐项回应与报告正文。未解决事项须人工确认，不能直接接受草稿。</p>}
       {record.error && <div className="wb-alert wb-alert-error" role="alert">{record.error.code}：{record.error.message}</div>}
       <div className="wb-actions">
-        <button className="wb-btn wb-btn-sm" disabled={disabled} onClick={onLoadInputs}>{record.review?.decision === "needs_changes" || (!record.review && record.revision_feedback) ? "载入输入并按退回意见重编" : "加载输入并新建关联运行"}</button>
+        {canWrite && <button className="wb-btn wb-btn-sm" disabled={disabled} onClick={onLoadInputs}>{record.review?.decision === "needs_changes" || (!record.review && record.revision_feedback) ? "载入输入并按退回意见重编" : "基于此报告重新分析"}</button>}
         {canWrite && state && record.execution_status !== "completed" && !record.review && (
           <button className="wb-btn wb-btn-sm" disabled={disabled} onClick={onResume}>从检查点续跑</button>
         )}
