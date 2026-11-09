@@ -11,7 +11,7 @@ export type StandardCoverage = {
   notice: string;
   standards: Array<{
     standard_name: string; standard_version: string; effective_status: string;
-    status: "pending" | "matched" | "no_relevant_hit" | "skipped_status" | "unavailable";
+    status: "pending" | "matched" | "no_relevant_hit" | "skipped_status" | "skipped_scope" | "unavailable";
     candidate_ids: string[]; retained_ids: string[]; reason: string;
   }>;
 };

@@ -2,6 +2,7 @@
 // All /api requests are intercepted; this suite never writes shared project data.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { persistedRunSchema } from "@/contracts/runs";
 import { createAgentRunState, recordReportDraft, recordAuditResult } from "@/server/agents/supervisor";
 
@@ -76,6 +77,13 @@ let role = "admin";
 let activeProject = projectId;
 let historyFailure = false;
 let monitoringFiles = [file];
+let engineeringType = "foundation_pit";
+let sceneParameters = null;
+let supportedReports = null;
+const manifests = {
+  foundation_pit: JSON.parse(readFileSync(new URL("../engineering-adapters/foundation-pit/manifest.json", import.meta.url))),
+  tunnel: JSON.parse(readFileSync(new URL("../engineering-adapters/tunnel-monitoring/manifest.json", import.meta.url))),
+};
 const writes = [];
 const errors = [];
 page.on("pageerror", error => errors.push(error.message));
@@ -84,7 +92,7 @@ await page.route("**/api/**", async route => {
   const path = new URL(request.url()).pathname;
   const json = body => route.fulfill({ json: body });
   const view = record => ({ ...record.result, record });
-  if (request.method() !== "GET") writes.push({ path, body: request.postDataJSON() });
+  if (request.method() !== "GET" && path !== "/api/report-windows") writes.push({ path, body: request.postDataJSON() });
   if (path === "/api/session") return json({
     mode: "accounts", authenticated, user: authenticated ? actor : null,
     project_id: authenticated ? activeProject : null, can_create_project: false,
@@ -93,6 +101,23 @@ await page.route("**/api/**", async route => {
     ] : [],
   });
   if (path === "/api/projects/select") { activeProject = request.postDataJSON().project_id; return json({ ok: true }); }
+  if (path === "/api/projects") return json({ engineering_types: [{ id: "foundation_pit", name: "基坑工程" }, { id: "tunnel", name: "隧道工程" }] });
+  if (path === "/api/projects/current/engineering") {
+    if (request.method() === "PUT") {
+      sceneParameters = request.postDataJSON().parameters;
+      return json({ engineering: { parameters: sceneParameters, revision: 1 } });
+    }
+    const manifest = manifests[engineeringType];
+    return json({ engineering_type: { id: engineeringType, name: engineeringType === "tunnel" ? "隧道工程" : "基坑工程" },
+      adapter: { ...manifest, supported_reports: supportedReports ?? manifest.supported_reports }, parameters: sceneParameters, revision: 0,
+      monitoring_metrics: [{ key: "surface_settlement", name: "地表沉降", semantics: ["cumulative_settlement"] }] });
+  }
+  if (path === "/api/report-windows") return json({ detected_metrics: [{ key: "surface_settlement", name: "地表沉降", supported: true }],
+    windows: [{ id: "daily-window", type: "daily", start_date: "2026-11-03", end_date: "2026-11-03", label: "日报 · 2026-11-03", missing_days: [] }],
+    notice: "合成数据周期建议，不代表完整覆盖。" });
+  if (path === "/api/project-context") return json({ documents: [] });
+  if (path === "/api/professional-review") return json({ suite: { cases: [] }, status: "pending_engineer_review" });
+  if (path === "/api/project-standards/changes") return json({ state: null });
   if (path === "/api/monitoring-files") return json({ files: monitoringFiles });
   if (path === "/api/standards") return json({ files: [] });
   if (path === "/api/project-standards") return json({ documents: [] });
@@ -181,13 +206,20 @@ try {
   await hasText(summary, /周报/);
   assert.equal(await page.getByRole("button", { name: "修改范围", exact: true }).evaluate(node => node === document.activeElement), true);
   await page.getByLabel(/安全等级/).selectOption("二级");
-  await page.getByLabel("基坑设计深度 H（m，可留空）", { exact: true }).fill("19");
+  await page.getByLabel(/设计开挖深度/).fill("19");
   assert.equal(await page.getByLabel(/实际支护信息/).isVisible(), true);
   await hasText(page.locator(".wb-accordion summary").filter({ hasText: "判据适用条件" }), /必填/);
   checks.push("第二步未确认支护时自动展开必填项，工程名称与支护类型明确区分");
   await page.getByLabel(/实际支护信息/).selectOption("灌注桩");
   await nav("3 ·").click();
   await page.getByLabel(/选择本工程已上传的监测数据/).selectOption(fileId);
+  await page.clock.runFor(300);
+  await page.getByRole("option", { name: "日报 · 2026-11-03", exact: true }).waitFor({ state: "attached" });
+  await nav("2 ·").click();
+  await hasText(summary, /周报 · 2026-12-28 至 2027-01-03/);
+  checks.push("数据推荐周期不覆盖已手动确认的报告范围");
+  await nav("3 ·").click();
+  assert.equal(await page.getByText("案例、工况与巡视资料（可选）", { exact: true }).isVisible(), true);
   await nav("4 ·").click();
   await nav("2 ·").click();
   await page.getByLabel(/实际支护信息/).selectOption("");
@@ -263,7 +295,7 @@ try {
   await page.keyboard.press("Escape");
   await hasText(summary, /尚未选择/);
   assert.equal(await page.getByLabel(/安全等级/).inputValue(), "");
-  assert.equal(await page.getByLabel("基坑设计深度 H（m，可留空）", { exact: true }).inputValue(), "");
+  assert.equal(await page.getByLabel(/设计开挖深度/).inputValue(), "");
   checks.push("仅失败历史进入新任务，取消首次范围不填入演示条件");
   historyFailure = true;
   await page.goto(`${origin}/workbench?step=results`);
@@ -290,6 +322,66 @@ try {
   assert.equal(await page.getByRole("button", { name: "新建报告", exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "基于此报告重新分析", exact: true }).count(), 0);
   assert.equal(await reason.count(), 0);
+  role = "admin";
+  engineeringType = "tunnel";
+  supportedReports = ["daily"];
+  records = [];
+  await page.goto(`${origin}/workbench`);
+  await page.getByRole("dialog").waitFor();
+  await page.getByLabel(/工程类别/).waitFor({ state: "attached" });
+  assert.equal(await page.getByRole("button", { name: "月报 完整自然月", exact: true }).isDisabled(), true);
+  await page.keyboard.press("Escape");
+  await page.getByLabel(/工程类别/).selectOption("rail");
+  await page.getByLabel(/施工工法/).selectOption("mining");
+  await page.getByLabel(/工程阶段/).selectOption("construction");
+  await page.getByLabel(/特殊地质条件/).selectOption("none");
+  assert.equal(await page.getByText(/判据适用条件（必填）/).count(), 0);
+  await nav("3 ·").click();
+  assert.equal(await page.getByText("用户规范 JSON（数值阈值，可选）", { exact: true }).count(), 0);
+  await page.getByLabel(/选择本工程已上传的监测数据/).selectOption(fileId);
+  await page.clock.runFor(300);
+  await page.getByRole("option", { name: "日报 · 2026-11-03", exact: true }).waitFor({ state: "attached" });
+  await nav("4 ·").click();
+  assert.equal(await page.getByRole("button", { name: "运行分析", exact: true }).isEnabled(), true);
+  assert.equal(await page.locator("#wb-analysis-prerequisites").count(), 0);
+  checks.push("隧道按自身必填参数启用分析，隐藏基坑支护与JSON阈值，限制不支持的周期");
+  await nav("2 ·").click();
+  await hasText(summary, /日报 · 2026-11-03/);
+  await page.getByRole("region", { name: "监测参数确认" }).waitFor();
+  await page.getByLabel(/数据含义/).selectOption("cumulative_settlement");
+  await page.getByLabel("控制值依据", { exact: true }).fill("合成批准方案");
+  await page.getByLabel("累计变形控制值（mm）", { exact: true }).fill("30");
+  await page.getByLabel("已确认该测项的输入含义与控制要求", { exact: true }).check();
+  await page.getByRole("button", { name: "确认并保存工程配置", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "工程配置已确认保存" }).waitFor();
+  assert.equal(writes.at(-1).path, "/api/projects/current/engineering");
+  assert.equal(writes.at(-1).body.expected_revision, 0);
+  await nav("4 ·").click();
+  await page.getByRole("button", { name: "运行分析", exact: true }).click();
+  await resultInfo.waitFor();
+  assert.equal(writes.at(-1).body.context.construction_method, "mining");
+  assert.equal(writes.at(-1).body.context.metric_controls.surface_settlement.confirmed, true);
+  assert.equal(writes.at(-1).body.report_date, "2026-11-03");
+  await hasText(resultInfo, /矿山法／钻爆法/);
+  assert.doesNotMatch(await resultInfo.textContent(), /安全等级|设计开挖深度/);
+  checks.push("推荐日期、隧道测项控制值与保存配置完整传入请求，历史快照按工程字段展示");
+  await page.getByRole("button", { name: "新建报告", exact: true }).click();
+  await page.getByRole("dialog").waitFor();
+  await page.keyboard.press("Escape");
+  assert.equal(await page.getByLabel(/施工工法/).inputValue(), "mining");
+  assert.equal(await page.getByLabel("控制值依据", { exact: true }).inputValue(), "合成批准方案");
+  checks.push("新建报告复用管理员已确认工程参数与控制值");
+
+  const legacyAudit = structuredClone(latest);
+  legacyAudit.result.agent_run.state.report_mode = "ai";
+  legacyAudit.result.agent_run.downloads = [{ kind: "workbook", file_name: "合成.xlsx", url: "/api/report-artifacts/test", sha256: "b".repeat(64), size_bytes: 1 }];
+  records = [legacyAudit];
+  await page.goto(`${origin}/workbench`);
+  await resultInfo.waitFor();
+  await page.getByText(/完整审查尚未通过/).waitFor();
+  assert.equal(await page.getByRole("button", { name: /下载 Excel/ }).count(), 0);
+  assert.equal(await reason.count(), 0);
+  checks.push("旧AI报告仅文件校验通过时仍阻挡下载与人工接受，保留未完成审查提示");
   assert.deepEqual(errors, []);
   checks.push("只读成员可读成果，无新建或复核入口；无页面运行时错误");
   console.log(JSON.stringify({ status: "passed", checks, interceptedWrites: writes.length }, null, 2));

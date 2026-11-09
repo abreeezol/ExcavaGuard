@@ -1,0 +1,69 @@
+{
+  "schema": "excavaguard.standard_scope/v1",
+  "axes": [
+    {
+      "parameter": "tunnel_system",
+      "catalog_key": "system"
+    },
+    {
+      "parameter": "construction_method",
+      "catalog_key": "method"
+    },
+    {
+      "parameter": "project_stage",
+      "catalog_key": "stage"
+    },
+    {
+      "parameter": "special_condition",
+      "catalog_key": "special",
+      "expansions": {
+        "none": [
+          "none"
+        ],
+        "karst": [
+          "karst"
+        ],
+        "gas": [
+          "gas"
+        ],
+        "karst_gas": [
+          "karst",
+          "gas"
+        ]
+      }
+    }
+  ],
+  "case_method": {
+    "parameter": "construction_method",
+    "labels": {
+      "shield": "盾构",
+      "mining": "矿山法",
+      "cut_cover": "明挖法"
+    }
+  },
+  "query_labels": {
+    "rail": "城市轨道交通",
+    "highway": "公路",
+    "urban_road": "城市道路",
+    "shield": "盾构",
+    "mining": "矿山法钻爆法",
+    "cut_cover": "明挖法",
+    "construction": "施工",
+    "reinforcement": "加固",
+    "maintenance": "养护",
+    "none": "普通工况",
+    "karst": "岩溶",
+    "gas": "瓦斯",
+    "karst_gas": "岩溶瓦斯"
+  },
+  "chunk_rules": [
+    {
+      "parameter": "construction_method",
+      "patterns": {
+        "shield": "盾构",
+        "mining": "矿山法|钻爆法",
+        "cut_cover": "明挖法"
+      }
+    }
+  ]
+}

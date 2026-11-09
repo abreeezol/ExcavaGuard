@@ -5,7 +5,18 @@ const CONDITION_LABELS: Record<string, string> = {
   pipeline_type: "管线类型", road_type: "道路类型", design_values: "设计值", danger_signals: "险情信号",
 };
 
-export function RunConditions({ record, currentName }: { record: PersistedRun; currentName?: string }) {
+type ConditionField = { key: string; label: string; choice_labels?: Record<string, string> };
+
+function conditionValue(value: unknown, field?: ConditionField): string {
+  if (value == null) return "未提供";
+  if (field?.key === "excavation_depth_m") return `${value} m`;
+  if (typeof value === "object") return JSON.stringify(value);
+  return field?.choice_labels?.[String(value)] ?? String(value);
+}
+
+export function RunConditions({ record, currentName, fields = [] }: {
+  record: PersistedRun; currentName?: string; fields?: ConditionField[];
+}) {
   const input = record.request;
   const context = input.context;
   const range = reportRangeLabel({
@@ -19,19 +30,16 @@ export function RunConditions({ record, currentName }: { record: PersistedRun; c
     <dl className="wb-condition-list">
       <dt>工程名称</dt><dd>{input.project?.name ?? "未提供"}</dd>
       <dt>报告范围</dt><dd>{range}</dd>
-      <dt>安全等级</dt><dd>{context.safety_level ?? "未提供"}</dd>
-      <dt>设计深度 H</dt><dd>{context.excavation_depth_m != null ? `${context.excavation_depth_m} m` : "未提供"}</dd>
+      {fields.map(field => <div className="wb-condition-extra" key={field.key}>
+        <dt>{field.label}</dt><dd>{conditionValue(context[field.key], field)}</dd>
+      </div>)}
     </dl>
     <details className="wb-accordion"><summary>完整工程条件</summary>
       <dl className="wb-condition-list">
         <dt>工程 ID</dt><dd>{input.project_id ?? "未提供"}</dd>
-        <dt>底板浇筑日期</dt><dd>{context.post_slab_from ?? "未提供"}</dd>
-        <dt>判据适用条件</dt><dd>{context.support_type ?? "未提供"}</dd>
-        {Object.entries(context).filter(([key]) =>
-          !["safety_level", "support_type", "excavation_depth_m", "post_slab_from"].includes(key),
-        ).map(([key, value]) => <div className="wb-condition-extra" key={key}>
-          <dt>{CONDITION_LABELS[key] ?? key}</dt>
-          <dd>{value == null ? "未提供" : typeof value === "object" ? JSON.stringify(value) : String(value)}</dd>
+        {Object.entries(context).map(([key, value]) => <div className="wb-condition-extra" key={key}>
+          <dt>{fields.find(field => field.key === key)?.label ?? CONDITION_LABELS[key] ?? key}</dt>
+          <dd>{conditionValue(value, fields.find(field => field.key === key))}</dd>
         </div>)}
       </dl>
       {currentName && currentName !== input.project?.name && <p className="wb-hint">工程当前名称：{currentName}</p>}

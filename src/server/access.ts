@@ -86,7 +86,7 @@ export function accessStatus(request: Request): AccessStatus {
   const { settings, session, uid, user } = identity(request);
   const projects = uid ? (settings.directory ? settings.directory.projects.filter(p => p.active).flatMap(project => {
     const membership = settings.directory!.memberships.find(m => m.user_id === uid && m.project_id === project.id);
-    return membership ? [{ id: project.id, name: project.name, role: membership.role }] : [];
+    return membership ? [{ id: project.id, name: project.name, role: membership.role, ...(project.engineering ? { engineering: project.engineering } : {}) }] : [];
   }) : [{ id: settings.projectId, name: process.env.EXCAVAGUARD_PROJECT_NAME?.trim() || "默认工程", role: "admin" as const }]) : [];
   const selected = session?.project_id ?? (settings.accounts ? null : settings.projectId);
   return { mode: settings.mode, authenticated: Boolean(uid),

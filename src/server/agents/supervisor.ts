@@ -1,3 +1,4 @@
+import { auditStages, isAuditComplete } from "@/contracts/audit-status";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import {
@@ -202,6 +203,15 @@ export function decideNextAction(
     });
   }
 
+  if (state.audit_result) {
+    const semantic = auditStages(state.audit_result, state.report_mode).semantic;
+    if (auditStages(state.audit_result, state.report_mode).deterministic === "passed" &&
+        (semantic === "unavailable" || semantic === "not_completed")) {
+      return supervisorActionSchema.parse({ type: "handoff_to_human", agent: "supervisor",
+        reason_code: semantic === "unavailable" ? "SEMANTIC_AUDIT_UNAVAILABLE" : "SEMANTIC_AUDIT_NOT_COMPLETED",
+        details: "语义审查尚未完成，停止自动往返。保留草稿供人工排查，恢复后重新运行并完成审查。" });
+    }
+  }
   if (state.run.status === "stopped") {
     return supervisorActionSchema.parse({
       type: "handoff_to_human",
@@ -211,12 +221,13 @@ export function decideNextAction(
     });
   }
 
-  if (state.audit_result?.valid) {
+  if (isAuditComplete(state.audit_result, state.report_mode)) {
     return supervisorActionSchema.parse({
       type: "handoff_to_human",
       agent: "supervisor",
       reason_code: "AUDIT_PASSED",
-      details: "独立审计已通过，草稿仍需工程师复核。",
+      details: state.report_mode === "ai" ? "文件校验与语义审查均通过，草稿仍需工程师复核。"
+        : "模板文件校验通过，未执行模型语义审查，草稿仍需工程师复核。",
     });
   }
 
@@ -472,6 +483,9 @@ export function recordAuditResult(
   if (!state.report_draft || !sameRef(audit.draft_ref, state.report_draft.ref)) {
     throw new AgentStateError("STALE_ARTIFACT", "审计结果对应的草稿已失效。");
   }
+  if (audit.valid && !isAuditComplete(audit, state.report_mode)) {
+    throw new AgentStateError("INCONSISTENT_AUDIT", "未完成本模式所需检查，不能写入审查通过状态。");
+  }
   const hasBlockingIssue = audit.issues.some((issue) => issue.blocking);
   if (audit.valid === hasBlockingIssue) {
     throw new AgentStateError(
@@ -480,12 +494,15 @@ export function recordAuditResult(
     );
   }
 
+  const stages = auditStages(audit, state.report_mode);
+  const incomplete = stages.deterministic === "passed" &&
+    (stages.semantic === "unavailable" || stages.semantic === "not_completed");
   return agentRunStateSchema.parse({
     ...state,
     run: {
       ...state.run,
-      status: audit.valid ? "awaiting_human_review" : "revision_required",
-      current_stage: audit.valid ? "human_review" : "report",
+      status: incomplete ? "stopped" : audit.valid ? "awaiting_human_review" : "revision_required",
+      current_stage: incomplete ? "stopped" : audit.valid ? "human_review" : "report",
       updated_at: at,
     },
     audit_result: audit,

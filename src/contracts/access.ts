@@ -8,7 +8,7 @@ export type LocalAccess = {
 };
 
 export type ProjectRole = "admin" | "reviewer" | "engineer" | "viewer";
-export type AuthorizedProject = { id: string; name: string; role: ProjectRole };
+export type AuthorizedProject = { id: string; name: string; role: ProjectRole; engineering?: { adapter_id: string; adapter_version: string; revision?: number; parameters?: Record<string, unknown> } };
 
 export type AccessStatus = {
   mode: "local" | "password" | "accounts";

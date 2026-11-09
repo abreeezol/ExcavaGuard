@@ -1,0 +1,115 @@
+{
+  "schema": "excavaguard.engineering_adapter/v1",
+  "id": "tunnel-shield",
+  "version": "1.0.0",
+  "name": "盾构施工周边沉降适配器",
+  "engineering_type": "shield_tunnel",
+  "status": "development_validated_scope",
+  "supported_reports": [
+    "daily",
+    "weekly",
+    "monthly",
+    "custom"
+  ],
+  "core_fields": [
+    {
+      "key": "value_semantics",
+      "label": "输入数据含义",
+      "input_type": "text",
+      "required": true,
+      "source": "engineer_confirmed",
+      "choices": [
+        "cumulative_settlement",
+        "elevation"
+      ],
+      "choice_labels": {
+        "cumulative_settlement": "已计算的累计沉降量（向下为正）",
+        "elevation": "原始高程观测值（需每点初始基准）"
+      }
+    },
+    {
+      "key": "control_source",
+      "label": "批准监测方案／控制值来源",
+      "input_type": "text",
+      "required": false,
+      "source": "engineer_confirmed"
+    },
+    {
+      "key": "cumulative_limit_mm",
+      "label": "累计沉降控制值（mm）",
+      "input_type": "number",
+      "required": false,
+      "source": "engineer_confirmed"
+    },
+    {
+      "key": "rate_limit_mm_per_day",
+      "label": "绝对变化速率控制值（mm/d）",
+      "input_type": "number",
+      "required": false,
+      "source": "engineer_confirmed"
+    },
+    {
+      "key": "control_values_confirmed",
+      "label": "已确认项目控制值",
+      "input_type": "checkbox",
+      "required": false,
+      "source": "engineer_confirmed"
+    }
+  ],
+  "assets": {
+    "metric_mapping": "engineering-adapters/tunnel-shield/runtime/core.py",
+    "file_reader": "engineering-adapters/tunnel-shield/runtime/core.py",
+    "calculator": "engineering-adapters/tunnel-shield/runtime/core.py",
+    "rule_executor": "engineering-adapters/tunnel-shield/runtime/core.py",
+    "rule_registry": "engineering-adapters/tunnel-shield/runtime/core.py",
+    "rules": "engineering-adapters/tunnel-shield/rules.json",
+    "catalog": "engineering-adapters/tunnel-shield/catalog.json",
+    "standard_status": "engineering-adapters/tunnel-shield/standard-status.json",
+    "renderer": "engineering-adapters/tunnel-shield/runtime/core.py",
+    "artifacts": "engineering-adapters/tunnel-shield/runtime/core.py",
+    "auditor": "engineering-adapters/tunnel-shield/runtime/core.py",
+    "model_requirements": "src/server/agents/report-model.ts"
+  },
+  "retrieval": {
+    "scope": "tunnel-shield",
+    "provider": "existing_environment",
+    "project_supplements": "current_project_only",
+    "coverage": "all_catalog_standards",
+    "connection": "tunnel-shield-local",
+    "local_index": "engineering-adapters/tunnel-shield/knowledge/knowledge.sqlite3"
+  },
+  "boundaries": [
+    "仅支持盾构周边地表和建筑沉降，不覆盖所有隧道工法",
+    "数值控制值须来自项目批准要求并经工程师确认，未确认时弃权",
+    "规范OCR结果为候选证据，须核对原页；已废止条文不作为有效依据",
+    "软件测试不等于真实工程师确认"
+  ],
+  "acceptance_suites": [
+    "tests/engineering-adapter.test.ts"
+  ],
+  "template_version": "shield-settlement/v1",
+  "handlers": {
+    "parse-monitoring-data/inspect_file.py": "engineering-adapters/tunnel-shield/runtime/inspect_file.py",
+    "normalize-monitoring-data/normalize_records.py": "engineering-adapters/tunnel-shield/runtime/normalize_records.py",
+    "evaluate-thresholds/run_judgement.py": "engineering-adapters/tunnel-shield/runtime/run_judgement.py",
+    "evaluate-thresholds/check_strictness.py": "engineering-adapters/tunnel-shield/runtime/check_strictness.py",
+    "render-daily-report/render_daily_report.py": "engineering-adapters/tunnel-shield/runtime/render_daily_report.py",
+    "validate-report/validate_report.py": "engineering-adapters/tunnel-shield/runtime/validate_report.py"
+  },
+  "policy": "engineering-adapters/tunnel-shield/policy.json",
+  "context_schema": "engineering-adapters/tunnel-shield/context.schema.json",
+  "knowledge_manifest": "engineering-adapters/tunnel-shield/knowledge-manifest.json",
+  "additional_assets": [
+    "engineering-adapters/tunnel-shield/evaluation-fixtures.json",
+    "engineering-adapters/tunnel-shield/payload-template.json",
+    "engineering-adapters/tunnel-shield/runtime/check_strictness.py",
+    "engineering-adapters/tunnel-shield/runtime/core.py",
+    "engineering-adapters/tunnel-shield/runtime/inspect_file.py",
+    "engineering-adapters/tunnel-shield/runtime/normalize_records.py",
+    "engineering-adapters/tunnel-shield/runtime/render_daily_report.py",
+    "engineering-adapters/tunnel-shield/runtime/run_judgement.py",
+    "engineering-adapters/tunnel-shield/runtime/validate_report.py",
+    "skills/adapter-knowledge/scripts/query.py",
+    "确定性计算层/tools/validate_daily_report_input.py"
+  ]
+}

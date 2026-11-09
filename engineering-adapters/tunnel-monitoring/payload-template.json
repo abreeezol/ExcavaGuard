@@ -1,0 +1,74 @@
+{
+  "schema": "excavaguard.daily_report_input/v1",
+  "contract": {
+    "producer": "隧道变形确定性计算",
+    "consumer": "通用三Agent",
+    "stability": "v1",
+    "schema_file": "确定性计算层/contracts/daily_report_input.schema.json",
+    "excludes": []
+  },
+  "generated_from": {
+    "stage1": "",
+    "stage2": "",
+    "stage3": ""
+  },
+  "project": {},
+  "context": {
+    "real_records": null,
+    "simulated_records": null,
+    "records": null,
+    "effective_standard_origin": null,
+    "effective_standard_stage": "阶段三 · 规范比对",
+    "real_is_primary": true,
+    "simulated_note": ""
+  },
+  "standards_sources": [],
+  "data_quality": {
+    "issue_count": null,
+    "by_code": {},
+    "blocked_records": null
+  },
+  "summary": {
+    "total": null,
+    "by_risk_level": {},
+    "by_problem_category": {},
+    "by_data_origin": {},
+    "abstain": {},
+    "overall_risk_level": null
+  },
+  "alerts": [],
+  "review_queue": [],
+  "standard_override_warnings": [],
+  "items": [
+    {
+      "point_id": null,
+      "point_name": null,
+      "point_type": null,
+      "metric_key": "",
+      "metric_name": "",
+      "timestamp": null,
+      "data_origin": "real",
+      "baseline": null,
+      "previous": null,
+      "current": null,
+      "interval_days": null,
+      "cumulative": null,
+      "single_change": null,
+      "rate": null,
+      "slope": null,
+      "problem_category": "",
+      "risk_level": "正常",
+      "utilization": null,
+      "checks": [],
+      "effective_standard": {},
+      "rule_id": null,
+      "evidence": {},
+      "abstain": [],
+      "abstain_reasons": [],
+      "flags": [],
+      "needs_review": false
+    }
+  ],
+  "disclaimer": "仅为工程师复核草稿，不自动签发",
+  "note": ""
+}

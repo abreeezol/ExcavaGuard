@@ -1,4 +1,6 @@
 import "server-only";
+import { commonReportIssues } from "@/server/skills/common-report-audit";
+import { adapterIdFromPayload, loadEngineeringAdapter, assertAdapterSnapshot } from "@/server/engineering-adapters/registry";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -94,6 +96,7 @@ export async function validateReport(
 ): Promise<ValidateReportResult> {
   const draft = reportDraftSchema.parse(request.draft);
   const engineSnapshot = artifactEnvelopeSchema.parse(request.engineSnapshot);
+  assertAdapterSnapshot(engineSnapshot.payload);
   const evidenceSnapshot = parseSupportingSnapshot(request.evidenceSnapshot);
   const analysisSnapshot = parseSupportingSnapshot(request.analysisSnapshot);
   const version = z.number().int().positive().parse(request.version ?? 1);
@@ -101,7 +104,7 @@ export async function validateReport(
     .string()
     .trim()
     .min(1)
-    .parse(request.templateVersion ?? "deep-pit-monitoring-report/service-v4");
+    .parse(request.templateVersion ?? loadEngineeringAdapter(adapterIdFromPayload(engineSnapshot.payload)).adapter.template_version);
 
   if (!sameRef(draft.source_refs.engine, engineSnapshot.ref)) {
     throw new Error("报告草稿引用的引擎事实快照与审计输入不一致。");
@@ -136,8 +139,12 @@ export async function validateReport(
         : null,
     template_version: templateVersion,
     prohibited_phrases: request.prohibitedPhrases,
-  }, { timeoutMs: REPORT_SCRIPT_TIMEOUT_MS });
+  }, { timeoutMs: REPORT_SCRIPT_TIMEOUT_MS, adapterId: adapterIdFromPayload(engineSnapshot.payload) });
   const result = validatorResultSchema.parse(envelope.result);
+  const commonIssues = await commonReportIssues(draft, evidenceSnapshot?.evidence_ids ?? []);
+  result.issues.push(...commonIssues);
+  result.valid = result.valid && commonIssues.length === 0;
+  result.checks.push({ name: "common_artifacts_and_citations", valid: commonIssues.length === 0 });
   const issues = result.issues.map((item, index) => ({
     issue_id: `audit-${version}-${index + 1}`,
     ...item,

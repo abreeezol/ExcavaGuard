@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { ProjectStandardDocument } from "@/contracts/project-standards";
+import { StandardChanges } from "./standard-changes";
 
 async function body(response: Response) {
   const result = await response.json();
@@ -8,8 +9,8 @@ async function body(response: Response) {
   return result;
 }
 
-export function ProjectStandards({ projectId, disabled, onBusyChange }: {
-  projectId: string; disabled: boolean; onBusyChange: (busy: boolean) => void;
+export function ProjectStandards({ projectId, disabled, onBusyChange, usesProjectControls=false,canReview=false }: {
+  canReview?:boolean;usesProjectControls?:boolean; projectId: string; disabled: boolean; onBusyChange: (busy: boolean) => void;
 }) {
   const apiFetch = (url: string, init?: RequestInit) => {
     const headers = new Headers(init?.headers); headers.set("X-Excavaguard-Project", projectId);
@@ -52,7 +53,7 @@ export function ProjectStandards({ projectId, disabled, onBusyChange }: {
 
   return <section className="wb-card" aria-label="项目补充规范">
     <div className="wb-card-head"><h2>项目补充规范（全文检索）</h2></div>
-    <p className="wb-hint">上传本工程适用的地方标准、行业标准或专项要求。仅当前工程使用，独立入库；日报、周期报告及附表会保留检索依据。同编号重传后，新文件替换当前启用版本。数值阈值变更请使用下方“用户规范 JSON”。</p>
+    <p className="wb-hint">上传本工程适用的地方标准、行业标准或专项要求。仅保存并用于当前工程分析；日报、周期报告及附表会保留检索依据。同编号重传后，新文件替换当前启用版本。{usesProjectControls?'控制值请在“监测参数”中确认。':'数值阈值变更请使用下方“用户规范 JSON”。'}</p>
     <p className="wb-hint">当前工程标识：{projectId}。切换工程请进入“工作台启动”。</p>
     <form onSubmit={event => { event.preventDefault(); void upload(event.currentTarget); }}>
       <fieldset disabled={disabled || busy} style={{ border: 0, padding: 0 }}>
@@ -74,5 +75,6 @@ export function ProjectStandards({ projectId, disabled, onBusyChange }: {
       {document.unindexed_pages.length > 0 && <p>文字不足的页码（需人工核对）：{document.unindexed_pages.join("、")}</p>}
       <button type="button" disabled={busy || disabled} className="wb-btn wb-btn-sm" onClick={() => void toggle(document)}>{document.active ? "停用" : "启用"}</button>
     </div>)}
+    <StandardChanges key={projectId} projectId={projectId} documents={documents} disabled={disabled || busy} canReview={canReview} onBusyChange={onBusyChange} />
   </section>;
 }

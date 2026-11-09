@@ -1,0 +1,79 @@
+{
+  "simulated": true,
+  "days": 14,
+  "channels": 24,
+  "sampling_hours": 3,
+  "records": 2688,
+  "files": [
+    {
+      "file": "SIMULATED_隧道监测_2026-11-01.csv",
+      "records": 192,
+      "sha256": "e2ba1e10c86c9dfd3d0d2468c406440757d78efc4bf568565fb27413c402ab53"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-02.csv",
+      "records": 192,
+      "sha256": "a5bfce3fb9a948a220a839b7b9681daf03ba868ec55eb6b7a8be855e5b0f0eda"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-03.csv",
+      "records": 192,
+      "sha256": "08fe4c64015ecb739592c89b9f4b018f637b95e4b9652ff73bdecd79d3a21dea"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-04.csv",
+      "records": 192,
+      "sha256": "71967ca72e005fac05ebf85e9a200a88069b8a274ab5e8ac583853e2133f091b"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-05.csv",
+      "records": 192,
+      "sha256": "1032dc6eb77b9f7b4b78adb7ab01f33b8d05a845a7240dc56ebec87291b2a786"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-06.csv",
+      "records": 192,
+      "sha256": "a7978c8a863b71d200e68cca5b170e123b50f6ee5b1c4d86e0e0fc6e422e6c1f"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-07.csv",
+      "records": 192,
+      "sha256": "d7a4d8b55124984f11de256507863115c63a10b781aadcc680b7ad4ad039ebf3"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-08.csv",
+      "records": 192,
+      "sha256": "cd6dcf2a8cdd5b2caa1c66a6c0c5399de68d064a0a39625fa77a8a53e6a88cbe"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-09.csv",
+      "records": 192,
+      "sha256": "cfbe71ac026e1e171f19561252e96832c3bdd0d32490bfb1fb57549b30bb9409"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-10.csv",
+      "records": 192,
+      "sha256": "05041e8f1b979b6583b3046df008967b7f65f40ea90df98cdaafa2e4b9daa081"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-11.csv",
+      "records": 192,
+      "sha256": "1dcdab50fc71079fe60963d3f430ef4db329083032bc83682b50f0f6a37c2b04"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-12.csv",
+      "records": 192,
+      "sha256": "8b3146177c3e1267ee92bd5ec5bec07083826db2cdc76410c8c2091c7510010a"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-13.csv",
+      "records": 192,
+      "sha256": "21190a186af8f18100af5b5da380a29e3ef971940bad87d87330cfd1549a2392"
+    },
+    {
+      "file": "SIMULATED_隧道监测_2026-11-14.csv",
+      "records": 192,
+      "sha256": "de4b6d4a899ed3c0fb72942f3b6dc0a17ffb7184f85aaa879b25c62a4decba59"
+    }
+  ]
+}

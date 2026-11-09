@@ -1,0 +1,55 @@
+{
+  "schema": "excavaguard.knowledge_manifest/v1",
+  "adapter_id": "tunnel-shield",
+  "index_sha256": "4aad0d32ce229e7c69b8490bb0fb678e2657d2e6cd679b4912cbe44d71bb0cd5",
+  "record_count": 194,
+  "sources": [
+    {
+      "code": "GB55033-2022",
+      "name": "城市轨道交通工程项目规范",
+      "source_sha256": "907ffd92c569f79f163121904cccce69bc20905f9563854960bd184ca76f6fef",
+      "page_count": 42,
+      "excluded_pages": [],
+      "empty_pages": [],
+      "revoked_clauses": [],
+      "extraction": "ocr_candidates_require_page_review"
+    },
+    {
+      "code": "GB50911-2013",
+      "name": "城市轨道交通工程监测技术规范",
+      "source_sha256": "c47a3f03a4f36866f987e655b0eeb7daecf9f06302452a7ef3057690c7678ebd",
+      "page_count": 93,
+      "excluded_pages": [
+        13,
+        54,
+        58,
+        59
+      ],
+      "empty_pages": [],
+      "revoked_clauses": [
+        "3.1.1",
+        "9.1.1",
+        "9.1.5"
+      ],
+      "extraction": "ocr_candidates_require_page_review"
+    },
+    {
+      "code": "GB50446-2017",
+      "name": "盾构法隧道施工及验收规范",
+      "source_sha256": "2ed04d432c486f62c28879c54f8354ed3a7d3b1815ac6d8adc29b96287fd2c9b",
+      "page_count": 65,
+      "excluded_pages": [
+        12,
+        39
+      ],
+      "empty_pages": [],
+      "revoked_clauses": [
+        "3.0.3",
+        "7.8.6"
+      ],
+      "extraction": "ocr_candidates_require_page_review"
+    }
+  ],
+  "status_reference": "https://www.mohurd.gov.cn/gongkai/zc/wjk/art/2024/art_17339_767715.html",
+  "notice": "OCR候选需原页复核；按可识别编号排除废止条文页，不能宣称无识别遗漏或专业适用性已确认。"
+}

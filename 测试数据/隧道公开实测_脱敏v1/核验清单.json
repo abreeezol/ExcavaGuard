@@ -1,0 +1,15 @@
+{
+  "source": "用户提供的数据包，按包内说明为脱敏真实观测；本次未独立核验数据拥有者",
+  "original_records": 2951,
+  "by_sensor_type": {
+    "DW": 1881,
+    "SY": 446,
+    "MG": 624
+  },
+  "quarantined_records": 6,
+  "duplicate_keys": 3,
+  "imported_dw_records": 1875,
+  "channels": 27,
+  "manifest_verified": true,
+  "original_observations_sha256": "4fd198068047648273dd46ceaa59db7c0778759d498dacab10d344898fa7b73b"
+}

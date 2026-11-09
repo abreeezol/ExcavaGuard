@@ -1,0 +1,17 @@
+﻿point_id,timestamp,metric_key,value,unit,data_origin
+SIM-CROWN-01,2026-11-03 00:00:00,crown_settlement,8.0,mm,simulated
+SIM-CROWN-02,2026-11-03 00:00:00,crown_settlement,7.5,mm,simulated
+SIM-CROWN-01,2026-11-03 03:00:00,crown_settlement,8.25,mm,simulated
+SIM-CROWN-02,2026-11-03 03:00:00,crown_settlement,7.75,mm,simulated
+SIM-CROWN-01,2026-11-03 06:00:00,crown_settlement,8.5,mm,simulated
+SIM-CROWN-02,2026-11-03 06:00:00,crown_settlement,8.0,mm,simulated
+SIM-CROWN-01,2026-11-03 09:00:00,crown_settlement,8.75,mm,simulated
+SIM-CROWN-02,2026-11-03 09:00:00,crown_settlement,8.25,mm,simulated
+SIM-CROWN-01,2026-11-03 12:00:00,crown_settlement,9.0,mm,simulated
+SIM-CROWN-02,2026-11-03 12:00:00,crown_settlement,8.5,mm,simulated
+SIM-CROWN-01,2026-11-03 15:00:00,crown_settlement,9.25,mm,simulated
+SIM-CROWN-02,2026-11-03 15:00:00,crown_settlement,8.75,mm,simulated
+SIM-CROWN-01,2026-11-03 18:00:00,crown_settlement,9.5,mm,simulated
+SIM-CROWN-02,2026-11-03 18:00:00,crown_settlement,9.0,mm,simulated
+SIM-CROWN-01,2026-11-03 21:00:00,crown_settlement,9.75,mm,simulated
+SIM-CROWN-02,2026-11-03 21:00:00,crown_settlement,9.25,mm,simulated

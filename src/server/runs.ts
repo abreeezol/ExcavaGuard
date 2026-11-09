@@ -1,6 +1,7 @@
+import { prepareEngineeringScene, prepareEngineeringFacts, verifyPreparedFacts } from "@/server/preparation/pipeline";
+import { isAuditComplete } from "@/contracts/audit-status";
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { dirname } from "node:path";
 import { agentRunStateSchema } from "@/contracts/agent-runtime";
 import type { LocalAccess } from "@/contracts/access";
 import {
@@ -10,7 +11,6 @@ import {
 import type { CreateRunRequest, PersistedRun, ReviewRequest, RunResult, SaveEvaluationRequest } from "@/contracts/runs";
 import { AppError } from "@/server/api/errors";
 import { executeAgentRun, type AgentRunExecutionResult } from "@/server/agents/executor";
-import { runJudgement } from "@/server/skills/evaluate-thresholds/runner";
 import {
   getFile,
   materializeStoredFile,
@@ -22,7 +22,8 @@ import {
   verifyReportFiles,
 } from "@/server/storage/report-files";
 import { EngineError } from "@/server/skills/python-bridge";
-import { selectProjectStandards } from "@/server/evidence/project-standard-library";
+
+import { freezeEngineerFeedback } from "@/server/agents/engineer-feedback";
 
 const LEASE_MS = 420_000;
 
@@ -71,7 +72,7 @@ function agentResult(
 ): NonNullable<RunResult["agent_run"]> {
   const draft = execution.state.report_draft;
   const decision = execution.state.human_review.decision;
-  const downloads = includeDownloads && draft && execution.state.audit_result?.valid &&
+  const downloads = includeDownloads && draft && isAuditComplete(execution.state.audit_result, execution.state.report_mode) &&
     decision !== "needs_changes" && decision !== "rejected"
     ? draft.artifacts.map((artifact) => ({
       kind: artifact.kind,
@@ -89,7 +90,10 @@ function agentResult(
 }
 
 export function runView(record: PersistedRun) {
-  return { ...record.result, run_id: record.run_id, record };
+  const agent = record.result?.agent_run;
+  const result = agent && !isAuditComplete(agent.state.audit_result, agent.state.report_mode)
+    ? { ...record.result, agent_run: { ...agent, downloads: [] } } : record.result;
+  return { ...result, agent_run: result?.agent_run, run_id: record.run_id, record: { ...record, result } };
 }
 
 async function requireFile(fileId: string, kind: "monitoring" | "standard", access: LocalAccess) {
@@ -113,8 +117,11 @@ async function executeSaved(record: PersistedRun, access: LocalAccess, resume = 
   try {
     if (!current.result) throw new AppError(409, "INVALID_TRANSITION", "尚无冻结计算结果，请重新创建运行。");
     const result = current.result;
+    verifyPreparedFacts(result.payload);
     const execution = await executeAgentRun({
       enginePayload: result.payload,
+      supportingContext: result.supporting_context,
+      revisionFeedback: current.revision_feedback,
       projectStandards: { project_id: access.project_id, documents: result.project_standards ?? [] },
       runId: current.run_id,
       reportMode: current.request.options?.report_mode ?? "ai",
@@ -128,7 +135,7 @@ async function executeSaved(record: PersistedRun, access: LocalAccess, resume = 
         }, current.revision, access);
       },
     });
-    if (execution.state.report_draft && execution.state.audit_result?.valid) {
+    if (execution.state.report_draft && isAuditComplete(execution.state.audit_result, execution.state.report_mode)) {
       await persistReportFiles(
         current.run_id,
         current.project_id,
@@ -166,7 +173,8 @@ async function saveFailure(record: PersistedRun, access: LocalAccess, error: unk
 
 export async function createRun(input: CreateRunRequest, access: LocalAccess): Promise<PersistedRun> {
   if (input.project_id !== access.project_id) throw new AppError(403, "FORBIDDEN", "无权访问该项目。");
-  const projectStandards = await selectProjectStandards(access.project_id, input.project_standard_ids);
+  const prepared = await prepareEngineeringScene(access.project_id, input.context, input.project_standard_ids);
+  const { scene, documents: projectStandards } = prepared;
   const fileIds = [input.monitoring_file_id, ...(input.additional_monitoring_file_ids ?? [])];
   if (fileIds.length > 10 || new Set(fileIds).size !== fileIds.length) {
     throw new AppError(400, "INVALID_REQUEST", "请选择最多10份不同的监测文件。");
@@ -178,7 +186,8 @@ export async function createRun(input: CreateRunRequest, access: LocalAccess): P
   if (input.standards_file_id) {
     await requireFile(input.standards_file_id, "standard", access);
   }
-  if (input.parent_run_id) await readRun(input.parent_run_id, access);
+  const parent = input.parent_run_id ? await readRun(input.parent_run_id, access) : null;
+  const revisionFeedback = parent ? freezeEngineerFeedback(parent) : undefined;
   const at = new Date().toISOString();
   let current = await saveRun({
     schema: "excavaguard.persisted_run/v1",
@@ -192,7 +201,8 @@ export async function createRun(input: CreateRunRequest, access: LocalAccess): P
     updated_at: at,
     execution_status: "running",
     lease_until: new Date(Date.now() + LEASE_MS).toISOString(),
-    request: { ...input, project_standard_ids: projectStandards.map(d => d.document_id) },
+    ...(revisionFeedback ? { revision_feedback: revisionFeedback } : {}),
+    request: { ...input, context: scene.context, project_standard_ids: projectStandards.map(d => d.document_id) },
     result: null,
     error: null,
     review: null,
@@ -206,23 +216,15 @@ export async function createRun(input: CreateRunRequest, access: LocalAccess): P
     standardFile = input.standards_file_id
       ? await materializeRequiredFile(input.standards_file_id)
       : null;
-    const envelope = await runJudgement({
-      ...(monitoringFiles.length === 1
-        ? { filePath: monitoringFiles[0].path }
-        : { filePaths: monitoringFiles.map(file => file.path) }),
-      standardsDir: standardFile ? dirname(standardFile.path) : null,
-      context: input.context,
-      reportDate: input.report_date,
-      reportPeriod: input.report_period,
-      project: input.project ?? null,
-      expectedIntervalDays: input.options?.expected_interval_days ?? null,
-      valueRange: input.options?.value_range ?? null,
-    });
+    const { envelope, supportingContext } = await prepareEngineeringFacts(
+      prepared, input, monitoringFiles, standardFile?.path ?? null, sourceFiles,
+    );
     const trace = (envelope.trace ?? {}) as Record<string, unknown>;
     const summary = (envelope.summary ?? {}) as Record<string, unknown>;
     current = await saveRun({
       ...current,
       result: {
+        supporting_context: supportingContext,
         project_standards: projectStandards,
         run_id: current.run_id, created_at: at, project_id: input.project_id,
         monitoring_file_id: input.monitoring_file_id,
@@ -268,7 +270,7 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
   const agent = record.result?.agent_run;
   const draft = agent?.state.report_draft;
   if (record.execution_status !== "completed" || !agent || !draft ||
-      agent.state.run.status !== "awaiting_human_review" || !agent.state.audit_result?.valid ||
+      agent.state.run.status !== "awaiting_human_review" || !isAuditComplete(agent.state.audit_result, agent.state.report_mode) ||
       record.review || agent.state.human_review.decision !== null) {
     throw new AppError(409, "INVALID_TRANSITION", "仅可复核尚未提交决定且已通过审计的当前草稿。");
   }
@@ -349,7 +351,7 @@ export async function saveRiskEvaluations(runId: string, input: SaveEvaluationRe
   const agent = record.result?.agent_run;
   const draft = agent?.state.report_draft;
   if (record.execution_status !== "completed" || record.error || !draft ||
-      agent?.state.run.status !== "awaiting_human_review" || !agent.state.audit_result?.valid ||
+      agent?.state.run.status !== "awaiting_human_review" || !isAuditComplete(agent.state.audit_result, agent.state.report_mode) ||
       record.review || agent.state.human_review.decision !== null) {
     throw new AppError(409, "INVALID_TRANSITION", "仅可暂存已审计且尚未提交决定的当前草稿评价。");
   }

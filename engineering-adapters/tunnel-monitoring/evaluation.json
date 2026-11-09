@@ -1,0 +1,48 @@
+{
+  "status": "pending_engineer_review",
+  "notice": "样例由开发者整理，软件测试不等于工程师确认；实际复核记录由授权人员提交。",
+  "cases": [
+    {
+      "case_id": "tunnel-unit",
+      "scenario": "沉降单位",
+      "expected": "0.012m累计沉降转换为12mm",
+      "evidence_reference": "项目批准监测方案、原始数据及独立手算；条文效力见住建部2022年第110号公告"
+    },
+    {
+      "case_id": "tunnel-rate",
+      "scenario": "实际时间间隔",
+      "expected": "累计沉降由4mm变为7mm，间隔12小时，绝对变化速率6mm/d",
+      "evidence_reference": "项目批准监测方案、原始数据及独立手算；条文效力见住建部2022年第110号公告"
+    },
+    {
+      "case_id": "tunnel-elevation",
+      "scenario": "高程语义",
+      "expected": "基准10m、本次9.995m，向下为正累计沉降5mm",
+      "evidence_reference": "项目批准监测方案、原始数据及独立手算；条文效力见住建部2022年第110号公告"
+    },
+    {
+      "case_id": "tunnel-controls",
+      "scenario": "未确认控制值",
+      "expected": "即使有数值，未确认项目控制要求时状态为未知，不能套用基坑限值",
+      "evidence_reference": "项目批准监测方案、原始数据及独立手算；条文效力见住建部2022年第110号公告"
+    },
+    {
+      "case_id": "tunnel-revoked",
+      "scenario": "废止条文与引用",
+      "expected": "GB50911-2013 3.1.1/9.1.1/9.1.5不得作为现行强制条文引用；OCR内容核对原页",
+      "evidence_reference": "项目批准监测方案、原始数据及独立手算；条文效力见住建部2022年第110号公告"
+    },
+    {
+      "case_id": "tunnel-uplift",
+      "scenario": "上浮与输入质量边界",
+      "expected": "负累计沉降不能套用正向沉降限值判正常；非有限基准必须拒绝",
+      "evidence_reference": "项目设计对沉降/上浮分别确认的控制要求及原始高程数据"
+    },
+    {
+      "case_id": "tunnel-convergence",
+      "scenario": "净空收敛与测项独立判据",
+      "expected": "向内为正累计7mm，与模拟项目收敛6mm比较触发预警；不能套用沉降限值",
+      "evidence_reference": "模拟项目批准控制值和原始数据；待真实工程师复核"
+    }
+  ]
+}

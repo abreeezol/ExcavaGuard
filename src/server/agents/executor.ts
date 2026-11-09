@@ -1,8 +1,12 @@
+import { canonicalDigest as contentHash, prepareAgentPayload, verifyEngineSnapshot } from '@/server/preparation/fact-integrity';
+import {validateInvestigations,executeInvestigations} from "@/server/agents/investigations";
+import { adapterIdFromPayload, assertAdapterSnapshot } from "@/server/engineering-adapters/registry";
 import "server-only";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   agentRunStateSchema,
   supervisorActionSchema,
+  type AuditResult,
   type AgentCapabilities,
   type AgentRunState,
   type ArtifactEnvelope,
@@ -37,6 +41,8 @@ import { reviewRecurringWarnings } from "@/server/agents/period-evidence";
 import { renderDailyReport } from "@/server/skills/render-daily-report/runner";
 import { validateReport } from "@/server/skills/validate-report/runner";
 
+import { validateFeedbackResponses, type RevisionFeedback } from "@/server/agents/engineer-feedback";
+
 const DEFAULT_TIMEOUT_MS = 300_000;
 const DEFAULT_MAX_REVISION_ROUNDS = 2;
 const DEFAULT_MAX_EXECUTION_STEPS = 8;
@@ -57,8 +63,10 @@ const CAPABILITIES: AgentCapabilities = {
 };
 
 type ExecuteAgentRunInput = {
+  supportingContext?: unknown;
   projectStandards?: { project_id: string; documents: ProjectStandardDocument[] };
   enginePayload: unknown;
+  revisionFeedback?: ArtifactEnvelope;
   evidenceSnapshot?: SupportingSnapshot | null;
   analysisSnapshot?: SupportingSnapshot | null;
   runId?: string;
@@ -84,24 +92,6 @@ export type AgentRunExecutionResult = {
   terminalAction: SupervisorAction;
   steps: number;
 };
-
-function stableValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(stableValue);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, nested]) => [key, stableValue(nested)]),
-    );
-  }
-  return value;
-}
-
-function contentHash(value: unknown): string {
-  return createHash("sha256")
-    .update(JSON.stringify(stableValue(value)))
-    .digest("hex");
-}
 
 function engineSnapshot(payload: unknown): ArtifactEnvelope {
   if (
@@ -260,25 +250,39 @@ export async function executeAgentRun(
     throw new Error("Agent 执行器的创建时间或超时预算不合法。");
   }
 
-  let state = input.initialState ? agentRunStateSchema.parse(input.initialState) : createAgentRunState({
+  let state = input.initialState ? agentRunStateSchema.parse(structuredClone(input.initialState)) : createAgentRunState({
     runId: input.runId ?? randomUUID(),
     createdAt,
     deadlineAt: new Date(createdAtMs + timeoutMs).toISOString(),
     maxModelCalls: reportMode === "ai" ? 7 : 0,
     maxRevisionRounds:
       input.maxRevisionRounds ?? DEFAULT_MAX_REVISION_ROUNDS,
-    engineSnapshot: engineSnapshot(input.enginePayload),
+    engineSnapshot: engineSnapshot(prepareAgentPayload(input.enginePayload, input.supportingContext)),
     evidenceSnapshot: input.evidenceSnapshot ?? null,
     analysisSnapshot: input.analysisSnapshot ?? null,
   });
-  state = agentRunStateSchema.parse({ ...state, report_mode: reportMode });
+  state = agentRunStateSchema.parse({ ...state, report_mode: reportMode,
+    ...(input.revisionFeedback && !input.initialState ? { revision_feedback: input.revisionFeedback } : {}) });
   if (state.human_review.decision !== null) {
     throw new Error("已提交人工决定的运行不可继续自动执行。");
   }
+  verifyEngineSnapshot(state.engine_snapshot);
+  const frozenContext = (state.engine_snapshot.payload as { project?: { supporting_context?: unknown } })?.project?.supporting_context;
+  if (input.initialState && input.enginePayload != null && contentHash(input.enginePayload) !== state.engine_snapshot.ref.content_hash) {
+    throw new Error('续跑输入与原运行事实不一致，请创建新运行。');
+  }
+  if (input.initialState && input.supportingContext !== undefined) {
+    prepareAgentPayload(state.engine_snapshot.payload, input.supportingContext);
+    if (frozenContext === undefined) throw new Error('续跑不能追加辅助资料，请创建新运行。');
+  }
+  if (state.context_snapshot && contentHash(state.context_snapshot.payload) !== contentHash(frozenContext)) {
+    throw new Error('辅助资料检查点与冻结事实不一致。');
+  }
   const checkpoint = async (steps: number, terminalAction?: SupervisorAction) => {
+    verifyEngineSnapshot(state.engine_snapshot);
     try {
       await dependencies.checkpoint?.({
-        state,
+        state: structuredClone(state),
         terminalAction: terminalAction ?? decideNextAction(state, capabilities, now().toISOString()),
         steps,
       });
@@ -306,7 +310,7 @@ export async function executeAgentRun(
     if (remaining <= 0) throw new Error("DEADLINE_EXCEEDED：检查点保存后运行预算已到。");
     try {
       const response = await (dependencies.model ?? invokeReportModel)({
-        role, context, timeoutMs: Math.min(45_000, remaining),
+        role, context: { ...(context as Record<string, unknown>), engineering_adapter: (state.engine_snapshot.payload as { project?: { engineering_adapter?: unknown } })?.project?.engineering_adapter }, timeoutMs: Math.min(45_000, remaining),
       });
       state = agentRunStateSchema.parse({
         ...state, trace: [...state.trace, {
@@ -335,15 +339,36 @@ export async function executeAgentRun(
       throw safe;
     }
   };
+  if (!state.context_snapshot && frozenContext !== undefined) {
+    state = agentRunStateSchema.parse({ ...state, context_snapshot: freeze("excavaguard.supporting_context/v1", frozenContext) });
+    const documents=(frozenContext as {documents?:Array<{kind:string}>} | null)?.documents??[];
+    for(const capability of ["retrieve-similar-cases","analyze-work-condition"] as const) {
+      if(!documents.some(d=>capability==="retrieve-similar-cases"?d.kind==="case":d.kind!=="case"))continue;
+      const at=now().toISOString();
+      state=agentRunStateSchema.parse({...state,trace:[...state.trace,{event_id:randomUUID(),agent:"supervisor",capability,status:"success",
+        input_versions:{context:state.context_snapshot!.ref.content_hash},output_versions:{snapshot:state.context_snapshot!.ref.content_hash},rule_ids:["AUXILIARY_EVIDENCE_ONLY"],evidence_ids:[],error:null,return_reason:"基于冻结辅助资料形成关联线索，不修改监测判据。",started_at:at,finished_at:at}]});
+    }
+    if (documents.length) await checkpoint(1);
+  }
   let modelContext: ReturnType<typeof buildReportModelContext> | null = null;
   const projectDocuments = input.projectStandards?.documents ?? [];
   if (reportMode === "ai" || projectDocuments.length) {
     try {
+      assertAdapterSnapshot(state.engine_snapshot.payload);
       modelContext = buildReportModelContext(state.engine_snapshot.payload);
+      if(state.context_snapshot) {
+        const context = state.context_snapshot.payload as Record<string,unknown>;
+        const add = (path:string,value:unknown):void => {
+          if(value && typeof value=== "object") Object.entries(value).forEach(([k,v])=>add(`${path}.${k}`,v));
+          else if(value===null || ["string","number","boolean"].includes(typeof value)) modelContext!.facts[path]=value as string|number|boolean|null;
+        };
+        add("project.supporting_context",context);
+      }
       if (reportMode === "ai" && !state.plan_snapshot) {
-        const response = await modelCall("supervisor", modelContext, 1);
+        const response = await modelCall("supervisor", {...modelContext,engineer_feedback:state.revision_feedback?.payload}, 1);
         const proposedPlan = reportPlanSchema.parse(response.object);
         const plan = { ...proposedPlan, evidence_topics: modelContext.evidence_topics };
+        validateInvestigations(plan,modelContext.facts,modelContext.items.length,modelContext.evidence_topics);
         if (plan.focus_indices.some((i) => i >= modelContext!.items.length) ||
             proposedPlan.evidence_topics.some((topic) => !modelContext!.evidence_topics.includes(topic))) {
           throw new Error("INVALID_PLAN：规划未覆盖实际测项，或引用未知测项。");
@@ -369,12 +394,12 @@ export async function executeAgentRun(
             const result = await dependencies.retrieve!({ query: query.query, filters: query.filters, limit: query.top_k });
             if (result.status === "abstained" && result.code !== "EVIDENCE_NOT_FOUND") throw new Error(result.code);
             return result.evidence;
-          } } : createStandardEvidenceRetriever();
+          } } : createStandardEvidenceRetriever({ adapterId: adapterIdFromPayload(state.engine_snapshot.payload), sceneParameters: (state.engine_snapshot.payload as {project?:{professional_parameters?:Record<string,unknown>}}).project?.professional_parameters });
         const sharedRetriever = projectRetriever ? (baseRetriever ? new CombinedStandardRetriever(baseRetriever, projectRetriever) : projectRetriever)
           : baseRetriever;
         const standardReview = await reviewAllStandards({
           topics: plan.evidence_topics, enginePayload: state.engine_snapshot.payload,
-          catalog: withProjectCatalog(reportMode === "ai" ? readStandardCatalog() : [], projectDocuments),
+          catalog: withProjectCatalog(reportMode === "ai" ? readStandardCatalog(adapterIdFromPayload(state.engine_snapshot.payload), (state.engine_snapshot.payload as {project?:{professional_parameters?:Record<string,unknown>}}).project?.professional_parameters??{}) : [], projectDocuments),
           search: async (request) => {
             const remaining = Date.parse(state.limits.deadline_at) - now().getTime();
             if (remaining <= 0) throw new Error("DEADLINE_EXCEEDED：规范检索预算已到。");
@@ -403,6 +428,12 @@ export async function executeAgentRun(
         standardReview.evidence.forEach(item => evidence.set(item.id, item));
         gaps.push(...standardReview.gaps);
         await checkpoint(1);
+        const investigation=await executeInvestigations({catalog:withProjectCatalog(readStandardCatalog(adapterIdFromPayload(state.engine_snapshot.payload),(state.engine_snapshot.payload as {project?:{professional_parameters?:Record<string,unknown>}}).project?.professional_parameters??{}),projectDocuments),plan:reportMode==='ai'?reportPlanSchema.parse(state.plan_snapshot!.payload):{focus_indices:[0],evidence_topics:[]},enginePayload:state.engine_snapshot.payload,baselineIds:[...evidence.keys()],search:async request=>{
+          const remaining=Date.parse(state.limits.deadline_at)-now().getTime();if(remaining<=0)throw new Error('DEADLINE_EXCEEDED：定向查证预算已到。');
+          const signal=AbortSignal.timeout(Math.max(1,Math.min(30000,remaining)));
+          return dependencies.retrieve&&!projectRetriever?dependencies.retrieve(request,{signal}):retrieveStandardEvidence(request,{signal,retriever:sharedRetriever??undefined});
+        },onCheck:async check=>{const at=now().toISOString();state=agentRunStateSchema.parse({...state,trace:[...state.trace,{event_id:randomUUID(),agent:'supervisor',capability:'targeted-standard-investigation',status:(check.evidence_ids as string[]).length?'success':'abstained',input_versions:{query:String(check.query),facts:JSON.stringify(check.fact_paths)},output_versions:{status:String(check.status),additional_count:String((check.additional_evidence_ids as string[]).length)},rule_ids:['FROZEN_FACT_BOUND','CURRENT_ENGINEERING_SCOPE','MAX_THREE_CHECKS'],evidence_ids:check.evidence_ids,error:null,return_reason:String(check.rationale),started_at:at,finished_at:at}]});await checkpoint(1);}});
+        investigation.evidence.forEach(item=>evidence.set(item.id,item));gaps.push(...investigation.gaps);
         const extended = await reviewRecurringWarnings(state.engine_snapshot.payload, [...evidence.keys()], async (request) => {
           const remaining = Date.parse(state.limits.deadline_at) - now().getTime();
           if (remaining <= 0) throw new Error("DEADLINE_EXCEEDED：追加规范核查预算已到。");
@@ -428,6 +459,7 @@ export async function executeAgentRun(
         const payload = { schema: "excavaguard.standard_evidence/v1", evidence: [...evidence.values()], queries, gaps,
           project_standards: projectDocuments,
           coverage: standardReview.coverage, comparisons: standardReview.comparisons,
+          ...(investigation.review.triggered?{supervisor_investigations:investigation.review}:{}),
           ...(extended.review.triggered ? { extended_review: extended.review } : {}) };
         state = agentRunStateSchema.parse({
           ...state, evidence_snapshot: {
@@ -481,9 +513,12 @@ export async function executeAgentRun(
                 ...modelContext, plan: state.plan_snapshot?.payload,
                 evidence: state.evidence_snapshot?.artifact?.payload,
                 previous_issues: previousIssues,
+                engineer_feedback: state.revision_feedback?.payload,
+                supporting_context: state.context_snapshot?.payload,
               }, steps);
               narrative = reportNarrativeSchema.parse(response.object);
               try {
+                validateFeedbackResponses(narrative, state.revision_feedback);
                 validateNarrativeGrounding(narrative, modelContext.facts, state.evidence_snapshot?.evidence_ids ?? [], modelContext.forms);
                 validateProjectStandardReferences(narrative,
                   (state.evidence_snapshot?.artifact?.payload as { evidence?: StandardEvidence[] })?.evidence ?? []);
@@ -498,7 +533,8 @@ export async function executeAgentRun(
               }
             }
             if (!response || !narrative) throw new Error("LLM_REQUEST_FAILED：模型未生成可审计正文。");
-            const payload = { schema: "excavaguard.report_narrative/v1", narrative, draft_version: version, model: response.model };
+            const payload = { schema: "excavaguard.report_narrative/v1", narrative, draft_version: version, model: response.model,
+              engineer_feedback: state.revision_feedback?.payload, supporting_context: state.context_snapshot?.payload };
             state = agentRunStateSchema.parse({
               ...state, analysis_snapshot: {
                 status: "ready", artifact: freeze(payload.schema, payload, version),
@@ -507,6 +543,16 @@ export async function executeAgentRun(
             });
             await checkpoint(steps);
           }
+        }
+        if (!modelContext && state.revision_feedback) {
+          const payload = { schema: "excavaguard.template_feedback/v1", engineer_feedback: state.revision_feedback.payload };
+          state = agentRunStateSchema.parse({ ...state, analysis_snapshot: { status: "ready",
+            artifact: freeze(payload.schema, payload, version), evidence_ids: [], gaps: ["模板模式未执行意见修订，需人工处理。"] } });
+        }
+        if (!modelContext && state.context_snapshot) {
+          const existing = (state.analysis_snapshot?.artifact?.payload ?? {}) as Record<string,unknown>;
+          const payload = { ...existing, schema: "excavaguard.context_analysis/v1", supporting_context: state.context_snapshot.payload };
+          state = agentRunStateSchema.parse({ ...state, analysis_snapshot: { status: "ready", artifact: freeze(payload.schema,payload,version), evidence_ids: [], gaps: [] } });
         }
         const { draft } = await render({
           engineSnapshot: state.engine_snapshot,
@@ -549,7 +595,11 @@ export async function executeAgentRun(
           templateVersion: input.templateVersion,
           version: state.report_draft.ref.version,
         });
-        let audit = deterministicAudit;
+        let audit: AuditResult = {
+          ...deterministicAudit,
+          stages: { deterministic: deterministicAudit.valid ? "passed" : "failed",
+            semantic: reportMode === "ai" ? "not_completed" : "not_required" },
+        };
         if (modelContext && deterministicAudit.valid) {
           const draftSections = (state.report_draft.payload as { sections?: { narrative_facts?: Array<{ path: string }> } }).sections;
           const referencedFacts = draftSections?.narrative_facts;
@@ -566,27 +616,35 @@ export async function executeAgentRun(
           const judgmentSources = [...new Map(engineItems.filter(item => item.evidence).map(item => [JSON.stringify(item.evidence), item.evidence])).values()];
           const auditContext = {
             facts: auditFacts,
+            engineer_feedback: state.revision_feedback?.payload,
             numeric_judgment_sources: judgmentSources,
+            workbook_sheets: state.report_draft.artifacts.find(artifact => artifact.kind === "workbook")?.sheets,
             audit_scope: "仅审查draft中模型撰写段落。facts是已通过确定性核验的正文标量及整体汇总；数值判据来源独立于RAG候选，不要求每项阈值来源在RAG中再次命中。完整表格、统计、引用与文件由确定性审计负责，不自行重新统计。",
             forms: modelContext.forms,
             evidence_ids: state.evidence_snapshot?.evidence_ids ?? [],
             evidence: compactEvidence(state.evidence_snapshot?.artifact?.payload, state.report_draft.payload),
             draft: compactDraftForSemanticAudit(state.report_draft.payload),
+            supporting_context: state.context_snapshot?.payload,
             deterministic_checks: deterministicAudit.checks,
           };
-          let response: ReportModelResponse | null = null;
+          let semantic: ReturnType<typeof semanticAuditSchema.parse> | null = null;
           let lastError: unknown = null;
           for (let attempt = 0; attempt < AUDIT_MODEL_RETRIES; attempt += 1) {
             try {
-              response = await modelCall("audit", auditContext, steps);
+              const response = await modelCall("audit", auditContext, steps);
+              if (now().getTime() >= Date.parse(state.limits.deadline_at)) {
+                throw new Error("语义审查响应到达时运行时间预算已耗尽。");
+              }
+              semantic = semanticAuditSchema.parse(response.object);
               break;
             } catch (error) {
+              if (error instanceof CheckpointError) throw error;
               lastError = error;
+              if (state.limits.model_calls_used >= state.limits.max_model_calls || now().getTime() >= Date.parse(state.limits.deadline_at)) break;
               if (attempt + 1 < AUDIT_MODEL_RETRIES) await wait(1_000);
             }
           }
-          if (response) {
-            const semantic = semanticAuditSchema.parse(response.object);
+          if (semantic) {
             const issues = [...deterministicAudit.issues, ...semantic.issues.map((issue, index) => ({
               ...issue, issue_id: `semantic-${state.report_draft!.ref.version}-${index + 1}`,
               severity: "error" as const, blocking: true,
@@ -595,21 +653,39 @@ export async function executeAgentRun(
               ...deterministicAudit,
               ref: freeze("excavaguard.audit_result/v1", { deterministicAudit, semantic }, state.report_draft.ref.version).ref,
               valid: !issues.some((issue) => issue.blocking),
+              stages: { deterministic: "passed", semantic: semantic.issues.length ? "failed" : "passed" },
               issues,
               checks: [...deterministicAudit.checks, { name: "independent-llm-semantic-audit", valid: !semantic.issues.length }],
             };
           } else {
+            const exhausted = state.limits.model_calls_used >= state.limits.max_model_calls || now().getTime() >= Date.parse(state.limits.deadline_at);
+            const code = exhausted ? "SEMANTIC_AUDIT_NOT_COMPLETED" : "SEMANTIC_AUDIT_UNAVAILABLE";
+            const message = exhausted ? "预算不足，语义审查未完成；保留草稿供排查，不能作为完整审查通过。"
+              : "语义审查服务或响应不可用；文件校验已通过，完整审查尚未通过，需人工排查后重新运行。";
             audit = {
               ...deterministicAudit,
-              ref: freeze("excavaguard.audit_result/v1", { deterministicAudit, semantic: null, semantic_error: errorDetails(lastError) }, state.report_draft.ref.version).ref,
-              checks: [...deterministicAudit.checks, {
-                name: "independent-llm-semantic-audit",
-                valid: true,
-                details: "LLM 语义审查暂不可用；已通过确定性文件、事实、引用和责任措辞审计，进入人工复核。",
-              }],
+              ref: freeze("excavaguard.audit_result/v1", { deterministicAudit, semantic: null, semantic_error_code: errorDetails(lastError).code }, state.report_draft.ref.version).ref,
+              valid: false,
+              stages: { deterministic: "passed", semantic: exhausted ? "not_completed" : "unavailable" },
+              issues: [...deterministicAudit.issues, { issue_id: `semantic-unavailable-${state.report_draft.ref.version}`,
+                code, severity: "error", blocking: true, responsibility: "supervisor", path: "audit.semantic", message }],
+              checks: [...deterministicAudit.checks, { name: "independent-llm-semantic-audit", valid: false, details: message }],
             };
           }
         }
+        const feedback = state.revision_feedback?.payload as RevisionFeedback | undefined;
+        const responses = (state.analysis_snapshot?.artifact?.payload as { narrative?: { feedback_responses?: Array<{ status: string }> } })?.narrative?.feedback_responses;
+        if (feedback && (!modelContext || responses?.some(item => item.status === "requires_human"))) {
+          audit = { ...audit, valid: false, issues: [...audit.issues, {
+            issue_id: "engineer-feedback-unresolved", code: "ENGINEER_FEEDBACK_UNRESOLVED",
+            severity: "error", blocking: true, responsibility: "human", path: "feedback_responses",
+            message: "工程师意见尚未解决，需人工补充资料或确认；不得接受或交付为完整通过。",
+          }] };
+        }
+        audit.ref = freeze("excavaguard.audit_result/v1", {
+          draft_ref: audit.draft_ref, valid: audit.valid, stages: audit.stages,
+          checks: audit.checks, issues: audit.issues,
+        }, state.report_draft.ref.version).ref;
         state = recordAuditResult(state, audit, now().toISOString());
         state = recordTiming(state, at);
       } catch (error) {

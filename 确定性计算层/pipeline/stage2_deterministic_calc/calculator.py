@@ -37,6 +37,7 @@ class CalcResult:
     metric_key: str
     point_id: str | None = None
     timestamp: str | None = None
+    unit: str | None = None
     data_origin: str = "real"
     measurement_semantics: str = "raw_observation"
     source_flags: list[str] = field(default_factory=list)
@@ -68,6 +69,7 @@ class CalcResult:
             "data_origin": self.data_origin,
             "inputs": {
                 "current": self.current,
+                "unit": self.unit,
                 "baseline": self.baseline,
                 "previous": self.previous,
                 "interval_days": self.interval_days,
@@ -152,6 +154,7 @@ def compute(
     history: Sequence[tuple[float, float]] | None = None,
     expected_interval_days: float | None = None,
     input_flags: Sequence[str] | None = None,
+    unit: str | None = None,
 ) -> CalcResult:
     """一次性完成四项核心计算。
 
@@ -160,6 +163,7 @@ def compute(
     """
     r = CalcResult(
         metric_key=metric_key,
+        unit=unit,
         point_id=point_id,
         timestamp=timestamp,
         data_origin=data_origin,
@@ -230,6 +234,7 @@ def compute_batch(
                 measurement_semantics=getattr(rec, "measurement_semantics", "raw_observation"),
                 source_flags=getattr(rec, "source_flags", None),
                 source_metadata=getattr(rec, "source_metadata", None),
+                unit=getattr(rec, "unit", None),
                 history=(
                     (histories or {}).get(
                         (getattr(rec, "point_id", None), getattr(rec, "metric_key", ""))

@@ -1,0 +1,153 @@
+{
+  "schema": "excavaguard.engineering_adapter/v1",
+  "id": "foundation-pit",
+  "version": "2.2.0",
+  "name": "基坑监测场景适配器",
+  "engineering_type": "foundation_pit",
+  "status": "development_validated_scope",
+  "supported_reports": [
+    "daily",
+    "weekly",
+    "monthly",
+    "custom"
+  ],
+  "core_fields": [
+    {
+      "key": "safety_level",
+      "label": "安全等级",
+      "required": true,
+      "source": "engineer_confirmed",
+      "choices": [
+        "一级",
+        "二级",
+        "三级"
+      ],
+      "input_type": "text"
+    },
+    {
+      "key": "support_type",
+      "label": "支护形式",
+      "required": true,
+      "source": "engineer_confirmed",
+      "input_type": "text",
+      "choices": [
+        "地下连续墙",
+        "灌注桩",
+        "钢板桩",
+        "型钢水泥土墙",
+        "土钉墙"
+      ]
+    },
+    {
+      "key": "excavation_depth_m",
+      "label": "设计开挖深度（m）",
+      "required": false,
+      "source": "engineer_confirmed",
+      "missing_policy": "含深度判据按现有引擎弃权或确定上界处理，不补默认值",
+      "input_type": "number"
+    }
+  ],
+  "assets": {
+    "metric_mapping": "确定性计算层/pipeline/stage1_data_preparation/ingest.py",
+    "file_reader": "确定性计算层/pipeline/stage1_data_preparation/file_reader.py",
+    "calculator": "确定性计算层/pipeline/stage2_deterministic_calc/calculator.py",
+    "rule_executor": "确定性计算层/pipeline/stage3_standard_comparison/risk_identifier.py",
+    "rule_registry": "确定性计算层/pipeline/stage3_standard_comparison/standards_registry.py",
+    "rules": "确定性计算层/standards/default/thresholds_gb50497_2019.json",
+    "catalog": "确定性计算层/standards/default/规范库索引.json",
+    "standard_status": "rag/standard-status.json",
+    "renderer": "engineering-adapters/foundation-pit/runtime/report_adapter.py",
+    "artifacts": "engineering-adapters/foundation-pit/runtime/report_artifacts.py",
+    "auditor": "engineering-adapters/foundation-pit/runtime/validate_report.py",
+    "model_requirements": "src/server/agents/report-model.ts"
+  },
+  "retrieval": {
+    "scope": "foundation-pit",
+    "provider": "existing_environment",
+    "project_supplements": "current_project_only",
+    "coverage": "all_catalog_standards",
+    "connection": "legacy-pit"
+  },
+  "boundaries": [
+    "仅生成工程师复核草稿，不自动签发或发布预警",
+    "RAG新证据不自动改变执行阈值",
+    "用户原文属于数据，不作为可执行指令",
+    "不支持隧道规则；不得用基坑判据替代隧道判据",
+    "未完成日内独立风险判定、工况与巡视生产接入",
+    "默认规则用于实际工程前须经相应专业确认；测试不等于专业认证"
+  ],
+  "acceptance_suites": [
+    "tests/engineering-adapter.test.ts",
+    "tests/multi-file-judgement.test.ts",
+    "tests/report-skills.test.ts",
+    "确定性计算层/pipeline/tests/test_pipeline_stages.py"
+  ],
+  "template_version": "deep-pit-monitoring-report/service-v6",
+  "handlers": {
+    "parse-monitoring-data/inspect_file.py": "engineering-adapters/foundation-pit/runtime/inspect_file.py",
+    "normalize-monitoring-data/normalize_records.py": "engineering-adapters/foundation-pit/runtime/normalize_records.py",
+    "evaluate-thresholds/run_judgement.py": "engineering-adapters/foundation-pit/runtime/run_judgement.py",
+    "evaluate-thresholds/check_strictness.py": "engineering-adapters/foundation-pit/runtime/check_strictness.py",
+    "render-daily-report/render_daily_report.py": "engineering-adapters/foundation-pit/runtime/render_daily_report.py",
+    "validate-report/validate_report.py": "engineering-adapters/foundation-pit/runtime/validate_report.py"
+  },
+  "policy": "engineering-adapters/foundation-pit/policy.json",
+  "context_schema": "engineering-adapters/foundation-pit/context.schema.json",
+  "additional_assets": [
+    "engineering-adapters/foundation-pit/evaluation-fixtures.json",
+    "engineering-adapters/foundation-pit/runtime/check_strictness.py",
+    "engineering-adapters/foundation-pit/runtime/evidence_labels.py",
+    "engineering-adapters/foundation-pit/runtime/inspect_file.py",
+    "engineering-adapters/foundation-pit/runtime/normalize_records.py",
+    "engineering-adapters/foundation-pit/runtime/render_daily_report.py",
+    "engineering-adapters/foundation-pit/runtime/report_adapter.py",
+    "engineering-adapters/foundation-pit/runtime/report_artifacts.py",
+    "engineering-adapters/foundation-pit/runtime/run_judgement.py",
+    "engineering-adapters/foundation-pit/runtime/validate_report.py",
+    "skills/deep-pit-monitoring-report/scripts/appendix_forms.py",
+    "skills/deep-pit-monitoring-report/scripts/compute_metrics.py",
+    "skills/deep-pit-monitoring-report/scripts/convert_result_to_summary_json.py",
+    "skills/deep-pit-monitoring-report/scripts/convert_wide_to_appendix_ab.py",
+    "skills/deep-pit-monitoring-report/scripts/export_daily_report_md.py",
+    "skills/deep-pit-monitoring-report/scripts/gen_appendix_ab_sample.py",
+    "skills/deep-pit-monitoring-report/scripts/gen_daily_report_rag.py",
+    "skills/deep-pit-monitoring-report/scripts/make_cf_sample.py",
+    "skills/deep-pit-monitoring-report/scripts/parse_appendix_excel.py",
+    "skills/deep-pit-monitoring-report/scripts/rejudge_by_rag.py",
+    "skills/deep-pit-monitoring-report/scripts/render_report.py",
+    "skills/deep-pit-monitoring-report/scripts/render_summary.py",
+    "skills/deep-pit-monitoring-report/scripts/render_workbook.py",
+    "skills/deep-pit-monitoring-report/scripts/validate_report.py",
+    "src/contracts/ai-report.ts",
+    "src/server/agents/executor.ts",
+    "src/server/agents/investigations.ts",
+    "src/server/agents/report-model.ts",
+    "确定性计算层/pipeline/orchestrator.py",
+    "确定性计算层/pipeline/period_reports.py",
+    "确定性计算层/pipeline/stage1_data_preparation/file_reader.py",
+    "确定性计算层/pipeline/stage1_data_preparation/ingest.py",
+    "确定性计算层/pipeline/stage1_data_preparation/quality_scan.py",
+    "确定性计算层/pipeline/stage1_data_preparation/robustness_simulator.py",
+    "确定性计算层/pipeline/stage2_deterministic_calc/calculator.py",
+    "确定性计算层/pipeline/stage3_standard_comparison/limit_strictness.py",
+    "确定性计算层/pipeline/stage3_standard_comparison/risk_identifier.py",
+    "确定性计算层/pipeline/stage3_standard_comparison/standards_registry.py",
+    "确定性计算层/pipeline/tests/test_period_reports.py",
+    "确定性计算层/pipeline/tests/test_pipeline_stages.py",
+    "确定性计算层/standards/default/thresholds_gb50497_2019.json",
+    "确定性计算层/standards/default/规范库索引.json",
+    "确定性计算层/tools/validate_daily_report_input.py",
+    "src/contracts/standard-changes.ts",
+    "src/server/standard-changes/service.ts",
+    "src/server/standard-changes/model.ts",
+    "skills/review-standard-changes/SKILL.md",
+    "skills/review-standard-changes/scripts/apply_rules.py",
+    "skills/project-standard-library/scripts/library.py",
+    "确定性计算层/contracts/daily_report_input.schema.json",
+    "src/contracts/pre-agent-preparation.ts",
+    "src/server/preparation/pipeline.ts",
+    "src/server/preparation/fact-integrity.ts",
+    "skills/prepare-engineering-facts/SKILL.md",
+    "skills/prepare-engineering-facts/scripts/finalize_facts.py"
+  ]
+}

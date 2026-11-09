@@ -1,3 +1,4 @@
+import { isAuditComplete } from "@/contracts/audit-status";
 import { z } from "zod";
 import { apiError, apiErrorFromException } from "@/server/api/respond";
 import { requireAccess } from "@/server/access";
@@ -32,7 +33,7 @@ export async function GET(
     const allowed = record &&
       record.execution_status === "completed" &&
       record.result?.agent_run?.state.report_draft?.ref.artifact_id === parsed.data.draftId &&
-      record.result.agent_run.state.audit_result?.valid === true &&
+      isAuditComplete(record.result.agent_run.state.audit_result, record.result.agent_run.state.report_mode) &&
       record.result.agent_run.state.run.status === "awaiting_human_review" &&
       record.review?.decision !== "needs_changes" && record.review?.decision !== "rejected";
     const artifact = allowed ? record.result?.agent_run?.state.report_draft?.artifacts

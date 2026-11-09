@@ -1,4 +1,6 @@
+import { canonicalProjectAdapterId } from "@/server/engineering-adapters/engineering-types";
 import "server-only";
+import { loadEngineeringAdapter } from "@/server/engineering-adapters/registry";
 import { readFileSync } from "node:fs";
 import { randomBytes, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
@@ -23,7 +25,8 @@ export function legacyDirectory(): AccessDirectory {
     projects: [{ id: projectId, name: process.env.EXCAVAGUARD_PROJECT_NAME?.trim() || "默认工程", active: true }],
     memberships: [{ user_id: "local-operator", project_id: projectId, role: "admin" }] });
 }
-export async function createAuthorizedProject(userId: string, name: string) {
+export async function createAuthorizedProject(userId: string, name: string, adapterId = "foundation-pit") {
+  const { adapter } = loadEngineeringAdapter(canonicalProjectAdapterId(adapterId));
   const file = accessDirectoryPath();
   return withFileLock(`${file}.lock`, async () => {
     const directory = readAccessDirectory() ?? legacyDirectory();
@@ -32,7 +35,7 @@ export async function createAuthorizedProject(userId: string, name: string) {
       throw new AppError(403, "FORBIDDEN", "仅系统管理员可新建工程。");
     }
     if (directory.projects.some(p => p.name === name && p.active)) throw new AppError(409, "INVALID_REQUEST", "工程名称已存在，请使用可区分的名称。");
-    const project = { id: randomUUID(), name, active: true };
+    const project = { id: randomUUID(), name, active: true, engineering: { adapter_id: adapter.id, adapter_version: adapter.version } };
     directory.projects.push(project);
     directory.memberships.push({ user_id: userId, project_id: project.id, role: "admin" });
     await atomicJson(file, accessDirectorySchema.parse(directory));

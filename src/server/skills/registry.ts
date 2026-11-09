@@ -26,6 +26,8 @@ type SkillImplementation = {
 };
 
 const IMPLEMENTED: Partial<Record<SkillId, SkillImplementation>> = {
+  "retrieve-similar-cases": { runner: "src/server/skills/retrieve-similar-cases/runner.ts" },
+  "analyze-work-condition": { runner: "src/server/skills/analyze-work-condition/runner.ts" },
   "parse-monitoring-data": {
     scripts: ["skills/parse-monitoring-data/scripts/inspect_file.py"],
   },

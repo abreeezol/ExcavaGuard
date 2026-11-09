@@ -1,4 +1,6 @@
-import { spawn } from "node:child_process";
+import { promisify } from "node:util";
+import { createHash } from "node:crypto";
+import { spawn, execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -66,6 +68,7 @@ function trackArtifacts(draft: ReportDraft): ReportDraft {
 async function overwriteWorkbookCell(
   workbookPath: string,
   sheetName: string,
+  coordinate = "D6",
 ): Promise<void> {
   await new Promise<void>((resolvePromise, rejectPromise) => {
     const child = spawn(
@@ -74,13 +77,14 @@ async function overwriteWorkbookCell(
         "-c",
         [
           "import openpyxl, sys",
-          "path, sheet = sys.argv[1], sys.argv[2]",
+          "path, sheet, cell = sys.argv[1:4]",
           "wb = openpyxl.load_workbook(path)",
-          "wb[sheet]['D6'] = 999",
+          "wb[sheet][cell] = 999",
           "wb.save(path)",
         ].join(";"),
         workbookPath,
         sheetName,
+        coordinate,
       ],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
@@ -336,6 +340,43 @@ describeWithPython("报告交付与独立审计 Skill", () => {
     }
   });
 
+  it.each([
+    ["该意见要求确认现场巡视正常，属于补造事实，本报告不予执行。", true],
+    ["本次现场巡视正常。", false],
+  ])("巡视结论区分明确拒绝与无依据肯定：%s", async (text, expected) => {
+    const engine = engineSnapshot();
+    const analysis: SupportingSnapshot = { status: "ready", artifact: {
+      ref: ref("excavaguard.work_condition_analysis/v1", "f"), payload: { work_condition: text } }, evidence_ids: [], gaps: [] };
+    const { draft } = await renderRunner.renderDailyReport({ engineSnapshot: engine, analysisSnapshot: analysis });
+    trackArtifacts(draft);
+    const { audit } = await validateRunner.validateReport({ draft, engineSnapshot: engine, analysisSnapshot: analysis });
+    expect(audit.valid).toBe(expected);
+    if (!expected) expect(audit.issues.some(issue => issue.code === "UNSUPPORTED_PATROL_CONCLUSION")).toBe(true);
+  });
+
+  it("显式单位与日内峰值分别展示，篡改峰值并刷新哈希仍被逐格审计阻断", async () => {
+    const engine = engineSnapshot();
+    const payload = engine.payload as ReturnType<typeof dailyReportInput>;
+    Object.assign(payload.items[0], { unit: "mm", source_metadata: { daily_aggregation: {
+      sample_count: 8, minimum: 17.625, maximum: 35.125, last_value: 22, unit: "mm",
+      source_start: "2026-10-13 00:00:00", source_end: "2026-10-13 21:00:00",
+    } } });
+    const { draft } = await renderRunner.renderDailyReport({ engineSnapshot: engine });
+    trackArtifacts(draft);
+    const workbook = draft.artifacts.find(item => item.kind === "workbook")!;
+    expect(workbook.sheets).toContain("日内统计核对");
+    const appendix = draft.artifacts.find(item => item.kind === "appendices_markdown")!;
+    const text = readFileSync(appendix.relative_path, "utf8");
+    expect(text).toContain("35.125");
+    expect(text).toContain("无法确认完整覆盖率");
+    expect((await validateRunner.validateReport({ draft, engineSnapshot: engine })).audit.valid).toBe(true);
+    await overwriteWorkbookCell(workbook.relative_path, "日内统计核对", "F3");
+    const bytes = readFileSync(workbook.relative_path);
+    workbook.sha256 = createHash("sha256").update(bytes).digest("hex");
+    workbook.size_bytes = bytes.length;
+    expect((await validateRunner.validateReport({ draft, engineSnapshot: engine })).audit.valid).toBe(false);
+  });
+
   it("从冻结载荷生成带事实绑定和证据 ID 的草稿", async () => {
     const engine = engineSnapshot();
     const evidence = evidenceSnapshot();
@@ -393,6 +434,42 @@ describeWithPython("报告交付与独立审计 Skill", () => {
       risk_reclassified: false,
       artifact_binding_count: draft.artifact_bindings.length,
     });
+  });
+
+  it.each([false, true])("未分类真实片段原值和来源可见，篡改后即使重算哈希仍阻断（篡改=%s）", async tamper => {
+    const engine = engineSnapshot();
+    const payload = engine.payload as ReturnType<typeof dailyReportInput>;
+    const item = engineItem({ point_id: "CX23", metric_key: "unclassified_lateral", metric_name: "待确认侧移",
+      point_type: null, timestamp: null, baseline: null, current: 56.19, previous: 56.59, cumulative: null,
+      single_change: -0.4, rate: 0.4, slope: null, risk_level: "未知", checks: [], evidence: {}, rule_id: null,
+      source_metadata: { relative_day: 120, source: "公开论文表1" }, flags: ["UNPARSED_TIMESTAMP"],
+      abstain: ["UNKNOWN_METRIC"], abstain_reasons: ["测项和日期待确认"], needs_review: true });
+    payload.items = [item]; payload.alerts = []; payload.review_queue = [item];
+    payload.summary = { ...payload.summary, total: 1, by_risk_level: { 报警: 0, 未知: 1 }, overall_risk_level: "未知" };
+    const { draft: raw } = await renderRunner.renderDailyReport({ engineSnapshot: engine });
+    const draft = trackArtifacts(raw);
+    const artifact = draft.artifacts.find(file => file.kind === "workbook")!;
+    const path = resolve(artifact.relative_path);
+    const code = [
+      "import sys,json,openpyxl",
+      "wb=openpyxl.load_workbook(sys.argv[1]); s=wb['未分类观测待核']",
+      "print(json.dumps({'value':s['D2'].value,'previous':s['F2'].value,'change':s['G2'].value,'date':s['C2'].value,'unit':s['E2'].value,'source':s['K2'].value,'sheets':wb.sheetnames},ensure_ascii=False))",
+      ...(tamper ? ["s['D2']=999999;wb.save(sys.argv[1])"] : []),
+    ].join("; ");
+    const inspected = JSON.parse((await promisify(execFile)(PYTHON!, ["-c", code, path])).stdout);
+    expect(String(inspected.value)).toBe("56.19"); expect(String(inspected.previous)).toBe("56.59");
+    expect(String(inspected.change)).toBe("-0.4"); expect(inspected.date).toBe("—"); expect(inspected.unit).toBe("—");
+    expect(JSON.parse(inspected.source).relative_day).toBe(120);
+    expect(inspected.sheets.some((name: string) => /^附表[A-F]_/.test(name))).toBe(false);
+    const appendix = draft.artifacts.find(file => file.kind === "appendices_markdown")!;
+    expect(readFileSync(resolve(appendix.relative_path), "utf8")).toContain("56.19");
+    expect(draft.artifact_bindings).toContainEqual(expect.objectContaining({ location: "未分类观测待核!D2", fact_path: "items.0.current" }));
+    if (tamper) {
+      const changed = readFileSync(path); artifact.sha256 = createHash("sha256").update(changed).digest("hex"); artifact.size_bytes = changed.length;
+    }
+    const { audit } = await validateRunner.validateReport({ draft, engineSnapshot: engine });
+    expect(audit.valid).toBe(!tamper);
+    if (tamper) expect(audit.issues.some(issue => issue.blocking && /CELL|WORKBOOK/.test(issue.code))).toBe(true);
   });
 
   it("独立审计通过未被修改的草稿", async () => {

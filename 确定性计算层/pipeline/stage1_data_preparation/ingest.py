@@ -387,6 +387,11 @@ def normalize_records(
         else:
             source_metadata = {}
 
+        if isinstance(source_metadata.get("daily_aggregation"), dict):
+            aggregation = dict(source_metadata["daily_aggregation"])
+            aggregation.setdefault("unit", str(source_unit).strip() if source_unit not in (None, "") else None)
+            source_metadata["daily_aggregation"] = aggregation
+
         out.append(
             NormalizedRecord(
                 point_id=point_id,

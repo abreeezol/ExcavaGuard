@@ -1,0 +1,17 @@
+import{readFileSync,writeFileSync,mkdirSync,copyFileSync,rmSync}from'node:fs';
+import{resolve,dirname}from'node:path';
+import{runJudgement}from'@/server/skills/evaluate-thresholds/runner';
+import{executeAgentRun}from'@/server/agents/executor';
+const real=process.argv.includes('--real');const period=process.argv.includes('--period');
+const scenarios=real?['公路岩溶矿山法']:['轨道矿山法','公路岩溶矿山法','轨道盾构法'];
+for(const scenario of scenarios){
+ const source=resolve('../测试数据/隧道多工法_2026-11-04',scenario);const records=JSON.parse(readFileSync(resolve(source,'SIMULATED_2026-10-01至2026-10-03_每3小时.json'),'utf8'));const context=JSON.parse(readFileSync(resolve(source,'SIMULATED_工程配置.json'),'utf8'));
+ if(period){context.cumulative_limit_mm/=2;context.control_source+='；为连续预警回归降低模拟控制值';for(const c of Object.values(context.metric_controls)){if(c.cumulative_limit_mm)c.cumulative_limit_mm/=2;c.source+='；连续预警模拟';}}
+ const started=performance.now();
+ const computed=await runJudgement({adapterId:'tunnel-monitoring',records,context,reportDate:'2026-10-03',...(period?{reportPeriod:{type:'custom',start_date:'2026-10-01',end_date:'2026-10-03'}}:{}),project:{name:'SIMULATED隧道多工法验收-'+scenario}});
+ const dependencies=real?{}:{model:async request=>{const c=request.context;const ids=(c.evidence?.evidence??[]).slice(0,1).map(e=>e.id);const p=(text,evidence_ids=[])=>({text,evidence_ids});return{model:'SIMULATED-three-agent-response',usage:{input_tokens:1,output_tokens:1},object:request.role==='supervisor'?{focus_indices:[0],evidence_topics:c.evidence_topics}:request.role==='audit'?{issues:[]}:{work_condition:p('本次未提供施工日志和巡视资料，不能据此判定巡视正常。'),analysis:[p('{{fact:items.0.point_id}}的冻结风险为{{fact:items.0.risk_level}}；不同测项使用各自确认的项目控制要求。'),p('本次检索保留了与工程分类相关的规范候选，具体条款须核对原页及适用条件。',ids)],recommendations:[p('核对原始数据、项目监测方案及适用规范原页，由工程师复核。')],limitations:[p('全部监测数据与控制值为人工模拟；规范是待核候选，不替代工程师确认。')],appendix_analysis:[{form:'S',analysis:p('本表列示程序计算的隧道变形，沉降与收敛按各自语义处理。'),recommendation:p('核验基准、单位、方向和对应测项的控制值，不推断因果。')}]}};}};
+ const execution=await executeAgentRun({enginePayload:computed.result,reportMode:'ai',timeoutMs:240000},dependencies);
+ const out=resolve('../验收结果/2026-11-04_隧道全规范',real?'真实模型':'模拟模型真实RAG',scenario+(period?'_三日区间':'_日报'));mkdirSync(out,{recursive:true});writeFileSync(resolve(out,'execution.json'),JSON.stringify(execution,null,2));writeFileSync(resolve(out,'facts.json'),JSON.stringify(computed.result,null,2));
+ const draft=execution.state.report_draft;
+ try{if(draft)for(const a of draft.artifacts)copyFileSync(resolve(a.relative_path),resolve(out,a.file_name));const evidence=execution.state.evidence_snapshot?.artifact?.payload??{};const summary={elapsed_ms:Math.round(performance.now()-started),catalogue_count:evidence.coverage?.catalogue_count,queried_count:evidence.coverage?.queried_count,extended_review_triggered:evidence.extended_review?.triggered??false,evidence_count:evidence.evidence?.length??0,simulation_only:true,real_model:real,real_local_rag:true,scenario,period,action:execution.terminalAction.reason_code,file_audit:execution.state.audit_result?.valid,model_calls:execution.state.limits.model_calls_used,output:out};writeFileSync(resolve(out,'验收摘要.json'),JSON.stringify(summary,null,2));console.log(JSON.stringify(summary));if(!execution.state.audit_result?.valid||(period&&!evidence.extended_review?.triggered))process.exitCode=1;}finally{if(draft?.artifacts[0])rmSync(dirname(resolve(draft.artifacts[0].relative_path)),{recursive:true,force:true});}
+}

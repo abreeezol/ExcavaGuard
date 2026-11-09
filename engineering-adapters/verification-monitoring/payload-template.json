@@ -1,0 +1,115 @@
+{
+  "schema": "excavaguard.daily_report_input/v1",
+  "contract": {
+    "producer": "SIMULATED_ONLY",
+    "consumer": "SIMULATED_ONLY",
+    "stability": "SIMULATED_ONLY",
+    "schema_file": "SIMULATED_ONLY",
+    "excludes": []
+  },
+  "generated_from": {
+    "stage1": "SIMULATED_ONLY",
+    "stage2": "SIMULATED_ONLY",
+    "stage3": "SIMULATED_ONLY"
+  },
+  "project": {},
+  "context": {
+    "real_records": 0,
+    "simulated_records": 1,
+    "records": 1,
+    "effective_standard_origin": null,
+    "effective_standard_stage": "阶段三 · 规范比对",
+    "real_is_primary": true,
+    "simulated_note": "SIMULATED_ONLY"
+  },
+  "standards_sources": [],
+  "data_quality": {
+    "issue_count": null,
+    "by_code": {},
+    "blocked_records": null
+  },
+  "summary": {
+    "total": 1,
+    "by_risk_level": {
+      "未知": 1
+    },
+    "by_problem_category": {},
+    "by_data_origin": {
+      "simulated": 1
+    },
+    "abstain": {
+      "TEST_ONLY_NO_ENGINEERING_RULE": 1
+    },
+    "overall_risk_level": "未知"
+  },
+  "alerts": [],
+  "review_queue": [
+    {
+      "point_id": "SIM-A1",
+      "point_name": null,
+      "point_type": null,
+      "metric_key": "verification_measurement",
+      "metric_name": "验证测量",
+      "timestamp": null,
+      "data_origin": "simulated",
+      "baseline": null,
+      "previous": null,
+      "current": 3,
+      "interval_days": null,
+      "cumulative": null,
+      "single_change": null,
+      "rate": null,
+      "slope": null,
+      "problem_category": "SIMULATED_ONLY",
+      "risk_level": "未知",
+      "utilization": null,
+      "checks": [],
+      "effective_standard": {},
+      "rule_id": null,
+      "evidence": {},
+      "abstain": [],
+      "abstain_reasons": [
+        "TEST_ONLY_NO_ENGINEERING_RULE"
+      ],
+      "flags": [],
+      "needs_review": false,
+      "unit": "mm"
+    }
+  ],
+  "standard_override_warnings": [],
+  "items": [
+    {
+      "point_id": "SIM-A1",
+      "point_name": null,
+      "point_type": null,
+      "metric_key": "verification_measurement",
+      "metric_name": "验证测量",
+      "timestamp": null,
+      "data_origin": "simulated",
+      "baseline": null,
+      "previous": null,
+      "current": 3,
+      "interval_days": null,
+      "cumulative": null,
+      "single_change": null,
+      "rate": null,
+      "slope": null,
+      "problem_category": "SIMULATED_ONLY",
+      "risk_level": "未知",
+      "utilization": null,
+      "checks": [],
+      "effective_standard": {},
+      "rule_id": null,
+      "evidence": {},
+      "abstain": [],
+      "abstain_reasons": [
+        "TEST_ONLY_NO_ENGINEERING_RULE"
+      ],
+      "flags": [],
+      "needs_review": false,
+      "unit": "mm"
+    }
+  ],
+  "disclaimer": "SIMULATED_ONLY",
+  "note": "SIMULATED_ONLY"
+}

@@ -266,6 +266,7 @@
         "baseline": { "type": ["number", "null"], "description": "初始值/基准值。" },
         "previous": { "type": ["number", "null"], "description": "上次观测值。" },
         "current": { "type": ["number", "null"], "description": "本次观测值。" },
+        "unit": { "type": ["string", "null"], "description": "阶段一归一化后的单位；缺失不推断。" },
         "interval_days": { "type": ["number", "null"], "description": "本次与上次的间隔天数。" },
         "cumulative": { "type": ["number", "null"], "description": "累计值 = current − baseline。" },
         "single_change": { "type": ["number", "null"], "description": "本次变化量 = current − previous。" },
@@ -283,6 +284,10 @@
         "checks": {
           "type": "array",
           "description": "逐项校核明细（累计值、变化速率、设计值比例、倾斜、危险报警条件等），每项含 value/limit/limit_basis/utilization/verdict。",
+          "items": { "type": "object", "additionalProperties": true }
+        },
+        "project_rule_checks": {
+          "type": "array", "description": "工程师确认的项目补充规则执行记录及适用条件缺口。",
           "items": { "type": "object", "additionalProperties": true }
         },
         "effective_standard": {

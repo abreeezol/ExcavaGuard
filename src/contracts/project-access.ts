@@ -10,7 +10,7 @@ export const accessUserSchema = z.strictObject({
 export const accessDirectorySchema = z.strictObject({
   version: z.literal(1), session_secret: z.string().regex(/^[a-f0-9]{64}$/),
   users: z.array(accessUserSchema).max(1000),
-  projects: z.array(z.strictObject({ id: z.uuid(), name: z.string().trim().min(1).max(100), active: z.boolean() })).max(1000),
+  projects: z.array(z.strictObject({ id: z.uuid(), name: z.string().trim().min(1).max(100), active: z.boolean(), engineering: z.strictObject({ adapter_id: z.string().min(1), adapter_version: z.string().min(1), revision: z.number().int().nonnegative().optional(), confirmed_by: z.string().optional(), confirmed_at: z.iso.datetime().optional(), parameters: z.record(z.string(), z.unknown()).optional() }).optional() })).max(1000),
   memberships: z.array(z.strictObject({ user_id: z.union([z.uuid(), z.literal("local-operator")]), project_id: z.uuid(), role: projectRoleSchema })).max(10000),
 }).superRefine((value, ctx) => {
   const unique = (values: string[]) => new Set(values).size === values.length;

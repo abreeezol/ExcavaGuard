@@ -128,6 +128,10 @@ export const auditResultSchema = z.strictObject({
   ref: artifactRefSchema,
   draft_ref: artifactRefSchema,
   valid: z.boolean(),
+  stages: z.strictObject({
+    deterministic: z.enum(["passed", "failed", "not_completed"]),
+    semantic: z.enum(["passed", "failed", "unavailable", "not_completed", "not_required"]),
+  }).optional(),
   checks: z.array(
     z.strictObject({
       name: nonEmptyText,
@@ -188,6 +192,8 @@ export const agentRunStateSchema = z
     plan_snapshot: artifactEnvelopeSchema.nullable().default(null),
     evidence_snapshot: supportingSnapshotSchema.nullable(),
     analysis_snapshot: supportingSnapshotSchema.nullable(),
+    revision_feedback: artifactEnvelopeSchema.optional(),
+    context_snapshot: artifactEnvelopeSchema.optional(),
     report_draft: reportDraftSchema.nullable(),
     audit_result: auditResultSchema.nullable(),
     human_review: z.strictObject({
@@ -316,6 +322,8 @@ export const supervisorActionSchema = z.strictObject({
     "REPORT_REVISION_REQUIRED",
     "CAPABILITY_UNAVAILABLE",
     "AUDIT_PASSED",
+    "SEMANTIC_AUDIT_UNAVAILABLE",
+    "SEMANTIC_AUDIT_NOT_COMPLETED",
     "UPSTREAM_ISSUE_REQUIRES_HUMAN",
     "REVISION_LIMIT_REACHED",
     "MODEL_CALL_BUDGET_EXHAUSTED",

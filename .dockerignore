@@ -7,6 +7,11 @@
 !tsconfig.json
 !src/
 !src/**
+!engineering-adapters/
+!engineering-adapters/**
+!source/
+!source/adapter_runtime/
+!source/adapter_runtime/**
 !skills/
 !skills/**
 !确定性计算层/
@@ -26,6 +31,7 @@
 !tools/access/manage.mjs
 !deploy/
 !deploy/requirements.txt
+engineering-adapters/verification-monitoring/**
 skills/_archive/**
 skills/**/examples/**
 skills/**/tests/**

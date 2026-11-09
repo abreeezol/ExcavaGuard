@@ -1,0 +1,230 @@
+{
+  "simulation_only": true,
+  "report_date": "2026-10-02",
+  "notice": "输入、预期与软件结果供实际工程师复核，不能自动替代专业确认。",
+  "cases": [
+    {
+      "case_id": "tunnel-unit",
+      "context": {
+        "value_semantics": "cumulative_settlement",
+        "control_source": "SIMULATED项目要求（不是实际工程确认）",
+        "cumulative_limit_mm": 12,
+        "rate_limit_mm_per_day": 10,
+        "control_values_confirmed": true,
+        "tunnel_system": "rail",
+        "construction_method": "shield",
+        "project_stage": "construction",
+        "special_condition": "none",
+        "control_metric": "ground_settlement"
+      },
+      "records": [
+        {
+          "point_id": "SIM-GOLD",
+          "timestamp": "2026-10-01 20:00:00",
+          "metric_key": "ground_settlement",
+          "value": 0.004,
+          "unit": "m",
+          "data_origin": "simulated"
+        },
+        {
+          "point_id": "SIM-GOLD",
+          "timestamp": "2026-10-02 08:00:00",
+          "metric_key": "ground_settlement",
+          "value": 0.007,
+          "unit": "m",
+          "data_origin": "simulated"
+        }
+      ],
+      "expected_fields": {
+        "items.0.current": 7,
+        "items.0.cumulative": 7
+      }
+    },
+    {
+      "case_id": "tunnel-rate",
+      "context": {
+        "value_semantics": "cumulative_settlement",
+        "control_source": "SIMULATED项目要求（不是实际工程确认）",
+        "cumulative_limit_mm": 12,
+        "rate_limit_mm_per_day": 10,
+        "control_values_confirmed": true,
+        "tunnel_system": "rail",
+        "construction_method": "shield",
+        "project_stage": "construction",
+        "special_condition": "none",
+        "control_metric": "ground_settlement"
+      },
+      "records": [
+        {
+          "point_id": "SIM-GOLD",
+          "timestamp": "2026-10-01 20:00:00",
+          "metric_key": "ground_settlement",
+          "value": 4,
+          "unit": "mm",
+          "data_origin": "simulated"
+        },
+        {
+          "point_id": "SIM-GOLD",
+          "timestamp": "2026-10-02 08:00:00",
+          "metric_key": "ground_settlement",
+          "value": 7,
+          "unit": "mm",
+          "data_origin": "simulated"
+        }
+      ],
+      "expected_fields": {
+        "items.0.interval_days": 0.5,
+        "items.0.rate": 6
+      }
+    },
+    {
+      "case_id": "tunnel-elevation",
+      "context": {
+        "value_semantics": "elevation",
+        "control_source": "SIMULATED项目要求（不是实际工程确认）",
+        "cumulative_limit_mm": 12,
+        "rate_limit_mm_per_day": 10,
+        "control_values_confirmed": true,
+        "tunnel_system": "rail",
+        "construction_method": "shield",
+        "project_stage": "construction",
+        "special_condition": "none",
+        "control_metric": "ground_settlement"
+      },
+      "records": [
+        {
+          "point_id": "SIM-GOLD",
+          "timestamp": "2026-10-01 20:00:00",
+          "metric_key": "ground_settlement",
+          "value": 9.997,
+          "unit": "m",
+          "data_origin": "simulated",
+          "baseline_value": 10
+        },
+        {
+          "point_id": "SIM-GOLD",
+          "timestamp": "2026-10-02 08:00:00",
+          "metric_key": "ground_settlement",
+          "value": 9.995,
+          "unit": "m",
+          "data_origin": "simulated",
+          "baseline_value": 10
+        }
+      ],
+      "expected_fields": {
+        "items.0.cumulative": 5,
+        "items.0.rate": 4
+      }
+    },
+    {
+      "case_id": "tunnel-controls",
+      "context": {
+        "value_semantics": "cumulative_settlement",
+        "control_source": "SIMULATED项目要求（不是实际工程确认）",
+        "cumulative_limit_mm": 12,
+        "rate_limit_mm_per_day": 10,
+        "control_values_confirmed": false,
+        "tunnel_system": "rail",
+        "construction_method": "shield",
+        "project_stage": "construction",
+        "special_condition": "none",
+        "control_metric": "ground_settlement"
+      },
+      "records": [
+        {
+          "point_id": "SIM-GOLD",
+          "timestamp": "2026-10-01 20:00:00",
+          "metric_key": "ground_settlement",
+          "value": 4,
+          "unit": "mm",
+          "data_origin": "simulated"
+        },
+        {
+          "point_id": "SIM-GOLD",
+          "timestamp": "2026-10-02 08:00:00",
+          "metric_key": "ground_settlement",
+          "value": 7,
+          "unit": "mm",
+          "data_origin": "simulated"
+        }
+      ],
+      "expected_fields": {
+        "items.0.risk_level": "未知"
+      }
+    },
+    {
+      "case_id": "tunnel-revoked",
+      "manual_reference": "https://www.mohurd.gov.cn/gongkai/zc/wjk/art/2024/art_17339_767715.html",
+      "expected_fields": {},
+      "manual_review_required": true
+    },
+    {
+      "case_id": "tunnel-uplift",
+      "context": {
+        "value_semantics": "cumulative_settlement",
+        "control_source": "SIMULATED项目要求（不是实际工程确认）",
+        "cumulative_limit_mm": 12,
+        "rate_limit_mm_per_day": 10,
+        "control_values_confirmed": true,
+        "tunnel_system": "rail",
+        "construction_method": "shield",
+        "project_stage": "construction",
+        "special_condition": "none",
+        "control_metric": "ground_settlement"
+      },
+      "records": [
+        {
+          "point_id": "SIM-GOLD",
+          "timestamp": "2026-10-01 20:00:00",
+          "metric_key": "ground_settlement",
+          "value": -1,
+          "unit": "mm",
+          "data_origin": "simulated"
+        },
+        {
+          "point_id": "SIM-GOLD",
+          "timestamp": "2026-10-02 08:00:00",
+          "metric_key": "ground_settlement",
+          "value": -1,
+          "unit": "mm",
+          "data_origin": "simulated"
+        }
+      ],
+      "expected_fields": {
+        "items.0.risk_level": "未知",
+        "items.0.abstain": [
+          "REVERSE_DIRECTION_CONTROL_NOT_PROVIDED"
+        ]
+      }
+    },
+    {
+      "case_id": "tunnel-convergence",
+      "context": {
+        "tunnel_system": "highway",
+        "construction_method": "mining",
+        "project_stage": "construction",
+        "special_condition": "none",
+        "control_metric": "tunnel_convergence",
+        "value_semantics": "cumulative_displacement",
+        "control_source": "SIMULATED收敛方案（非工程确认）",
+        "control_values_confirmed": true,
+        "cumulative_limit_mm": 6,
+        "rate_limit_mm_per_day": 10
+      },
+      "records": [
+        {
+          "point_id": "SIM-CON",
+          "timestamp": "2026-10-02 08:00:00",
+          "metric_key": "tunnel_convergence",
+          "value": 7,
+          "unit": "mm",
+          "data_origin": "simulated"
+        }
+      ],
+      "expected_fields": {
+        "items.0.cumulative": 7,
+        "items.0.risk_level": "预警"
+      }
+    }
+  ]
+}

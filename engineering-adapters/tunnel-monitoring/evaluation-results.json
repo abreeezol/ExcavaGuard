@@ -1,0 +1,519 @@
+{
+  "adapter_id": "tunnel-monitoring",
+  "producer_adapter_digest": "904c169d9b17d123923a58480f44c54655a2e3863d9f58e91a2cb14fde383822",
+  "fixture_sha256": "60aac845d260573f0a26946376031c19441407e1894b125fcc9e092684290a15",
+  "simulation_only": true,
+  "professional_review": "pending_engineer_review",
+  "cases": [
+    {
+      "case_id": "tunnel-unit",
+      "status": "software_passed",
+      "comparisons": [
+        {
+          "path": "items.0.current",
+          "expected": 7,
+          "actual": 7,
+          "matches": true
+        },
+        {
+          "path": "items.0.cumulative",
+          "expected": 7,
+          "actual": 7,
+          "matches": true
+        }
+      ],
+      "actual_items": [
+        {
+          "point_id": "SIM-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "ground_settlement",
+          "metric_name": "地表沉降",
+          "timestamp": "2026-10-02 08:00:00+08:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": 4,
+          "current": 7,
+          "interval_days": 0.5,
+          "cumulative": 7,
+          "single_change": 3,
+          "rate": 6,
+          "slope": null,
+          "problem_category": "变形监测",
+          "risk_level": "正常",
+          "utilization": 0.6,
+          "checks": [
+            {
+              "type": "cumulative",
+              "value": 7,
+              "limit": 12,
+              "unit": "mm",
+              "utilization": 0.5833333333333334,
+              "verdict": "未触发",
+              "limit_basis": "工程师确认项目控制值；非规范统一阈值"
+            },
+            {
+              "type": "rate",
+              "value": 6,
+              "limit": 10,
+              "unit": "mm/d",
+              "utilization": 0.6,
+              "verdict": "未触发",
+              "limit_basis": "工程师确认项目控制值；非规范统一阈值"
+            }
+          ],
+          "effective_standard": {
+            "origin": "project_confirmed",
+            "source_id": "PROJECT-CONTROL",
+            "source_label": "SIMULATED项目要求（不是实际工程确认）",
+            "origin_display": "项目确认要求"
+          },
+          "rule_id": "tunnel-project-deformation/v1",
+          "evidence": {
+            "standard": "SIMULATED项目要求（不是实际工程确认）",
+            "clause": "项目批准控制要求",
+            "note": "RAG仅查证适用要求，不改变本项限值"
+          },
+          "abstain": [],
+          "abstain_reasons": [],
+          "flags": [
+            "INPUT_CUMULATIVE_DOWNWARD_POSITIVE"
+          ],
+          "needs_review": false,
+          "unit": "mm",
+          "source_metadata": {
+            "original_timestamp": "2026-10-02 08:00:00",
+            "units": {
+              "current": "mm",
+              "cumulative": "mm",
+              "single_change": "mm",
+              "rate": "mm/d",
+              "slope": "mm/d"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "tunnel-rate",
+      "status": "software_passed",
+      "comparisons": [
+        {
+          "path": "items.0.interval_days",
+          "expected": 0.5,
+          "actual": 0.5,
+          "matches": true
+        },
+        {
+          "path": "items.0.rate",
+          "expected": 6,
+          "actual": 6,
+          "matches": true
+        }
+      ],
+      "actual_items": [
+        {
+          "point_id": "SIM-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "ground_settlement",
+          "metric_name": "地表沉降",
+          "timestamp": "2026-10-02 08:00:00+08:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": 4,
+          "current": 7,
+          "interval_days": 0.5,
+          "cumulative": 7,
+          "single_change": 3,
+          "rate": 6,
+          "slope": null,
+          "problem_category": "变形监测",
+          "risk_level": "正常",
+          "utilization": 0.6,
+          "checks": [
+            {
+              "type": "cumulative",
+              "value": 7,
+              "limit": 12,
+              "unit": "mm",
+              "utilization": 0.5833333333333334,
+              "verdict": "未触发",
+              "limit_basis": "工程师确认项目控制值；非规范统一阈值"
+            },
+            {
+              "type": "rate",
+              "value": 6,
+              "limit": 10,
+              "unit": "mm/d",
+              "utilization": 0.6,
+              "verdict": "未触发",
+              "limit_basis": "工程师确认项目控制值；非规范统一阈值"
+            }
+          ],
+          "effective_standard": {
+            "origin": "project_confirmed",
+            "source_id": "PROJECT-CONTROL",
+            "source_label": "SIMULATED项目要求（不是实际工程确认）",
+            "origin_display": "项目确认要求"
+          },
+          "rule_id": "tunnel-project-deformation/v1",
+          "evidence": {
+            "standard": "SIMULATED项目要求（不是实际工程确认）",
+            "clause": "项目批准控制要求",
+            "note": "RAG仅查证适用要求，不改变本项限值"
+          },
+          "abstain": [],
+          "abstain_reasons": [],
+          "flags": [
+            "INPUT_CUMULATIVE_DOWNWARD_POSITIVE"
+          ],
+          "needs_review": false,
+          "unit": "mm",
+          "source_metadata": {
+            "original_timestamp": "2026-10-02 08:00:00",
+            "units": {
+              "current": "mm",
+              "cumulative": "mm",
+              "single_change": "mm",
+              "rate": "mm/d",
+              "slope": "mm/d"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "tunnel-elevation",
+      "status": "software_passed",
+      "comparisons": [
+        {
+          "path": "items.0.cumulative",
+          "expected": 5,
+          "actual": 5,
+          "matches": true
+        },
+        {
+          "path": "items.0.rate",
+          "expected": 4,
+          "actual": 4,
+          "matches": true
+        }
+      ],
+      "actual_items": [
+        {
+          "point_id": "SIM-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "ground_settlement",
+          "metric_name": "地表沉降",
+          "timestamp": "2026-10-02 08:00:00+08:00",
+          "data_origin": "simulated",
+          "baseline": 10000,
+          "previous": 9997,
+          "current": 9995,
+          "interval_days": 0.5,
+          "cumulative": 5,
+          "single_change": 2,
+          "rate": 4,
+          "slope": null,
+          "problem_category": "变形监测",
+          "risk_level": "正常",
+          "utilization": 0.4166666666666667,
+          "checks": [
+            {
+              "type": "cumulative",
+              "value": 5,
+              "limit": 12,
+              "unit": "mm",
+              "utilization": 0.4166666666666667,
+              "verdict": "未触发",
+              "limit_basis": "工程师确认项目控制值；非规范统一阈值"
+            },
+            {
+              "type": "rate",
+              "value": 4,
+              "limit": 10,
+              "unit": "mm/d",
+              "utilization": 0.4,
+              "verdict": "未触发",
+              "limit_basis": "工程师确认项目控制值；非规范统一阈值"
+            }
+          ],
+          "effective_standard": {
+            "origin": "project_confirmed",
+            "source_id": "PROJECT-CONTROL",
+            "source_label": "SIMULATED项目要求（不是实际工程确认）",
+            "origin_display": "项目确认要求"
+          },
+          "rule_id": "tunnel-project-deformation/v1",
+          "evidence": {
+            "standard": "SIMULATED项目要求（不是实际工程确认）",
+            "clause": "项目批准控制要求",
+            "note": "RAG仅查证适用要求，不改变本项限值"
+          },
+          "abstain": [],
+          "abstain_reasons": [],
+          "flags": [],
+          "needs_review": false,
+          "unit": "mm",
+          "source_metadata": {
+            "original_timestamp": "2026-10-02 08:00:00",
+            "units": {
+              "current": "mm",
+              "cumulative": "mm",
+              "single_change": "mm",
+              "rate": "mm/d",
+              "slope": "mm/d"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "tunnel-controls",
+      "status": "software_passed",
+      "comparisons": [
+        {
+          "path": "items.0.risk_level",
+          "expected": "未知",
+          "actual": "未知",
+          "matches": true
+        }
+      ],
+      "actual_items": [
+        {
+          "point_id": "SIM-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "ground_settlement",
+          "metric_name": "地表沉降",
+          "timestamp": "2026-10-02 08:00:00+08:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": 4,
+          "current": 7,
+          "interval_days": 0.5,
+          "cumulative": 7,
+          "single_change": 3,
+          "rate": 6,
+          "slope": null,
+          "problem_category": "变形监测待核",
+          "risk_level": "未知",
+          "utilization": null,
+          "checks": [],
+          "effective_standard": {
+            "origin": "unconfirmed",
+            "source_id": "PROJECT-CONTROL",
+            "source_label": "SIMULATED项目要求（不是实际工程确认）",
+            "origin_display": "未确认项目要求"
+          },
+          "rule_id": "tunnel-project-deformation/v1",
+          "evidence": {
+            "standard": "SIMULATED项目要求（不是实际工程确认）",
+            "clause": "项目批准控制要求",
+            "note": "RAG仅查证适用要求，不改变本项限值"
+          },
+          "abstain": [
+            "MISSING_CONFIRMED_PROJECT_CRITERIA"
+          ],
+          "abstain_reasons": [
+            "MISSING_CONFIRMED_PROJECT_CRITERIA"
+          ],
+          "flags": [
+            "INPUT_CUMULATIVE_DOWNWARD_POSITIVE"
+          ],
+          "needs_review": true,
+          "unit": "mm",
+          "source_metadata": {
+            "original_timestamp": "2026-10-02 08:00:00",
+            "units": {
+              "current": "mm",
+              "cumulative": "mm",
+              "single_change": "mm",
+              "rate": "mm/d",
+              "slope": "mm/d"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "tunnel-revoked",
+      "status": "manual_review_required",
+      "reference": "https://www.mohurd.gov.cn/gongkai/zc/wjk/art/2024/art_17339_767715.html"
+    },
+    {
+      "case_id": "tunnel-uplift",
+      "status": "software_passed",
+      "comparisons": [
+        {
+          "path": "items.0.risk_level",
+          "expected": "未知",
+          "actual": "未知",
+          "matches": true
+        },
+        {
+          "path": "items.0.abstain",
+          "expected": [
+            "REVERSE_DIRECTION_CONTROL_NOT_PROVIDED"
+          ],
+          "actual": [
+            "REVERSE_DIRECTION_CONTROL_NOT_PROVIDED"
+          ],
+          "matches": true
+        }
+      ],
+      "actual_items": [
+        {
+          "point_id": "SIM-GOLD",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "ground_settlement",
+          "metric_name": "地表沉降",
+          "timestamp": "2026-10-02 08:00:00+08:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": -1,
+          "current": -1,
+          "interval_days": 0.5,
+          "cumulative": -1,
+          "single_change": 0,
+          "rate": 0,
+          "slope": null,
+          "problem_category": "变形监测待核",
+          "risk_level": "未知",
+          "utilization": 0,
+          "checks": [
+            {
+              "type": "rate",
+              "value": 0,
+              "limit": 10,
+              "unit": "mm/d",
+              "utilization": 0,
+              "verdict": "未触发",
+              "limit_basis": "工程师确认项目控制值；非规范统一阈值"
+            }
+          ],
+          "effective_standard": {
+            "origin": "project_confirmed",
+            "source_id": "PROJECT-CONTROL",
+            "source_label": "SIMULATED项目要求（不是实际工程确认）",
+            "origin_display": "项目确认要求"
+          },
+          "rule_id": "tunnel-project-deformation/v1",
+          "evidence": {
+            "standard": "SIMULATED项目要求（不是实际工程确认）",
+            "clause": "项目批准控制要求",
+            "note": "RAG仅查证适用要求，不改变本项限值"
+          },
+          "abstain": [
+            "REVERSE_DIRECTION_CONTROL_NOT_PROVIDED"
+          ],
+          "abstain_reasons": [
+            "REVERSE_DIRECTION_CONTROL_NOT_PROVIDED"
+          ],
+          "flags": [
+            "INPUT_CUMULATIVE_DOWNWARD_POSITIVE"
+          ],
+          "needs_review": true,
+          "unit": "mm",
+          "source_metadata": {
+            "original_timestamp": "2026-10-02 08:00:00",
+            "units": {
+              "current": "mm",
+              "cumulative": "mm",
+              "single_change": "mm",
+              "rate": "mm/d",
+              "slope": "mm/d"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "tunnel-convergence",
+      "status": "software_passed",
+      "comparisons": [
+        {
+          "path": "items.0.cumulative",
+          "expected": 7,
+          "actual": 7,
+          "matches": true
+        },
+        {
+          "path": "items.0.risk_level",
+          "expected": "预警",
+          "actual": "预警",
+          "matches": true
+        }
+      ],
+      "actual_items": [
+        {
+          "point_id": "SIM-CON",
+          "point_name": null,
+          "point_type": null,
+          "metric_key": "tunnel_convergence",
+          "metric_name": "净空收敛",
+          "timestamp": "2026-10-02 08:00:00+08:00",
+          "data_origin": "simulated",
+          "baseline": 0,
+          "previous": null,
+          "current": 7,
+          "interval_days": null,
+          "cumulative": 7,
+          "single_change": null,
+          "rate": null,
+          "slope": null,
+          "problem_category": "变形监测",
+          "risk_level": "预警",
+          "utilization": 1.1666666666666667,
+          "checks": [
+            {
+              "type": "cumulative",
+              "value": 7,
+              "limit": 6,
+              "unit": "mm",
+              "utilization": 1.1666666666666667,
+              "verdict": "预警",
+              "limit_basis": "工程师确认项目控制值；非规范统一阈值"
+            }
+          ],
+          "effective_standard": {
+            "origin": "project_confirmed",
+            "source_id": "PROJECT-CONTROL",
+            "source_label": "SIMULATED收敛方案（非工程确认）",
+            "origin_display": "项目确认要求"
+          },
+          "rule_id": "tunnel-project-deformation/v1",
+          "evidence": {
+            "standard": "SIMULATED收敛方案（非工程确认）",
+            "clause": "项目批准控制要求",
+            "note": "RAG仅查证适用要求，不改变本项限值"
+          },
+          "abstain": [
+            "MISSING_RATE"
+          ],
+          "abstain_reasons": [
+            "MISSING_RATE"
+          ],
+          "flags": [
+            "INPUT_CONVERGENCE_INWARD_POSITIVE"
+          ],
+          "needs_review": true,
+          "unit": "mm",
+          "source_metadata": {
+            "original_timestamp": "2026-10-02 08:00:00",
+            "units": {
+              "current": "mm",
+              "cumulative": "mm",
+              "single_change": "mm",
+              "rate": "mm/d",
+              "slope": "mm/d"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

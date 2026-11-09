@@ -1,0 +1,261 @@
+{
+  "type": "object",
+  "properties": {
+    "section_aliases": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "point_sections": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "case_context": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string"
+        },
+        "soil": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "groundwater": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "value_semantics": {
+      "type": "string",
+      "enum": [
+        "cumulative_settlement",
+        "elevation",
+        "cumulative_displacement"
+      ]
+    },
+    "control_source": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "cumulative_limit_mm": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rate_limit_mm_per_day": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "control_values_confirmed": {
+      "type": "boolean"
+    },
+    "tunnel_system": {
+      "type": "string",
+      "enum": [
+        "rail",
+        "highway",
+        "urban_road"
+      ]
+    },
+    "construction_method": {
+      "type": "string",
+      "enum": [
+        "shield",
+        "mining",
+        "cut_cover"
+      ]
+    },
+    "project_stage": {
+      "type": "string",
+      "enum": [
+        "construction",
+        "reinforcement",
+        "maintenance"
+      ]
+    },
+    "special_condition": {
+      "type": "string",
+      "enum": [
+        "none",
+        "karst",
+        "gas",
+        "karst_gas"
+      ]
+    },
+    "control_metric": {
+      "type": "string",
+      "enum": [
+        "ground_settlement",
+        "building_settlement",
+        "crown_settlement",
+        "tunnel_convergence"
+      ]
+    },
+    "metric_controls": {
+      "type": "object",
+      "properties": {
+        "ground_settlement": {
+          "type": "object",
+          "properties": {
+            "cumulative_limit_mm": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "rate_limit_mm_per_day": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "value_semantics": {
+              "type": "string",
+              "enum": [
+                "cumulative_settlement",
+                "elevation",
+                "cumulative_displacement"
+              ]
+            }
+          },
+          "required": [
+            "source",
+            "confirmed"
+          ],
+          "additionalProperties": false
+        },
+        "building_settlement": {
+          "type": "object",
+          "properties": {
+            "cumulative_limit_mm": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "rate_limit_mm_per_day": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "value_semantics": {
+              "type": "string",
+              "enum": [
+                "cumulative_settlement",
+                "elevation",
+                "cumulative_displacement"
+              ]
+            }
+          },
+          "required": [
+            "source",
+            "confirmed"
+          ],
+          "additionalProperties": false
+        },
+        "crown_settlement": {
+          "type": "object",
+          "properties": {
+            "cumulative_limit_mm": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "rate_limit_mm_per_day": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "value_semantics": {
+              "type": "string",
+              "enum": [
+                "cumulative_settlement",
+                "elevation",
+                "cumulative_displacement"
+              ]
+            }
+          },
+          "required": [
+            "source",
+            "confirmed"
+          ],
+          "additionalProperties": false
+        },
+        "tunnel_convergence": {
+          "type": "object",
+          "properties": {
+            "cumulative_limit_mm": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "rate_limit_mm_per_day": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "value_semantics": {
+              "type": "string",
+              "enum": [
+                "cumulative_settlement",
+                "elevation",
+                "cumulative_displacement"
+              ]
+            }
+          },
+          "required": [
+            "source",
+            "confirmed"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "tunnel_system",
+    "construction_method",
+    "project_stage",
+    "special_condition"
+  ],
+  "additionalProperties": false
+}

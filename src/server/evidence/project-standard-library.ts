@@ -1,3 +1,4 @@
+import { standardVersionKey } from "@/server/evidence/standard-version";
 import "server-only";
 import { resolve, extname } from "node:path";
 import { z } from "zod";
@@ -15,6 +16,13 @@ async function call(projectId: string, action: string, body: Record<string, unkn
     root: resolve(/* turbopackIgnore: true */ process.env.EXCAVAGUARD_PROJECT_STANDARDS_ROOT || "var/project-standards"),
   }, { timeoutMs: action === "ingest" ? 120_000 : 30_000 });
   return result.result;
+}
+
+export async function projectStandardReviewSource(projectId: string, documentId: string) {
+  z.uuid().parse(documentId);
+  return z.strictObject({ document: projectStandardDocumentSchema, chunks: z.array(z.strictObject({
+    id: z.string(), page: z.number().int().positive(), clause: z.string(), text: z.string(),
+  })) }).parse(await call(projectId, "review_source", { document_id: documentId }));
 }
 
 export async function listProjectStandards(projectId: string) {
@@ -71,10 +79,10 @@ export class ProjectStandardRetriever implements StandardEvidenceRetriever {
 
 export function withProjectCatalog(catalog: CatalogStandard[], documents: ProjectStandardDocument[]): CatalogStandard[] {
   const result = new Map(catalog.map(s => [s.standard_version, s]));
-  for (const doc of documents) result.set(doc.standard_version, {
+  for (const doc of documents) { const shared=[...result.values()].find(s=>standardVersionKey(s.standard_version)===standardVersionKey(doc.standard_version)); if(shared)result.delete(shared.standard_version); result.set(doc.standard_version, {
     standard_name: doc.standard_name, standard_version: doc.standard_version,
-    effective_status: "active", scope_note: `${doc.region}；${doc.applicability}；仅当前项目补充规范`,
-  });
+    effective_status: shared?.effective_status ?? "active", ...(shared?.applicable!==undefined?{applicable:shared.applicable,scope_reason:shared.scope_reason}:{}), scope_note: `${shared?.scope_note??""}；${doc.region}；${doc.applicability}；仅当前项目补充规范`,
+  }); }
   return [...result.values()];
 }
 
