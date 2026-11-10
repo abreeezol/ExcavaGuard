@@ -1,0 +1,67 @@
+{
+  "generated_at": "2026-11-03T16:39:04",
+  "engine": "rapidocr-onnxruntime",
+  "source_root": "C:/Study/bisai/Hai AI Agent/隧道施工相关规范",
+  "files": [
+    {
+      "file": "JTG-T 3660-2020 公路隧道施工技术规范",
+      "category": "公路隧道",
+      "out": "data_tunnel/ocr_text/公路隧道/JTG-T 3660-2020 公路隧道施工技术规范.ocr.txt",
+      "pages_done": 246,
+      "page_range": [
+        1,
+        246
+      ],
+      "pages_total": 246,
+      "chars": 186034,
+      "low_text_pages": [],
+      "seconds": 343.0,
+      "dpi": 200
+    },
+    {
+      "file": "GB 50446-2017 盾构法隧道施工及验收规范",
+      "category": "盾构隧道",
+      "out": "data_tunnel/ocr_text/盾构隧道/GB 50446-2017 盾构法隧道施工及验收规范.ocr.txt",
+      "pages_done": 65,
+      "page_range": [
+        1,
+        65
+      ],
+      "pages_total": 65,
+      "chars": 31528,
+      "low_text_pages": [],
+      "seconds": 61.6,
+      "dpi": 200
+    },
+    {
+      "file": "GB 50911-2013 城市轨道交通工程监测技术规范",
+      "category": "轨道交通配套",
+      "out": "data_tunnel/ocr_text/轨道交通配套/GB 50911-2013 城市轨道交通工程监测技术规范.ocr.txt",
+      "pages_done": 93,
+      "page_range": [
+        1,
+        93
+      ],
+      "pages_total": 93,
+      "chars": 46773,
+      "low_text_pages": [],
+      "seconds": 111.2,
+      "dpi": 200
+    },
+    {
+      "file": "GB 50086-2015 岩土锚杆与喷射混凝土支护工程技术规范",
+      "category": "通用基础",
+      "out": "data_tunnel/ocr_text/通用基础/GB 50086-2015 岩土锚杆与喷射混凝土支护工程技术规范.ocr.txt",
+      "pages_done": 150,
+      "page_range": [
+        1,
+        150
+      ],
+      "pages_total": 150,
+      "chars": 74981,
+      "low_text_pages": [],
+      "seconds": 137.2,
+      "dpi": 200
+    }
+  ]
+}

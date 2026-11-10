@@ -567,3 +567,14 @@ sqlite3 data/chroma_db/chroma.sqlite3 "SELECT COUNT(*) FROM embeddings;"        
 ## 2026-11-05 整体框架与事实边界
 
 准备层与Agent层共用`src/server/preparation/fact-integrity.ts`。辅助资料必须来自冻结载荷，平行参数只允许相同内容；续跑不得追加/替换依据或不同引擎输入。入口及检查点校验引擎事实指纹，向保存回调传递副本；旧载荷兼容不等于跳过Agent快照指纹。该机制用于一致性，不宣称数字签名或专业正确性。保留三Agent，专业数值规则仍由程序执行；规范检索覆盖不等于可执行规则覆盖。见34号记录。
+
+## 2026-11-09 隧道判据库、场景画像与适配器入口
+
+- `确定性计算层/pipeline/` 仍是判定的唯一实现；`engineering-adapters/*/runtime/` 只做协议转换与参数组装，不得复制判定逻辑。
+- 场景由 `确定性计算层/scenarios/<id>.json` 声明；入口 `options.scenario` 缺省读 `EXCAVAGUARD_SCENARIO`，再缺省 `jikeng`。
+- 隧道判据库每条规则必须带 `evidence.standard` 与 `evidence.clause`；无出处不填数，缺判据一律弃权 `NO_APPLICABLE_RULE`，不得因"未超限"判正常。
+- 断面判定只按显式 `section_map` 或测点台账 `section_id` 归组；缺必测项（拱顶沉降、净空收敛）或含不可判定条目时，断面不得判为正常。
+- 隧道日报按 GB 50911-2013 第 11.0.5 条在 v6 报告层实现（`foundation-pit/runtime/`）：正文八节、附录 C 巡查表、附录 D 四张表、监测点平面位置图；由 `project.scenario_id=tunnel` 触发，基坑路径不得受影响。
+- 无 `patrol.records` 时不出附录 C，且不得判定现场巡查正常；巡查「未填写」不等于「正常」。表头仪器信息/天气缺值时保留「＿＿＿＿」并进待复核。
+- 上游 `engineering-adapters/tunnel-monitoring/` 使用项目确认的控制值、不内置数值阈值；两套口径并存时以项目控制值为准，并在报告中披露来源。
+

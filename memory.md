@@ -1,5 +1,15 @@
 # ExcavaGuard 项目记忆
 
+### 2026-11-09 隧道判据库与场景层合入最新 main
+
+- 以最新 main（7a92ff540）为基线重建分支：引擎侧 `确定性计算层/pipeline/` 的场景化改造与隧道判据库保留；skill 入口改为上游适配器架构（`engineering-adapters/foundation-pit/runtime/`）。
+- 三方合并：`run_judgement` / `check_strictness` / `normalize_records` 迁入适配器 runtime 时保留上游 `default_standards_dir`、多文件汇总与场景参数（`scenario` / `conditions` / `reference_lengths` / `derived_pairs` / `section_map`）。
+- 判据库 `确定性计算层/standards/tunnel/thresholds_tunnel_gb50911_jtg3660.json`：43 规则 / 29 测项 / 8 危险报警条件，来源 GB 50911-2013 第9章与 JTG/T 3660-2020 18.6.3、表18.5.21。
+- 新增断面级综合判定 `section_judge.py`、收敛稳定 `convergence.py`、差值派生 `derived_pairs.py`、场景画像 `scenarios/`、隧道语料工具与 `data_tunnel/`。
+- 隧道日报已移植到 v6 报告层（`foundation-pit/runtime/report_adapter.py` / `report_artifacts.py`）：按 GB 50911-2013 第 11.0.5 条八节组织，附录 C 巡查表（按工法选表）、附录 D 四张表（两行表头、控制值列）、监测点平面位置图；基坑路径与上游 v6 输出逐单元格一致（正文/工作表/单元格/合并区/review_gaps 全等）。
+- 上游隧道适配器（`engineering-adapters/tunnel-monitoring/`）仍走项目控制值路线，与条文判据库并存；两套口径在报告中分别标注来源。
+- 验证：引擎 244、场景 92、隧道判定 64 通过；适配器 runtime 入口的基坑与隧道两条链路冒烟通过。
+
 ### 2026-11-04 案例与工况Skill接通（适配器2.1.0）
 
 - 原两契约Skill现已实现：项目独立辅助资料上传/启停/模板，明确测项或关键词案例检索，同日位置关联、结构化冲突核验；专业策略读适配器supporting_context。8个Skill均有实现，不宣称语义向量检索或因果推断。

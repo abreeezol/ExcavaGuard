@@ -60,8 +60,16 @@ from standards_registry import StandardsRegistry  # noqa: E402
 from risk_identifier import (  # noqa: E402
     ProjectContext,
     judge_batch,
+    register_problem_categories,
     summarize,
 )
+
+# 场景画像：把「基坑」这一默认场景的假设显式化，并支持切换到其他场景。
+# 默认（未传 scenario 且未设置 EXCAVAGUARD_SCENARIO）仍是基坑，行为与改造前一致。
+_SCENARIOS_DIR = BASE.parent / "scenarios"
+if str(_SCENARIOS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCENARIOS_DIR))
+import scenario as scenario_profile  # noqa: E402
 
 
 def _day_index(ts: str | None) -> float:
@@ -139,7 +147,6 @@ def compute_batch_with_series(
                 measurement_semantics=getattr(r, "measurement_semantics", "raw_observation"),
                 source_flags=getattr(r, "source_flags", None),
                 source_metadata=getattr(r, "source_metadata", None),
-                unit=getattr(r, "unit", None),
                 history=hist,
                 expected_interval_days=expected_interval_days,
                 input_flags=getattr(r, "flags", None),
@@ -209,19 +216,40 @@ def run_pipeline(
     expected_interval_days: float | None = None,
     value_range: tuple[float, float] | None = None,
     registry: StandardsRegistry | None = None,
+    scenario: dict | None = None,
+    derived_pairs: Sequence[dict] | None = None,
+    derived_metric_key: str | None = None,
 ) -> PipelineResult:
-    """按 阶段一 → 阶段二 → 阶段三 顺序执行。"""
+    """按 阶段一 → 阶段二 → 阶段三 顺序执行。
+
+    scenario
+        场景画像（`确定性计算层/scenarios/*.json`）。缺省读取环境变量
+        `EXCAVAGUARD_SCENARIO`，未设置时为 `jikeng`，即改造前行为。
+    derived_pairs / derived_metric_key
+        差值型派生（隧道断面收敛等）。**必须显式给出点对**，系统不按点号猜测配对；
+        未给出时不做任何派生，行为与改造前一致。
+    """
     ctx = ctx or ProjectContext()
+    profile = scenario or scenario_profile.active_profile()
     # 复制一份：本次运行会填充 rate_history，**不应写回调用方传入的 ctx**。
     # 否则同一个 ctx 复用于第二批数据时会沿用上一批的速率历史，
     # 让"连续 3 期速率超限值 70%"和"位移收敛性"用错序列。
     ctx = replace(ctx, rate_history=dict(ctx.rate_history or {}))
+    # 场景默认条件只在调用方未显式给出时补齐，不覆盖真实输入。
+    scenario_profile.attach_to_context(ctx, profile)
+    if not ctx.scenario_id:
+        ctx.scenario_id = str(profile.get("id"))
     res = PipelineResult()
-    reg = registry or StandardsRegistry()
+    reg = registry or scenario_profile.load_registry(profile)
+    register_problem_categories(scenario_profile.problem_category_extras(profile))
 
     # ---------- 阶段一 · 数据准备 ----------
-    # 监测项别名：允许用户用中文名称（规范库 display_name）或常见简称，自动映射到 metric_key
-    metric_aliases = build_metric_aliases(reg.display_names())
+    # 监测项别名：允许用户用中文名称（规范库 display_name）或常见简称，自动映射到 metric_key。
+    # 场景画像可追加别名（隧道：拱顶下沉/净空收敛…），只接受判据库中已存在的 metric_key。
+    metric_aliases = build_metric_aliases(
+        reg.display_names(),
+        scenario_profile.metric_alias_extras(profile),
+    )
 
     norm = normalize_records(
         list(records),
@@ -230,6 +258,27 @@ def run_pipeline(
         default_origin=default_origin,
         metric_aliases=metric_aliases,
     )
+    # 差值型派生：把显式点对相减，产出新的测项序列（默认不启用）
+    derive_pair_stats: dict | None = None
+    if derived_pairs:
+        from derived_pairs import derive_pair_records
+
+        pair_metric = derived_metric_key or default_metric_key
+        if not pair_metric:
+            pair_metric = next(
+                (m.get("metric_key") for m in scenario_profile.derived_metrics(profile)),
+                None,
+            )
+        if not pair_metric:
+            raise ValueError(
+                "差值型派生需要 derived_metric_key（或画像中声明 derived_metrics）。"
+            )
+        pair_records, pair_report = derive_pair_records(
+            norm, derived_pairs, metric_key=str(pair_metric)
+        )
+        derive_pair_stats = pair_report.to_dict()
+        derive_pair_stats["metric_key"] = str(pair_metric)
+        norm = [*norm, *pair_records]
     # 时序派生：用户只给了「测点/时间/项目/数值/单位」时，
     # 初始值、上次值、观测间隔按测点时序确定性派生（显式提供的值优先，不覆盖）。
     derive_stats = derive_temporal_fields(norm)
@@ -248,6 +297,8 @@ def run_pipeline(
         "quality_report": qrep.to_dict(),
         "blocked_records": len(blocked_map),             # 被数据质量阻塞的期次
         "derived_fields": derive_stats,                  # 时序派生统计
+        "derived_pairs": derive_pair_stats,              # 差值型派生统计（未启用为 null）
+        "scenario_id": profile.get("id"),
         "note": "用户上传数据与模拟数据在此统一作为风险识别参数的输入依据；模拟数据仅用于健壮性验证，不替代真实数据。",
     }
 
@@ -274,12 +325,19 @@ def run_pipeline(
     judgments = judge_batch(calcs, reg, ctx, blocked_map=blocked_map)
     res.stage3 = {
         "stage": "阶段三 · 规范比对",
+        "scenario": scenario_profile.summary(profile),
+        "context": ctx.to_dict(),
+        # 断面级判定的配置（隧道：同断面必测项 + 缺测不得判正常）；基坑默认关闭
+        "section_config": {
+            **(profile.get("section_judgment") or {}),
+            "enabled": bool((profile.get("section_judgment") or {}).get("enabled")),
+        },
         "standards_sources": reg.source_report(),
         "has_user_standards": reg.has_user_standards(),
         "standards_index_summary": reg.index_summary(),
         "metric_names": reg.display_names(),
         "judgments": [j.to_dict() for j in judgments],
-        "note": "默认使用「基坑智守项目相关规范」目录内的规范作为通用判据；用户上传规范时按字段覆盖，未上传时不作特殊处理。",
+        "note": "默认判据来自当前场景的默认规范库（见 standards_sources）；用户上传规范时按字段覆盖，未上传时不作特殊处理。",
     }
 
     res.summary = {
@@ -290,9 +348,13 @@ def run_pipeline(
         "data_quality_blocked": len(blocked_map),
         "calc_results": len(calcs),
         "judgments": len(judgments),
+        "derived_pairs_produced": (derive_pair_stats or {}).get("produced", 0),
+        "scenario_id": profile.get("id"),
+        "scenario_ready": scenario_profile.is_ready(profile),
         "effective_standard_origin": (
             "user_uploaded" if reg.has_user_standards() else "default_library"
         ),
+        "effective_standard_stage": "阶段三 · 规范比对",
         **summarize(judgments),
     }
     return res
@@ -385,6 +447,7 @@ def build_daily_report_input(
     points_meta: dict | None = None,
     report_date: str | None = None,
     item_date: str | None = None,
+    section_map: dict | None = None,
 ) -> dict:
     """把三阶段结果整理成日报生成模块可直接消费的结构化输入。
 
@@ -417,15 +480,19 @@ def build_daily_report_input(
                 "point_id": j.get("point_id"),
                 "point_name": pm.get("point_name"),
                 "point_type": pm.get("point_type"),
+                # 平面位置图所需：里程/断面与可选平面坐标，均来自调用方测点台账
+                "mileage": pm.get("mileage"),
+                "x": pm.get("x"),
+                "y": pm.get("y"),
                 "metric_key": j.get("metric_key"),
                 "metric_name": names.get(j.get("metric_key"), j.get("metric_key")),
                 "timestamp": j.get("timestamp"),
                 "data_origin": j.get("data_origin"),
+
                 # --- 本期成果（阶段二）---
                 "baseline": inputs.get("baseline"),
                 "previous": inputs.get("previous"),
                 "current": inputs.get("current"),
-                "unit": inputs.get("unit"),
                 "interval_days": inputs.get("interval_days"),
                 "measurement_semantics": inputs.get("measurement_semantics", "raw_observation"),
                 "source_flags": inputs.get("source_flags", []),
@@ -447,6 +514,9 @@ def build_daily_report_input(
                 "abstain_reasons": j.get("abstain_reasons", []),
                 "flags": j.get("flags", []),
                 "needs_review": bool(blocked),
+                # --- 规范原文口径的附加结论（无判据时为 None）---
+                "management_level": j.get("management_level"),
+                "stability": j.get("stability"),
             }
         )
 
@@ -459,6 +529,23 @@ def build_daily_report_input(
 
     alerts = [it for it in items if it["risk_level"] in ALERT_LEVELS]
     review_queue = [it for it in items if it["needs_review"]]
+
+    # --- 断面级综合判定（隧道：同断面取最不利 + 缺测不得判正常）---
+    section_result: dict | None = None
+    section_cfg = s3.get("section_config") or {}
+    if section_cfg.get("enabled"):
+        from section_judge import build_section_map, judge_sections
+
+        smap = build_section_map(meta, explicit=section_map)
+        for it in items:
+            it["section_id"] = smap.get(str(it.get("point_id") or ""))
+        section_result = judge_sections(
+            items,
+            smap,
+            required_metrics=section_cfg.get("required_metrics") or (),
+            strict=bool(section_cfg.get("strict", True)),
+            metric_names=names,
+        )
     report_summary = _summarize_report_items(items) if item_date else {
         "total": result.summary.get("total"),
         "by_risk_level": result.summary.get("by_risk_level", {}),
@@ -536,6 +623,16 @@ def build_daily_report_input(
             "excavation_depth_m": None,
             "safety_level": None,
             "support_type": None,
+            # --- 场景画像（新增，向后兼容：project 允许扩展字段）---
+            # scenario_status = "skeleton" 时表示判据库尚未接入，只可出草稿核对，
+            # 不得据此发布预警，也不得把弃权项写成"正常"。
+            "scenario_id": s3.get("scenario", {}).get("id"),
+            "scenario_name": s3.get("scenario", {}).get("name"),
+            "scenario_status": s3.get("scenario", {}).get("status"),
+            "scenario_ready": s3.get("scenario", {}).get("ready"),
+            "conditions": (s3.get("context", {}) or {}).get("conditions") or {},
+            "reference_lengths": (s3.get("context", {}) or {}).get("reference_lengths") or {},
+            "reference_length": s3.get("scenario", {}).get("reference_length"),
             **(project or {}),
         },
         "context": {
@@ -554,6 +651,7 @@ def build_daily_report_input(
         "summary": report_summary,
         "alerts": alerts,
         "review_queue": review_queue,
+        "sections": section_result,
         "standard_override_warnings": override_warnings,
         "items": items,
         "disclaimer": (

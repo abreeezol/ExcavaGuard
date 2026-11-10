@@ -56,6 +56,7 @@ def main() -> int:
         engine / "pipeline",
         engine / "pipeline" / "stage1_data_preparation",
         engine / "pipeline" / "stage3_standard_comparison",
+        engine / "scenarios",
     )
     if not all(path.is_dir() for path in paths):
         return _fail("ENGINE_NOT_FOUND", f"引擎目录不存在或不完整：{engine}", 3)
@@ -67,7 +68,7 @@ def main() -> int:
         from file_reader import aggregate_daily_records, read_monitoring_file
         from ingest import build_metric_aliases, derive_temporal_fields, normalize_records
         from quality_scan import scan_records
-        from standards_registry import StandardsRegistry
+        import scenario as scenario_profile
 
         records = request.get("records")
         read_report: dict | None = None
@@ -97,7 +98,13 @@ def main() -> int:
             )
             read_report["daily_aggregation"] = aggregation_report
 
-        aliases = build_metric_aliases(StandardsRegistry().display_names())
+        # 别名与规范库均按场景取值（默认 jikeng，行为与改造前一致）
+        profile = scenario_profile.load_profile(request.get("scenario"))
+        registry = scenario_profile.load_registry(profile)
+        aliases = build_metric_aliases(
+            registry.display_names(),
+            scenario_profile.metric_alias_extras(profile),
+        )
         normalized = normalize_records(records, metric_aliases=aliases)
         derived = derive_temporal_fields(normalized)
         quality = scan_records(
@@ -111,6 +118,7 @@ def main() -> int:
         process_flags = Counter(flag for record in normalized for flag in record.flags)
         serialized = [record.to_dict() for record in normalized]
         result = {
+            "scenario": scenario_profile.summary(profile),
             "read_report": read_report,
             "daily_aggregation": aggregation_report,
             "derived": derived,

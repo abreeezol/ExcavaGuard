@@ -29,6 +29,9 @@ DIMENSION_TABLES: dict[str, tuple[dict[str, float], str]] = {
     "length": ({"mm": 1.0, "cm": 10.0, "dm": 100.0, "m": 1000.0, "km": 1_000_000.0}, "mm"),
     "pressure": ({"pa": 1.0, "kpa": 1_000.0, "mpa": 1_000_000.0}, "kPa"),
     "force": ({"n": 1.0, "kn": 1_000.0, "mn": 1_000_000.0}, "kN"),
+    # 速度：隧道爆破振动等测项使用（cm/s 在爆破安全规程中是常用单位）。
+    # 单位键必须与其它量纲不重名（"m" 属长度），因此速度仅收录带 /s 的写法。
+    "velocity": ({"mm/s": 1.0, "cm/s": 10.0, "m/s": 1_000.0}, "mm/s"),
 }
 
 UNIT_TO_DIMENSION: dict[str, tuple[str, float]] = {
@@ -124,11 +127,18 @@ def normalize_metric_name(name: str) -> str:
     return t
 
 
-def build_metric_aliases(display_names: dict[str, str]) -> dict[str, str]:
+def build_metric_aliases(
+    display_names: dict[str, str],
+    extra_aliases: dict[str, str] | None = None,
+) -> dict[str, str]:
     """由规范库的标准名构建「别名 → metric_key」映射。
 
     收录：metric_key 本身、标准名、标准名归一化形式、常见简称。
     归一化后出现歧义（多个 metric_key 归一为同一名称）时**不收录**，避免猜错。
+
+    `extra_aliases` 为场景画像追加的别名（如隧道的"拱顶下沉/净空收敛"）。
+    只追加 **判据库中已存在** 的 metric_key，未收录的别名直接忽略，
+    避免把数据映射到一个根本不存在的测项上。
     """
     aliases: dict[str, str] = {}
     seen: dict[str, set[str]] = {}
@@ -149,6 +159,13 @@ def build_metric_aliases(display_names: dict[str, str]) -> dict[str, str]:
         if key in display_names:
             aliases.setdefault(short, key)
             aliases.setdefault(normalize_metric_name(short), key)
+
+    for short, key in (extra_aliases or {}).items():
+        short = str(short or "").strip()
+        if not short or key not in display_names:
+            continue
+        aliases.setdefault(short, key)
+        aliases.setdefault(normalize_metric_name(short), key)
 
     return aliases
 
@@ -386,11 +403,6 @@ def normalize_records(
                 source_metadata = {"raw": raw_source_metadata}
         else:
             source_metadata = {}
-
-        if isinstance(source_metadata.get("daily_aggregation"), dict):
-            aggregation = dict(source_metadata["daily_aggregation"])
-            aggregation.setdefault("unit", str(source_unit).strip() if source_unit not in (None, "") else None)
-            source_metadata["daily_aggregation"] = aggregation
 
         out.append(
             NormalizedRecord(

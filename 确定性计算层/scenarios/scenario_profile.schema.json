@@ -1,0 +1,285 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "excavaguard.scenario_profile.schema.json",
+  "title": "ExcavaGuard 场景画像",
+  "description": "把场景相关的隐含假设显式化：规范来源、条件维度、比例参照长度、别名、问题类别、差值型派生、日报表式、RAG 语料位置。画像不承载任何阈值数字。",
+  "type": "object",
+  "required": [
+    "schema",
+    "id",
+    "name",
+    "status",
+    "standards",
+    "conditions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "excavaguard.scenario_profile/v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "必须与文件名一致，供环境变量 EXCAVAGUARD_SCENARIO 定位。"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "active",
+        "skeleton"
+      ],
+      "description": "skeleton 表示判据库/语料尚未接入，不得产出工程结论。"
+    },
+    "description": {
+      "type": "string"
+    },
+    "standards": {
+      "type": "object",
+      "required": [
+        "default_dir"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "default_dir": {
+          "type": "string",
+          "description": "相对引擎根目录或绝对路径。"
+        },
+        "user_dir": {
+          "type": "string"
+        },
+        "origin_display_default": {
+          "type": "string"
+        },
+        "origin_display_user": {
+          "type": "string"
+        },
+        "spec_root_label": {
+          "type": "string"
+        },
+        "judgement_library": {
+          "type": "string"
+        },
+        "index_file": {
+          "type": "string"
+        }
+      }
+    },
+    "conditions": {
+      "type": "object",
+      "required": [
+        "dimensions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "defaults": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
+        },
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "与判据库 rule 同名的条件维度，逐维度匹配。"
+        },
+        "specificity_dimensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "命中多条规则时的具体度排序维度；默认取 dimensions 去掉 safety_level。"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "reference_lengths": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "primary": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "metric_aliases": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extra": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "problem_categories": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extra": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "derived_metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "metric_key",
+          "method"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "metric_key": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "difference_abs"
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "pair_by": {
+            "type": "string"
+          },
+          "requires_explicit_pairs": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "template_version": {
+          "type": "string"
+        },
+        "form_family": {
+          "type": "string"
+        },
+        "forms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "renderable": {
+          "type": "boolean"
+        },
+        "form_titles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "form_rules": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "rag": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "documented_assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "proposed_standards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "status"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "pending_inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ready": {
+      "type": "boolean",
+      "description": "判据库是否已接入并可用于判定。缺省时按 status=active 且 pending_inputs 为空推断。"
+    },
+    "pending_note": {
+      "type": "string",
+      "description": "对待提供项性质的说明（运行时参数 vs 库缺口）。"
+    },
+    "section_judgment": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "断面级综合判定配置：enabled / strict / required_metrics / basis。",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "strict": {
+          "type": "boolean"
+        },
+        "required_metrics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "basis": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
