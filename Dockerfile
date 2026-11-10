@@ -12,6 +12,7 @@ COPY 确定性计算层 ./确定性计算层
 COPY rag/standard-status.json ./rag/standard-status.json
 COPY engineering-adapters ./engineering-adapters
 COPY source/adapter_runtime ./source/adapter_runtime
+COPY tools/knowledge ./tools/knowledge
 RUN npm run build
 
 # Install target-specific optional binaries without emulating npm itself.
@@ -46,6 +47,7 @@ COPY --from=build /app/确定性计算层 ./确定性计算层
 COPY --from=build /app/rag ./rag
 COPY --from=build /app/engineering-adapters ./engineering-adapters
 COPY --from=build /app/source/adapter_runtime ./source/adapter_runtime
+COPY --from=build /app/tools/knowledge ./tools/knowledge
 COPY tools/access/manage.mjs ./tools/access/manage.mjs
 RUN groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --no-create-home app \
