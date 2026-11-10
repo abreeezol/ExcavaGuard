@@ -17,11 +17,16 @@
 !确定性计算层/
 !确定性计算层/pipeline/
 !确定性计算层/pipeline/**
+!确定性计算层/scenarios/
+!确定性计算层/scenarios/scenario.py
+!确定性计算层/scenarios/*.json
 !确定性计算层/contracts/
 !确定性计算层/contracts/**
 !确定性计算层/standards/
 !确定性计算层/standards/default/
 !确定性计算层/standards/default/**
+!确定性计算层/standards/tunnel/
+!确定性计算层/standards/tunnel/*.json
 !确定性计算层/tools/
 !确定性计算层/tools/validate_daily_report_input.py
 !rag/
@@ -29,6 +34,10 @@
 !tools/
 !tools/access/
 !tools/access/manage.mjs
+!tools/knowledge/
+!tools/knowledge/build_tunnel.py
+!tools/knowledge/requirements-ocr.txt
+!tools/knowledge/tunnel-sources.json
 !deploy/
 !deploy/requirements.txt
 engineering-adapters/verification-monitoring/**
