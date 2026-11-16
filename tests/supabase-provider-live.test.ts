@@ -231,6 +231,19 @@ describeLive("Supabase 应用 Provider 真实纵向验收", () => {
       .eq("run_id", runId)
       .order("revision", { ascending: true });
     expect((revisions ?? []).length).toBeGreaterThanOrEqual(5);
+    const { data: storedLatest, error: storedLatestError } = await client
+      .from("excavaguard_run_revisions")
+      .select("record")
+      .eq("run_id", runId)
+      .order("revision", { ascending: false })
+      .limit(1)
+      .single();
+    expect(storedLatestError).toBeNull();
+    expect(storedLatest?.record?.result?.agent_run?.state?.engine_snapshot?.payload)
+      .toEqual({
+        schema: "excavaguard.supabase_payload_ref/v1",
+        path: "result.payload",
+      });
 
     const { data: artifactRows } = await client
       .from("excavaguard_report_artifacts")

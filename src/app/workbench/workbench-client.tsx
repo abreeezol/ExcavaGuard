@@ -1,6 +1,7 @@
 "use client";
 import { MonitoringParameters,type MonitoringMetric } from "./monitoring-parameters";
 import { ProfessionalReviewPanel } from "./professional-review-panel";
+import { EngineerReviewPanel } from "./engineer-review-panel";
 import { ProjectContextPanel } from "./project-context-panel";
 import { ProjectStandards } from "./project-standards";
 import { ReportRangeDialog } from "./report-range-dialog";
@@ -140,6 +141,8 @@ type RunResponse = {
 };
 
 type ApiErrorBody = { error?: { code?: string; message?: string; fields?: string[] } };
+type OptionalTool = "" | "context" | "project-standard" | "thresholds";
+const OPTIONAL_TOOLS: OptionalTool[] = ["", "context", "project-standard", "thresholds"];
 
 // --- 展示辅助 -------------------------------------------------------------
 
@@ -192,13 +195,26 @@ async function readError(response: Response): Promise<string> {
 
 // --- 主组件 ---------------------------------------------------------------
 
-export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, onStepChange, onDefaultStep, initialRunId, sessionPending }: {
+export function ProjectWorkbench({
+  session,
+  onBusyChange,
+  onDirtyChange,
+  step,
+  onStepChange,
+  onDefaultStep,
+  initialRunId,
+  initialReportRange,
+  onInitialReportRangeConsumed,
+  sessionPending,
+}: {
   session: AccessStatus & { project_id: string }; onBusyChange: (busy: boolean) => void;
   onDirtyChange: (dirty: boolean) => void;
   step: WorkbenchStep;
   onStepChange: (step: WorkbenchStep, runId?: string | null) => void;
   onDefaultStep: (step: WorkbenchStep, runId?: string) => void;
   initialRunId: string | null;
+  initialReportRange?: ReportRange | null;
+  onInitialReportRangeConsumed?: () => void;
   sessionPending: boolean;
 }) {
   const project = session.projects?.find(p => p.id === session.project_id);
@@ -219,13 +235,15 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
   const [generateReport, setGenerateReport] = useState(true);
   const [reportMode, setReportMode] = useState<"ai" | "template">("ai");
   const [selectedStandardId, setSelectedStandardId] = useState<string | null>(null);
+  const [optionalTool, setOptionalTool] = useState<OptionalTool>("");
+  const [openedOptionalTools, setOpenedOptionalTools] = useState<Exclude<OptionalTool, "">[]>([]);
   const [rerunInput, setRerunInput] = useState<CreateRunRequest | null>(null);
   const [parentRunId, setParentRunId] = useState<string | null>(null);
   const operation = useRef(false);
   const dirty = useRef(false);
   const initialized = useRef(false);
-  const rangePrompted = useRef(false);
-  const confirmedRange = useRef(false);
+  const rangePrompted = useRef(Boolean(initialReportRange));
+  const confirmedRange = useRef(Boolean(initialReportRange));
   const requestController = useRef<AbortController | null>(null);
   const applicabilityDetails = useRef<HTMLDetailsElement>(null);
   const [scene, setScene] = useState<{ engineering_type?:{id:string;name:string}; monitoring_metrics?:MonitoringMetric[]; adapter: { id: string; name: string; version: string; supported_reports: string[]; core_fields: Array<{ key: string; label: string; required: boolean; choices?: string[]; choice_labels?:Record<string,string>; input_type?: string }> }; parameters: Record<string, unknown> | null; revision: number } | null>(null);
@@ -250,11 +268,11 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
     });
   }
   const [projectName, setProjectName] = useState(project?.name ?? "");
-  const [reportDate, setReportDate] = useState("");
-  const [reportKind, setReportKind] = useState<ReportKind>("daily");
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState("");
-  const [rangeConfirmed, setRangeConfirmed] = useState(false);
+  const [reportDate, setReportDate] = useState(initialReportRange?.date ?? "");
+  const [reportKind, setReportKind] = useState<ReportKind>(initialReportRange?.kind ?? "daily");
+  const [periodStart, setPeriodStart] = useState(initialReportRange?.start ?? "");
+  const [periodEnd, setPeriodEnd] = useState(initialReportRange?.end ?? "");
+  const [rangeConfirmed, setRangeConfirmed] = useState(Boolean(initialReportRange));
   const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
   const [resultInfoOpen, setResultInfoOpen] = useState(true);
   const range: ReportRange = { kind: reportKind, date: reportDate, start: periodStart, end: periodEnd };
@@ -298,6 +316,9 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
+  useEffect(() => {
+    if (initialReportRange) onInitialReportRangeConsumed?.();
+  }, [initialReportRange, onInitialReportRangeConsumed]);
   useEffect(() => {
     const controller = new AbortController();
     requestController.current = controller;
@@ -702,6 +723,34 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
     }
   }
 
+  async function saveEngineeringConfiguration(successMessage: string) {
+    if (!scene || !begin("configuration")) return;
+    try {
+      const response = await apiFetch("/api/projects/current/engineering", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          expected_revision: scene.revision,
+          adapter_version: scene.adapter.version,
+          parameters,
+        }),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      const body = await response.json();
+      setScene(current => current ? {
+        ...current,
+        parameters: body.engineering.parameters,
+        revision: body.engineering.revision,
+      } : current);
+      setParameters(body.engineering.parameters);
+      setNotice(successMessage);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "配置保存失败。");
+    } finally {
+      finish();
+    }
+  }
+
   async function uploadStandard() {
     if (operation.current) return;
     reset();
@@ -815,7 +864,25 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
   }
 
   const payload = result?.payload;
-  const byLevel = payload?.summary?.by_risk_level ?? {};
+  const originalByLevel = payload?.summary?.by_risk_level ?? {};
+  const effectiveSummary = result?.record.review?.effective_summary;
+  const byLevel = effectiveSummary?.by_risk_level ?? originalByLevel;
+  const overallRiskLevel = effectiveSummary?.overall_risk_level ??
+    payload?.summary?.overall_risk_level;
+  const totalRiskItems = effectiveSummary?.total ?? payload?.summary?.total ?? 0;
+  const alarmOrHigherCount = effectiveSummary
+    ? effectiveSummary.by_risk_level.报警 + effectiveSummary.by_risk_level.危险报警
+    : payload?.alerts?.length ?? 0;
+  const pendingReviewCount = effectiveSummary
+    ? effectiveSummary.by_risk_level.未知
+    : payload?.review_queue?.length ?? 0;
+  const reviewedRiskByIndex = new Map(
+    result?.record.review?.evaluations.flatMap(evaluation =>
+      evaluation.reviewed_risk_level
+        ? [[evaluation.risk_item_index, evaluation.reviewed_risk_level] as const]
+        : [],
+    ) ?? [],
+  );
   const maxLevelCount = Math.max(1, ...Object.values(byLevel));
   const visibleHistory = history.filter(run =>
     (!historyDate || run.report_date === historyDate) &&
@@ -858,6 +925,16 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
 
       <div className={`wb-grid wb-stage-${step}`}>
         <div className="wb-col wb-result-context" hidden={step !== "results"}>
+          <div className="wb-result-context-sticky">
+          {result?.record && <EngineerReviewPanel
+            key={`review:${result.record.run_id}:${result.record.revision}`}
+            record={result.record}
+            disabled={busy !== null || sessionPending}
+            canReviewRole={canReview}
+            onDirtyChange={notifyDirty}
+            onReview={(decision, reason, evaluations) => void perform("review", () => review(decision, reason, evaluations))}
+            onSaveEvaluations={(evaluations, reason) => void perform("evaluation", () => saveEvaluations(evaluations, reason))}
+          />}
           <details className="wb-result-info" open={resultInfoOpen} onToggle={event => setResultInfoOpen(event.currentTarget.open)}>
             <summary>工程条件与运行历史</summary>
             {result && <RunConditions record={result.record} currentName={project?.name} fields={scene?.adapter.core_fields} />}
@@ -921,6 +998,7 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
             </div>
           </section>
           </details>
+          </div>
         </div>
         <div className="wb-col wb-stage-input">
           <fieldset className="wb-inputs" disabled={busy !== null || sessionPending || !canWrite}>
@@ -960,15 +1038,16 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
                 </select>
               </Field>
             </details>}
-            {scene?.engineering_type?.id==='tunnel'&&<MonitoringParameters metrics={monitoring?detectedMetrics:[]} definitions={scene.monitoring_metrics??[]} parameters={parameters} onChange={setParameters}/>}
-            {(project?.role === "admin") && <button className="wb-btn wb-btn-sm" type="button" disabled={!scene || busy !== null} onClick={() => {
-              if (!scene || !begin("configuration")) return;
-              void (async () => { try {
-                const response = await apiFetch("/api/projects/current/engineering", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expected_revision: scene.revision, adapter_version: scene.adapter.version, parameters }) });
-                if (!response.ok) throw new Error(await readError(response));
-                const body = await response.json(); setScene(current => current ? { ...current, parameters: body.engineering.parameters, revision: body.engineering.revision } : current); setNotice("工程配置已确认保存，后续报告自动复用。");
-              } catch (caught) { setError(caught instanceof Error ? caught.message : "配置保存失败。"); } finally { finish(); } })();
-            }}>确认并保存工程配置</button>}
+              {(project?.role === "admin") && <button
+                className="wb-btn wb-btn-sm"
+                type="button"
+                disabled={!scene || busy !== null}
+                onClick={() => void saveEngineeringConfiguration(
+                  "工程条件已确认保存，后续报告自动复用。",
+                )}
+              >
+                确认并保存工程配置
+              </button>}
             <div className="wb-range-summary">
               <div><h3>报告范围</h3><p>{rangeSummary}</p></div>
               <button className="wb-btn" type="button" onClick={() => setRangeDialogOpen(true)}>{rangeConfirmed ? "修改范围" : "选择范围"}</button>
@@ -1091,10 +1170,67 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
             </select></Field>
             <p className="wb-hint">{windowMessage}</p><p>{rangeSummary}</p>
           </section>
-          <ProjectContextPanel apiFetch={apiFetch} start={() => begin("context")} finish={finish} />
-          {session?.authenticated && <ProjectStandards projectId={session.project_id} canReview={canReview} disabled={busy !== null || sessionPending || !canWrite}
-            usesProjectControls={scene?.engineering_type?.id==='tunnel'} onBusyChange={active => { operation.current = active; setBusy(active ? "project-standard" : null); }} />}
-          {isPit && <section className="wb-card">
+            {scene?.engineering_type?.id === "tunnel" && monitoring && <section
+              className="wb-card"
+              aria-label="监测参数设置"
+            >
+              <MonitoringParameters
+                metrics={detectedMetrics}
+                definitions={scene.monitoring_metrics ?? []}
+                parameters={parameters}
+                onChange={setParameters}
+              />
+              <p className="wb-hint">
+                当前填写值会用于本次运行；项目管理员保存后，同一工程后续报告可自动复用。
+              </p>
+              {project?.role === "admin" && <button
+                className="wb-btn wb-btn-sm"
+                type="button"
+                disabled={!scene || busy !== null}
+                onClick={() => void saveEngineeringConfiguration(
+                  "监测参数已确认保存，后续报告自动复用。",
+                )}
+              >
+                确认并保存监测参数
+              </button>}
+            </section>}
+          <section className="wb-card wb-optional-tools">
+            <div className="wb-card-head"><h2>可选资料</h2></div>
+            <Field label="选择要配置的可选资料">
+              <select value={optionalTool} onChange={event => {
+                const value = event.target.value;
+                if (!OPTIONAL_TOOLS.includes(value as OptionalTool)) return;
+                const selected = value as OptionalTool;
+                setOptionalTool(selected);
+                if (selected) {
+                  setOpenedOptionalTools(current => current.includes(selected) ? current : [...current, selected]);
+                }
+              }}>
+                <option value="">暂不配置</option>
+                <option value="context">案例、工况与巡视资料（可选）</option>
+                <option value="project-standard">项目补充规范（全文检索）</option>
+                {isPit && <option value="thresholds">用户规范 JSON（数值阈值，可选）</option>}
+              </select>
+            </Field>
+          </section>
+          {openedOptionalTools.includes("context") && <ProjectContextPanel
+            hidden={optionalTool !== "context"}
+            apiFetch={apiFetch}
+            start={() => begin("context")}
+            finish={finish}
+          />}
+          {session?.authenticated && openedOptionalTools.includes("project-standard") && <ProjectStandards
+            hidden={optionalTool !== "project-standard"}
+            projectId={session.project_id}
+            canReview={canReview}
+            disabled={busy !== null || sessionPending || !canWrite}
+            usesProjectControls={scene?.engineering_type?.id === "tunnel"}
+            onBusyChange={active => {
+              operation.current = active;
+              setBusy(active ? "project-standard" : null);
+            }}
+          />}
+          {isPit && openedOptionalTools.includes("thresholds") && <section className="wb-card" hidden={optionalTool !== "thresholds"}>
             <div className="wb-card-head">
               <span className="wb-step">3</span>
               <h2>用户规范 JSON（数值阈值，可选）</h2>
@@ -1264,11 +1400,7 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
 
         {/* ---------------- 右列：结果 ---------------- */}
         <div className="wb-col wb-result-main" hidden={step !== "results"}>
-          <ProfessionalReviewPanel apiFetch={apiFetch} canReview={canReview && busy === null && !sessionPending} />
-          {result?.record && <RunDelivery key={`${result.record.run_id}:${result.record.revision}`} record={result.record} disabled={busy !== null || sessionPending} canReviewRole={canReview} canWrite={canWrite}
-            onDirtyChange={notifyDirty}
-            onReview={(decision, reason, evaluations) => void perform("review", () => review(decision, reason, evaluations))}
-            onSaveEvaluations={(evaluations, reason) => void perform("evaluation", () => saveEvaluations(evaluations, reason))}
+          {result?.record && <RunDelivery key={`${result.record.run_id}:${result.record.revision}`} record={result.record} disabled={busy !== null || sessionPending} canWrite={canWrite}
             onDownload={(url, fileName) => void perform("download", () => download(url, fileName))}
             onLoadInputs={() => void perform("inputs", loadInputs)}
             onResume={() => void perform("resume", async () => {
@@ -1292,6 +1424,7 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
               </div>
             </section>
           )}
+          <ProfessionalReviewPanel apiFetch={apiFetch} canReview={canReview && busy === null && !sessionPending} />
 
           {result && payload && (
             <>
@@ -1314,22 +1447,22 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
                 </div>
                 <div className="wb-kpis">
                   <div className="wb-kpi">
-                    <span>总体风险等级</span>
+                    <span>{effectiveSummary ? "工程师最终风险等级" : "总体风险等级"}</span>
                     <strong>
-                      <LevelBadge level={payload.summary?.overall_risk_level} />
+                      <LevelBadge level={overallRiskLevel} />
                     </strong>
                   </div>
                   <div className="wb-kpi">
                     <span>判定条目</span>
-                    <strong>{payload.summary?.total ?? 0}</strong>
+                    <strong>{totalRiskItems}</strong>
                   </div>
                   <div className="wb-kpi">
                     <span>报警及以上</span>
-                    <strong>{payload.alerts?.length ?? 0}</strong>
+                    <strong>{alarmOrHigherCount}</strong>
                   </div>
                   <div className="wb-kpi">
                     <span>待人工复核</span>
-                    <strong>{payload.review_queue?.length ?? 0}</strong>
+                    <strong>{pendingReviewCount}</strong>
                   </div>
                   <div className="wb-kpi">
                     <span>数据质量阻塞</span>
@@ -1351,6 +1484,21 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
                   {result.engine?.python && <span className="wb-chip">Python {result.engine.python}</span>}
                   <span className="wb-chip">运行 {result.run_id?.slice(0, 8)}</span>
                 </div>
+
+                {effectiveSummary && <div className="wb-alert wb-alert-info" role="status">
+                  <div>
+                    <strong>当前总览采用工程师复核后口径</strong>
+                    <p>
+                      已调整 {effectiveSummary.adjusted_count} 条；系统原始判定保持不变并用于审计。
+                      总体等级 {payload.summary?.overall_risk_level ?? "未知"} → {effectiveSummary.overall_risk_level}。
+                    </p>
+                    <div className="wb-meta">
+                      {LEVEL_ORDER.map(level => <span className="wb-chip" key={level}>
+                        {level} {originalByLevel[level] ?? 0} → {effectiveSummary.by_risk_level[level]}
+                      </span>)}
+                    </div>
+                  </div>
+                </div>}
 
                 <div className="wb-dist" style={{ marginTop: 18 }}>
                   {LEVEL_ORDER.filter((level) => (byLevel[level] ?? 0) > 0).map((level) => (
@@ -1401,8 +1549,11 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
 
               <section className="wb-card">
                 <div className="wb-card-head">
-                  <h2>报警清单（报警及以上）</h2>
+                  <h2>{effectiveSummary ? "系统原始报警清单（报警及以上）" : "报警清单（报警及以上）"}</h2>
                 </div>
+                {effectiveSummary && <p className="wb-hint">
+                  此清单保留引擎原始输出用于审计；工程师调整见“逐测点明细”和上方复核后汇总。
+                </p>}
                 {(payload.alerts?.length ?? 0) === 0 ? (
                   <div className="wb-empty">
                     <p>无报警及以上条目。</p>
@@ -1450,10 +1601,11 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
 
               <section className="wb-card">
                 <div className="wb-card-head">
-                  <h2>待人工复核（弃权项）</h2>
+                  <h2>{effectiveSummary ? "系统原始待人工复核（弃权项）" : "待人工复核（弃权项）"}</h2>
                 </div>
                 <p className="wb-hint">
                   「未知」表示<strong>弃权，不是「安全」</strong>。缺 H、缺判据、数据质量问题都会进入这里，必须转人工复核。
+                  {effectiveSummary && " 此处保留系统原始队列，已处理数量以上方复核后汇总为准。"}
                 </p>
                 {(payload.review_queue?.length ?? 0) === 0 ? (
                   <div className="wb-empty">
@@ -1519,6 +1671,7 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
                         const cumulativeCheck = (item.checks ?? []).find((check) =>
                           String(check.check ?? "").startsWith("累计值"),
                         );
+                        const reviewedRiskLevel = reviewedRiskByIndex.get(index);
                         return (
                           <tr key={`${item.point_id}-${item.timestamp}-${item.metric_key}-${index}`}>
                             <td>{item.point_id}</td>
@@ -1540,7 +1693,13 @@ export function ProjectWorkbench({ session, onBusyChange, onDirtyChange, step, o
                             <td className="wb-num">{num(item.utilization, 3)}</td>
                             <td>
                               <LevelBadge level={item.risk_level} />
-                              {item.needs_review && <span className="wb-basis">待复核</span>}
+                              {reviewedRiskLevel && reviewedRiskLevel !== item.risk_level && <>
+                                <span className="wb-basis">系统原判 → 工程师最终</span>
+                                <LevelBadge level={reviewedRiskLevel} />
+                              </>}
+                              {item.needs_review && <span className="wb-basis">
+                                {reviewedRiskLevel ? "系统原始弃权已由工程师判定" : "待复核"}
+                              </span>}
                             </td>
                           </tr>
                         );

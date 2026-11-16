@@ -2,6 +2,26 @@
 export type MonitoringMetric={key:string;name:string;semantics?:string[];supported?:boolean};
 const semanticsLabels:Record<string,string>={cumulative_settlement:'累计沉降量（向下为正）',elevation:'原始高程（需初始基准）',cumulative_displacement:'累计收敛量（向内为正）'};
 type Controls={source?:string;confirmed?:boolean;cumulative_limit_mm?:number;rate_limit_mm_per_day?:number;value_semantics?:string};
+
+export function unconfirmedMonitoringMetrics(
+ metrics:MonitoringMetric[],
+ definitions:MonitoringMetric[],
+ parameters:Record<string,unknown>,
+):string[]{
+ const controls=(parameters.metric_controls??{}) as Record<string,Controls>;
+ return metrics.flatMap(metric=>{
+  const definition=definitions.find(item=>item.key===metric.key);
+  if(metric.supported===false||!definition)return [metric.name||metric.key];
+  const control=controls[metric.key];
+  const hasLimit=[control?.cumulative_limit_mm,control?.rate_limit_mm_per_day]
+   .some(value=>typeof value==='number'&&Number.isFinite(value)&&value>0);
+  return control?.confirmed===true&&
+   Boolean(control.source?.trim())&&
+   Boolean(control.value_semantics)&&
+   hasLimit?[]:[definition.name];
+ });
+}
+
 export function MonitoringParameters({metrics,definitions,parameters,onChange}:{metrics:MonitoringMetric[];definitions:MonitoringMetric[];parameters:Record<string,unknown>;onChange:(value:Record<string,unknown>)=>void}){
  const controls=(parameters.metric_controls??{}) as Record<string,Controls>;
  const keys=metrics.length?metrics.map(m=>m.key):Object.keys(controls);

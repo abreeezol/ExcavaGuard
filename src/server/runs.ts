@@ -5,7 +5,9 @@ import { randomUUID } from "node:crypto";
 import { agentRunStateSchema } from "@/contracts/agent-runtime";
 import type { LocalAccess } from "@/contracts/access";
 import {
+  effectiveRiskSummary,
   riskEvaluationTargets,
+  riskReviewTargets,
   type EngineerRiskEvaluation,
 } from "@/contracts/engineer-evaluation";
 import type { CreateRunRequest, PersistedRun, ReviewRequest, RunResult, SaveEvaluationRequest } from "@/contracts/runs";
@@ -31,8 +33,11 @@ function resolveRiskEvaluations(
   payload: unknown,
   input: Pick<ReviewRequest, "evaluations"> & { decision?: ReviewRequest["decision"] },
 ): EngineerRiskEvaluation[] {
-  const targets = riskEvaluationTargets(payload);
+  const targets = riskReviewTargets(payload);
   const targetByIndex = new Map(targets.map((target) => [target.risk_item_index, target]));
+  const requiredIndexes = new Set(
+    riskEvaluationTargets(payload).map(target => target.risk_item_index),
+  );
   const submitted = input.evaluations ?? [];
   const submittedIndexes = new Set<number>();
   const evaluations = submitted.map((evaluation) => {
@@ -44,15 +49,29 @@ function resolveRiskEvaluations(
     if (!target) {
       throw new AppError(409, "RUN_CONFLICT", "评价对象已变化，请重新打开当前运行后填写。");
     }
-    return { ...target, disposition: evaluation.disposition, comment: evaluation.comment };
+    if (target.risk_level === "未知" && evaluation.reviewed_risk_level === undefined) {
+      throw new AppError(
+        400,
+        "INVALID_REQUEST",
+        "未知/弃权项只有在工程师明确选择最终等级后才能提交评价。",
+      );
+    }
+    return {
+      ...target,
+      disposition: evaluation.disposition,
+      comment: evaluation.comment,
+      ...(evaluation.reviewed_risk_level
+        ? { reviewed_risk_level: evaluation.reviewed_risk_level }
+        : {}),
+    };
   });
 
   if (input.decision === "accepted") {
-    if (evaluations.length !== targets.length) {
+    if ([...requiredIndexes].some(index => !submittedIndexes.has(index))) {
       throw new AppError(
         400,
         "RISK_EVALUATION_REQUIRED",
-        "接受草稿前，必须逐项评价全部已判定非正常风险；正常和未知/弃权项不在此评价。",
+        "接受草稿前，必须逐项评价全部已判定非正常风险；未知/弃权项可按需给出工程师最终等级。",
       );
     }
     if (evaluations.some((evaluation) => evaluation.disposition === "disputed")) {
@@ -285,6 +304,7 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
   const at = new Date().toISOString();
   const reviewer = access.actor ?? { id: access.owner_id, name: "本地工程师" };
   const savedEvaluations = new Map(record.evaluation_draft?.evaluations.map(item => [item.risk_item_index, item]));
+  const effectiveSummary = effectiveRiskSummary(record.result?.payload, evaluations);
   const state = agentRunStateSchema.parse({
     ...agent.state,
     run: {
@@ -302,6 +322,7 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
       output_versions: {
         decision: input.decision,
         risk_evaluation_count: String(evaluations.length),
+        risk_adjustment_count: String(effectiveSummary.adjusted_count),
       },
       rule_ids: [], evidence_ids: [],
       error: null, return_reason: input.reason, started_at: at, finished_at: at,
@@ -313,7 +334,10 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
       draft_ref: draft.ref,
       evaluations: evaluations.map(evaluation => {
         const previous = savedEvaluations.get(evaluation.risk_item_index);
-        return previous && previous.disposition === evaluation.disposition && previous.comment === evaluation.comment
+        return previous &&
+          previous.disposition === evaluation.disposition &&
+          previous.comment === evaluation.comment &&
+          previous.reviewed_risk_level === evaluation.reviewed_risk_level
           ? previous : { ...evaluation, evaluated_by: reviewer, evaluated_at: at };
       }),
       updated_by: reviewer,
@@ -333,7 +357,7 @@ export async function reviewRun(runId: string, input: ReviewRequest, access: Loc
     }) },
     review: {
       decision: input.decision, reason: input.reason,
-      evaluations,
+      evaluations, effective_summary: effectiveSummary,
       submitted_at: at, owner_id: access.owner_id, draft_ref: draft.ref,
       submitted_by: access.actor ?? { id: access.owner_id, name: "本地工程师" },
     },
@@ -364,7 +388,10 @@ export async function saveRiskEvaluations(runId: string, input: SaveEvaluationRe
   const merged = new Map((record.evaluation_draft?.evaluations ?? []).map(item => [item.risk_item_index, item]));
   for (const evaluation of evaluations) {
     const previous = merged.get(evaluation.risk_item_index);
-    if (!previous || previous.disposition !== evaluation.disposition || previous.comment !== evaluation.comment) {
+    if (!previous ||
+        previous.disposition !== evaluation.disposition ||
+        previous.comment !== evaluation.comment ||
+        previous.reviewed_risk_level !== evaluation.reviewed_risk_level) {
       merged.set(evaluation.risk_item_index, { ...evaluation, evaluated_by: actor, evaluated_at: at });
     }
   }

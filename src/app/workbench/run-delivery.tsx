@@ -2,13 +2,10 @@
 
 import { PreparationSummary } from "./preparation-summary";
 import { auditStages, isAuditComplete, AUDIT_STAGE_LABELS } from "@/contracts/audit-status";
-import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import type { PersistedRun, ReviewRequest } from "@/contracts/runs";
 import {
-  riskEvaluationTargets,
   type EngineerEvaluationDisposition,
-  type EngineerRiskEvaluationInput,
 } from "@/contracts/engineer-evaluation";
 import { evidenceReferences, evidenceSourceLocation, standardCitation, standardName, type StandardCoverage } from "@/contracts/evidence-display";
 import { standardEvidenceSchema } from "@/contracts/standard-evidence";
@@ -25,6 +22,7 @@ const STATUS: Record<string, string> = {
   awaiting_human_review: "待工程师复核", stopped: "已停止自动处理",
   running: "执行中", completed: "执行已结束", waiting: "等待能力恢复", failed: "执行失败",
 };
+const RISK_LEVELS = ["正常", "关注", "预警", "报警", "危险报警", "未知"] as const;
 
 export function executionLabel(value: string): string {
   return STATUS[value] ?? value;
@@ -35,31 +33,15 @@ export function decisionLabel(value: ReviewRequest["decision"]): string {
 }
 
 export function RunDelivery({
-  record, disabled, onReview, onSaveEvaluations, onResume, onDownload, onLoadInputs, onDirtyChange, canReviewRole = true, canWrite = true,
+  record, disabled, onResume, onDownload, onLoadInputs, canWrite = true,
 }: {
   record: PersistedRun;
-  canReviewRole?: boolean;
   canWrite?: boolean;
   disabled: boolean;
-  onReview: (
-    decision: ReviewRequest["decision"],
-    reason: string,
-    evaluations: EngineerRiskEvaluationInput[],
-  ) => void;
   onResume: () => void;
-  onSaveEvaluations: (evaluations: EngineerRiskEvaluationInput[], reason: string) => void;
   onDownload: (url: string, fileName: string) => void;
   onLoadInputs: () => void;
-  onDirtyChange: (dirty: boolean) => void;
 }) {
-  const [reason, setReason] = useState(record.evaluation_draft?.reason ?? "");
-  const [riskEvaluations, setRiskEvaluations] = useState<Record<number, {
-    disposition: EngineerEvaluationDisposition | "";
-    comment: string;
-  }>>(() => Object.fromEntries((record.evaluation_draft?.evaluations ?? []).map(item =>
-    [item.risk_item_index, { disposition: item.disposition, comment: item.comment }],
-  )));
-  const [activeRiskPosition, setActiveRiskPosition] = useState(0);
   const execution = record.result?.agent_run;
   const state = execution?.state;
   const models = [...new Set(state?.trace.filter((event) =>
@@ -84,65 +66,16 @@ export function RunDelivery({
     && typeof reportPayload.markdown === "string" ? reportPayload.markdown : null;
   const auditComplete = isAuditComplete(state?.audit_result, state?.report_mode);
   const stages = auditStages(state?.audit_result, state?.report_mode);
-  const canReview = canReviewRole && record.execution_status === "completed" &&
-    state?.run.status === "awaiting_human_review" && auditComplete &&
-    !record.review && state.human_review.decision === null;
-  const evaluationTargets = useMemo(
-    () => riskEvaluationTargets(record.result?.payload),
-    [record.result?.payload],
+  const savedEvaluations = new Map(
+    record.evaluation_draft?.evaluations.map(item => [item.risk_item_index, item]) ?? [],
   );
-  const savedEvaluations = useMemo(
-    () => new Map(record.evaluation_draft?.evaluations.map(item => [item.risk_item_index, item]) ?? []),
-    [record.evaluation_draft],
-  );
-  const evaluationInputs = useMemo(() => evaluationTargets.flatMap((target) => {
-    const evaluation = riskEvaluations[target.risk_item_index];
-    return evaluation?.disposition && evaluation.comment.trim()
-      ? [{
-        risk_item_index: target.risk_item_index,
-        disposition: evaluation.disposition,
-        comment: evaluation.comment.trim(),
-      }]
-      : [];
-  }),
-    [evaluationTargets, riskEvaluations],
-  );
-  const hasPartialEvaluation = evaluationTargets.some((target) => {
-    const evaluation = riskEvaluations[target.risk_item_index];
-    return Boolean(evaluation) &&
-      Boolean(evaluation.disposition) !== Boolean(evaluation.comment.trim());
-  });
-  const canAccept = evaluationInputs.length === evaluationTargets.length &&
-    evaluationInputs.every((evaluation) => evaluation.disposition !== "disputed");
-  const activeRiskTarget = evaluationTargets[activeRiskPosition];
-  const activeRiskEvaluation = activeRiskTarget
-    ? riskEvaluations[activeRiskTarget.risk_item_index] ?? { disposition: "", comment: "" }
+  const effectiveSummary = record.review?.effective_summary;
+  const payloadSummary = record.result?.payload && typeof record.result.payload === "object" &&
+    "summary" in record.result.payload
+    ? (record.result.payload as {
+      summary?: { by_risk_level?: Record<string, number>; overall_risk_level?: string };
+    }).summary
     : null;
-  useEffect(() => {
-    const saved = Object.fromEntries((record.evaluation_draft?.evaluations ?? []).map(item =>
-      [item.risk_item_index, { disposition: item.disposition, comment: item.comment }],
-    ));
-    const changed = reason !== (record.evaluation_draft?.reason ?? "") ||
-      Object.entries(riskEvaluations).some(([key, value]) => {
-        const original = saved[key];
-        return value.disposition !== (original?.disposition ?? "") || value.comment !== (original?.comment ?? "");
-      });
-    onDirtyChange(changed);
-  }, [reason, riskEvaluations, record.evaluation_draft, onDirtyChange]);
-
-  function updateRiskEvaluation(
-    riskItemIndex: number,
-    patch: Partial<{ disposition: EngineerEvaluationDisposition | ""; comment: string }>,
-  ) {
-    setRiskEvaluations((current) => ({
-      ...current,
-      [riskItemIndex]: {
-        disposition: current[riskItemIndex]?.disposition ?? "",
-        comment: current[riskItemIndex]?.comment ?? "",
-        ...patch,
-      },
-    }));
-  }
 
   return (
     <section className="wb-card" aria-label="报告交付与运行轨迹">
@@ -242,16 +175,33 @@ export function RunDelivery({
             {decisionLabel(record.review.decision)} · {record.review.submitted_at}
             <p className="wb-hint">复核人：{record.review.submitted_by?.name ?? record.review.owner_id}</p>
             <p>{record.review.reason}</p>
+            {effectiveSummary && <div className="wb-evaluation-results">
+              <strong>工程师复核后汇总 · 调整 {effectiveSummary.adjusted_count} 条</strong>
+              <p>
+                总体等级 {payloadSummary?.overall_risk_level ?? "未知"} →
+                {effectiveSummary.overall_risk_level}
+              </p>
+              <div className="wb-meta">
+                {RISK_LEVELS.map(level => <span className="wb-chip" key={level}>
+                  {level} {payloadSummary?.by_risk_level?.[level] ?? 0} →
+                  {effectiveSummary.by_risk_level[level]}
+                </span>)}
+              </div>
+            </div>}
             {record.review.evaluations.length > 0 && (
               <div className="wb-evaluation-results">
                 <strong>已提交风险评价 {record.review.evaluations.length} 条</strong>
                 {record.review.evaluations.map((evaluation) => (
                   <p key={evaluation.risk_item_index}>
                     {evaluation.point_id ?? "未提供点号"} · {evaluation.metric_name} ·
-                    {evaluation.risk_level} · {EVALUATION_DISPOSITIONS[evaluation.disposition]}：
+                    系统原判 {evaluation.risk_level} → 工程师最终
+                    {evaluation.reviewed_risk_level ?? evaluation.risk_level}
+                    {!evaluation.reviewed_risk_level && "（保持原判）"} ·
+                    {EVALUATION_DISPOSITIONS[evaluation.disposition]}：
                     {evaluation.comment}
                     {savedEvaluations.get(evaluation.risk_item_index) && (
-                      <>（填写人：{savedEvaluations.get(evaluation.risk_item_index)?.evaluated_by.name}）</>
+                      <>（填写人：{savedEvaluations.get(evaluation.risk_item_index)?.evaluated_by.name} ·
+                        {savedEvaluations.get(evaluation.risk_item_index)?.evaluated_at}）</>
                     )}
                   </p>
                 ))}
@@ -265,153 +215,13 @@ export function RunDelivery({
         <summary>共享暂存评价 · {record.evaluation_draft.evaluations.length} 条</summary>
         <p className="wb-hint">最后保存：{record.evaluation_draft.updated_by.name} · {record.evaluation_draft.updated_at}</p>
         {record.evaluation_draft.evaluations.map(item => <p key={item.risk_item_index}>
-          {item.point_id ?? "未提供点号"} · {item.metric_name} · {EVALUATION_DISPOSITIONS[item.disposition]}：
+          {item.point_id ?? "未提供点号"} · {item.metric_name} ·
+          系统原判 {item.risk_level} → 工程师最终 {item.reviewed_risk_level ?? item.risk_level}
+          {!item.reviewed_risk_level && "（保持原判）"} · {EVALUATION_DISPOSITIONS[item.disposition]}：
           {item.comment}（{item.evaluated_by.name} · {item.evaluated_at}）
         </p>)}
         {record.evaluation_draft.reason && <p>暂存总评：{record.evaluation_draft.reason}</p>}
       </details>}
-      {canReview && (
-        <fieldset className="wb-review" disabled={disabled}>
-          <legend>工程师复核</legend>
-          <p className="wb-hint">
-            确认对象为当前已审计草稿。以下评价已经形成确定性结论的关注及以上风险，
-            不包含“正常”和“未知/弃权”条目，也不会改写系统风险等级。
-          </p>
-          {evaluationTargets.length > 0 ? (
-            <div className="wb-risk-evaluations">
-              <h3>
-                已判定风险逐项评价 · 已完成 {evaluationInputs.length}/{evaluationTargets.length}
-              </h3>
-              <div className="wb-risk-navigator">
-                <label className="wb-field">
-                  <span>定位风险条目</span>
-                  <select
-                    value={activeRiskPosition}
-                    onChange={(event) => {
-                      const position = Number(event.target.value);
-                      if (
-                        Number.isInteger(position) &&
-                        position >= 0 &&
-                        position < evaluationTargets.length
-                      ) {
-                        setActiveRiskPosition(position);
-                      }
-                    }}
-                  >
-                    {evaluationTargets.map((target, position) => {
-                      const evaluation = riskEvaluations[target.risk_item_index];
-                      const completed = Boolean(evaluation?.disposition && evaluation.comment.trim());
-                      return (
-                        <option value={position} key={target.risk_item_index}>
-                          {position + 1}/{evaluationTargets.length} ·
-                          {target.point_id ?? "未提供点号"} · {target.metric_name} ·
-                          {target.risk_level} · {completed ? "已完成" : "待评价"}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
-                <div className="wb-risk-navigation">
-                  <button
-                    type="button"
-                    className="wb-btn wb-icon-btn"
-                    aria-label="上一条风险"
-                    title="上一条风险"
-                    disabled={activeRiskPosition === 0}
-                    onClick={() => setActiveRiskPosition((position) => Math.max(0, position - 1))}
-                  >
-                    <ChevronLeft size={16} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className="wb-btn wb-icon-btn"
-                    aria-label="下一条风险"
-                    title="下一条风险"
-                    disabled={activeRiskPosition === evaluationTargets.length - 1}
-                    onClick={() => setActiveRiskPosition((position) =>
-                      Math.min(evaluationTargets.length - 1, position + 1)
-                    )}
-                  >
-                    <ChevronRight size={16} aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-              {activeRiskTarget && activeRiskEvaluation && (
-                <div className="wb-risk-evaluation">
-                  <p>
-                    <strong>
-                      {activeRiskTarget.point_id ?? "未提供点号"} · {activeRiskTarget.metric_name}
-                    </strong>
-                    <span className="wb-chip">{activeRiskTarget.risk_level}</span>
-                  </p>
-                  <p className="wb-hint">
-                    {activeRiskTarget.timestamp ?? "未提供观测时间"}
-                  </p>
-                  <label className="wb-field">
-                    <span>评价结论</span>
-                    <select
-                      value={activeRiskEvaluation.disposition}
-                      onChange={(event) => updateRiskEvaluation(
-                        activeRiskTarget.risk_item_index,
-                        { disposition: event.target.value as EngineerEvaluationDisposition | "" },
-                      )}
-                    >
-                      <option value="">请选择</option>
-                      {(Object.keys(EVALUATION_DISPOSITIONS) as EngineerEvaluationDisposition[]).map((value) => (
-                        <option value={value} key={value}>{EVALUATION_DISPOSITIONS[value]}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="wb-field">
-                    <span>工程师说明</span>
-                    <textarea
-                      className="wb-evaluation-comment"
-                      maxLength={1000}
-                      value={activeRiskEvaluation.comment}
-                      onChange={(event) => updateRiskEvaluation(
-                        activeRiskTarget.risk_item_index,
-                        { comment: event.target.value },
-                      )}
-                    />
-                  </label>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="wb-hint">本次没有需要逐项评价的已判定风险。</p>
-          )}
-          <label className="wb-field">
-            <span>复核总评（必填）</span>
-            <textarea maxLength={2000} value={reason} onChange={(event) => setReason(event.target.value)} />
-          </label>
-          {evaluationTargets.length > 0 && (
-            <p className="wb-hint">
-              接受草稿前须评价全部风险；存在“有异议”时请退回修改并建立关联运行。
-              退回或拒绝可只保留已完成的评价。
-            </p>
-          )}
-          <div className="wb-actions">
-            <button className="wb-btn wb-btn-sm"
-              disabled={disabled || !evaluationInputs.length || hasPartialEvaluation}
-              onClick={() => onSaveEvaluations(evaluationInputs, reason.trim())}>
-              暂存风险评价
-            </button>
-            {(Object.keys(DECISIONS) as ReviewRequest["decision"][]).map((decision) => (
-              <button
-                className="wb-btn wb-btn-sm"
-                key={decision}
-                disabled={
-                  disabled || !reason.trim() || hasPartialEvaluation ||
-                  (decision === "accepted" && !canAccept)
-                }
-                onClick={() => onReview(decision, reason.trim(), evaluationInputs)}
-              >
-                {DECISIONS[decision]}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-      )}
     </section>
   );
 }

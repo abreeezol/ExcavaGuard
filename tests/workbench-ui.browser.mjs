@@ -27,13 +27,14 @@ const file = {
   size_bytes: 80, media_type: "text/csv", sha256: "a".repeat(64), created_at: at, storage: "local",
 };
 
-function fixture(createdAt, name = "历史工程名") {
+function fixture(createdAt, name = "历史工程名", fixtureProjectId = projectId) {
   const runId = randomUUID();
   const risk = { point_id: "P-01", metric_key: "wall_top_horizontal_displacement",
     metric_name: "围护墙顶部水平位移", timestamp: "2026-11-03T08:00:00+08:00", risk_level: "报警" };
+  const unknownRisk = { ...risk, point_id: "P-02", risk_level: "未知" };
   const payload = {
-    items: [risk], alerts: [risk], review_queue: [],
-    summary: { total: 1, overall_risk_level: "报警", by_risk_level: { 报警: 1 } },
+    items: [risk, unknownRisk], alerts: [risk], review_queue: [unknownRisk],
+    summary: { total: 2, overall_risk_level: "报警", by_risk_level: { 报警: 1, 未知: 1 } },
   };
   let state = createAgentRunState({
     runId, createdAt, deadlineAt: "2026-11-10T00:00:00.000Z", maxModelCalls: 0,
@@ -54,13 +55,13 @@ function fixture(createdAt, name = "历史工程名") {
   }, createdAt);
   return persistedRunSchema.parse({
     schema: "excavaguard.persisted_run/v1", run_id: runId, revision: 1,
-    owner_id: actor.id, created_by: actor, project_id: projectId,
+    owner_id: actor.id, created_by: actor, project_id: fixtureProjectId,
     created_at: createdAt, updated_at: createdAt, execution_status: "completed",
     lease_until: null, error: null, review: null,
-    request: { project_id: projectId, monitoring_file_id: fileId, report_date: "2026-11-03",
+    request: { project_id: fixtureProjectId, monitoring_file_id: fileId, report_date: "2026-11-03",
       project: { name }, context: { safety_level: "一级", support_type: "地下连续墙", excavation_depth_m: 15 },
       project_standard_ids: [], options: { report_mode: "template", generate_report: true } },
-    result: { run_id: runId, project_id: projectId, created_at: createdAt, monitoring_file_id: fileId,
+    result: { run_id: runId, project_id: fixtureProjectId, created_at: createdAt, monitoring_file_id: fileId,
       standards_file_id: null, engine: { elapsed_ms: 1, records: 1 }, payload,
       agent_run: { state, steps: 3, downloads: [], terminal_action: {
         type: "handoff_to_human", agent: "supervisor", reason_code: "AUDIT_PASSED", details: "合成测试",
@@ -75,11 +76,17 @@ let records = [older, failed, latest, empty];
 let authenticated = true;
 let role = "admin";
 let activeProject = projectId;
+let canCreateProject = false;
+let authorizedProjects = [
+  { id: projectId, name: "当前工程名" },
+  { id: otherProjectId, name: "第二工程" },
+];
 let historyFailure = false;
 let monitoringFiles = [file];
 let engineeringType = "foundation_pit";
 let sceneParameters = null;
 let supportedReports = null;
+let failNextQuickRun = false;
 const manifests = {
   foundation_pit: JSON.parse(readFileSync(new URL("../engineering-adapters/foundation-pit/manifest.json", import.meta.url))),
   tunnel: JSON.parse(readFileSync(new URL("../engineering-adapters/tunnel-monitoring/manifest.json", import.meta.url))),
@@ -92,16 +99,41 @@ await page.route("**/api/**", async route => {
   const path = new URL(request.url()).pathname;
   const json = body => route.fulfill({ json: body });
   const view = record => ({ ...record.result, record });
-  if (request.method() !== "GET" && path !== "/api/report-windows") writes.push({ path, body: request.postDataJSON() });
+  if (request.method() !== "GET" && path !== "/api/report-windows") {
+    let body = null;
+    try { body = request.postDataJSON(); } catch { /* multipart upload */ }
+    writes.push({ path, body });
+  }
   if (path === "/api/session") return json({
     mode: "accounts", authenticated, user: authenticated ? actor : null,
-    project_id: authenticated ? activeProject : null, can_create_project: false,
-    projects: authenticated ? [
-      { id: projectId, name: "当前工程名", role }, { id: otherProjectId, name: "第二工程", role },
-    ] : [],
+    project_id: authenticated ? activeProject : null, can_create_project: canCreateProject,
+    projects: authenticated ? authorizedProjects.map(project => ({ ...project, role })) : [],
   });
   if (path === "/api/projects/select") { activeProject = request.postDataJSON().project_id; return json({ ok: true }); }
-  if (path === "/api/projects") return json({ engineering_types: [{ id: "foundation_pit", name: "基坑工程" }, { id: "tunnel", name: "隧道工程" }] });
+  if (path === "/api/projects" && request.method() === "POST") {
+    const body = request.postDataJSON();
+    const id = randomUUID();
+    authorizedProjects.push({ id, name: body.name });
+    engineeringType = body.engineering_type;
+    sceneParameters = body.parameters ?? null;
+    return route.fulfill({ status: 201, json: {
+      project: { id, name: body.name, active: true, role: "admin", engineering: {
+        adapter_id: manifests[engineeringType].id,
+        adapter_version: manifests[engineeringType].version,
+        parameters: sceneParameters,
+        revision: sceneParameters ? 1 : undefined,
+      } },
+    } });
+  }
+  if (path === "/api/projects") return json({
+    engineering_types: [{ id: "foundation_pit", name: "基坑工程" }, { id: "tunnel", name: "隧道工程" }],
+    engineering_setups: [
+      { id: "foundation_pit", name: "基坑工程", adapter_version: manifests.foundation_pit.version,
+        supported_reports: manifests.foundation_pit.supported_reports, core_fields: manifests.foundation_pit.core_fields },
+      { id: "tunnel", name: "隧道工程", adapter_version: manifests.tunnel.version,
+        supported_reports: manifests.tunnel.supported_reports, core_fields: manifests.tunnel.core_fields },
+    ],
+  });
   if (path === "/api/projects/current/engineering") {
     if (request.method() === "PUT") {
       sceneParameters = request.postDataJSON().parameters;
@@ -113,11 +145,33 @@ await page.route("**/api/**", async route => {
       monitoring_metrics: [{ key: "surface_settlement", name: "地表沉降", semantics: ["cumulative_settlement"] }] });
   }
   if (path === "/api/report-windows") return json({ detected_metrics: [{ key: "surface_settlement", name: "地表沉降", supported: true }],
+    available_dates: ["2026-11-03"],
     windows: [{ id: "daily-window", type: "daily", start_date: "2026-11-03", end_date: "2026-11-03", label: "日报 · 2026-11-03", missing_days: [] }],
     notice: "合成数据周期建议，不代表完整覆盖。" });
   if (path === "/api/project-context") return json({ documents: [] });
-  if (path === "/api/professional-review") return json({ suite: { cases: [] }, status: "pending_engineer_review" });
+  if (path === "/api/professional-review") return json({
+    suite: { cases: [{ case_id: "synthetic-review", scenario: "合成规则适用性", expected: "工程师核对规则适用范围和报告表达。" }] },
+    suite_hash: "a".repeat(64), adapter_digest: "b".repeat(64), review: null, status: "pending_engineer_review",
+  });
   if (path === "/api/project-standards/changes") return json({ state: null });
+  if (path === "/api/monitoring-files" && request.method() === "POST") {
+    const uploaded = {
+      ...file,
+      file_id: randomUUID(),
+      project_id: activeProject,
+      original_name: "快速链路监测.csv",
+      created_at: new Date().toISOString(),
+    };
+    monitoringFiles = [uploaded, ...monitoringFiles];
+    return route.fulfill({ status: 201, json: {
+      file: uploaded,
+      read_report: {
+        ok: true,
+        data_rows: 2,
+        detected_metrics: [{ key: "surface_settlement", name: "地表沉降", supported: true }],
+      },
+    } });
+  }
   if (path === "/api/monitoring-files") return json({ files: monitoringFiles });
   if (path === "/api/standards") return json({ files: [] });
   if (path === "/api/project-standards") return json({ documents: [] });
@@ -131,7 +185,13 @@ await page.route("**/api/**", async route => {
     })) });
   }
   if (path === "/api/runs" && request.method() === "POST") {
-    const record = fixture("2026-11-06T00:00:00.000Z", "当前工程名");
+    if (failNextQuickRun) {
+      failNextQuickRun = false;
+      return route.fulfill({ status: 503, json: {
+        error: { message: "合成快速运行故障" },
+      } });
+    }
+    const record = fixture("2026-11-06T00:00:00.000Z", "当前工程名", activeProject);
     record.request = request.postDataJSON();
     records = [record, ...records];
     return json(view(record));
@@ -157,6 +217,23 @@ try {
   await page.goto(`${origin}/workbench`);
   await resultInfo.waitFor();
   assert.match(page.url(), new RegExp(latest.run_id));
+  const reportDelivery = page.getByRole("region", { name: "报告交付与运行轨迹" });
+  const reviewSamples = page.locator('[aria-label="复核样例校验"]');
+  await reportDelivery.waitFor();
+  const engineerReview = page.getByRole("region", { name: "工程师复核" });
+  await engineerReview.waitFor();
+  assert.equal(await engineerReview.evaluate(node => node.closest(".wb-result-context") !== null), true);
+  assert.ok(await page.locator(".wb-result-context").evaluate(node => node.getBoundingClientRect().width) >= 340);
+  assert.equal(await reviewSamples.evaluate(node => node.hasAttribute("open")), false);
+  assert.equal(await page.evaluate(() => {
+    const report = document.querySelector('[aria-label="报告交付与运行轨迹"]');
+    const samples = document.querySelector('[aria-label="复核样例校验"]');
+    return Boolean(report && samples && (report.compareDocumentPosition(samples) & Node.DOCUMENT_POSITION_FOLLOWING));
+  }), true);
+  await reviewSamples.locator("summary").click();
+  await page.getByRole("link", { name: "输入与预期样例", exact: true }).waitFor();
+  assert.equal(await reviewSamples.getByText(/signal is aborted/i).count(), 0);
+  checks.push("当前报告工程师复核优先展示，项目级复核样例默认折叠且按需展开");
   await hasText(resultInfo, /15 m/);
   await hasText(resultInfo, /历史工程名/);
   assert.equal(await page.getByRole("button", { name: "运行分析", exact: true }).isVisible(), false);
@@ -164,14 +241,26 @@ try {
 
   const reason = page.getByRole("textbox", { name: "复核总评（必填）" });
   await reason.fill("未保存的复核总评");
-  await page.locator(".wb-risk-evaluation select").selectOption("follow_up_required");
+  const finalRiskLevel = page.getByLabel("工程师最终等级", { exact: true });
+  await finalRiskLevel.selectOption("正常");
+  await page.getByLabel("评价结论", { exact: true }).selectOption("follow_up_required");
   await page.locator(".wb-evaluation-comment").fill("未保存的风险评价");
+  const riskNavigator = page.locator(".wb-risk-navigator select");
+  await riskNavigator.selectOption("1");
+  await hasText(page.locator(".wb-risk-evaluation"), /系统原判：未知/);
+  await hasText(finalRiskLevel.locator("option").first(), /保持待确定/);
+  await finalRiskLevel.selectOption("危险报警");
+  await page.getByLabel("评价结论", { exact: true }).selectOption("confirmed");
+  await page.locator(".wb-evaluation-comment").fill("现场资料补齐后判定为危险报警");
+  await riskNavigator.selectOption("0");
   await nav("2 ·").click();
   await page.getByRole("dialog").waitFor();
   await page.keyboard.press("Escape");
   await nav("4 ·").click();
   assert.equal(await reason.inputValue(), "未保存的复核总评");
   assert.equal(await page.locator(".wb-evaluation-comment").inputValue(), "未保存的风险评价");
+  assert.equal(await finalRiskLevel.inputValue(), "正常");
+  assert.equal(await finalRiskLevel.inputValue(), "正常");
   records = records.map(record => record.run_id === latest.run_id ? { ...record, revision: 2 } : record);
   await page.clock.fastForward(15_001);
   await page.getByRole("button", { name: "加载最新协作版本", exact: true }).waitFor();
@@ -219,7 +308,37 @@ try {
   await hasText(summary, /周报 · 2026-12-28 至 2027-01-03/);
   checks.push("数据推荐周期不覆盖已手动确认的报告范围");
   await nav("3 ·").click();
-  assert.equal(await page.getByText("案例、工况与巡视资料（可选）", { exact: true }).isVisible(), true);
+  const optionalTool = page.getByLabel(/选择要配置的可选资料/);
+  assert.equal(await page.getByRole("region", { name: "案例、工况与巡视资料" }).count(), 0);
+  await optionalTool.selectOption("context");
+  const contextPanel = page.getByRole("region", { name: "案例、工况与巡视资料" });
+  await contextPanel.waitFor();
+  assert.equal(await contextPanel.getByText(/signal is aborted/i).count(), 0);
+  await page.getByLabel("辅助资料标题", { exact: true }).fill("未上传的合成案例标题");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const optionalLayout = await page.evaluate(() => {
+    const panel = document.querySelector('[aria-label="案例、工况与巡视资料"]');
+    const bounds = panel?.getBoundingClientRect();
+    return {
+      width: innerWidth,
+      pageWidth: document.documentElement.scrollWidth,
+      controlsFit: [...(panel?.querySelectorAll("input, select") ?? [])].every(control => {
+        const rect = control.getBoundingClientRect();
+        return Boolean(bounds && rect.left >= bounds.left && rect.right <= bounds.right);
+      }),
+    };
+  });
+  assert.equal(optionalLayout.pageWidth, optionalLayout.width);
+  assert.equal(optionalLayout.controlsFit, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await optionalTool.selectOption("project-standard");
+  await page.getByRole("region", { name: "项目补充规范" }).waitFor();
+  assert.equal(await contextPanel.isVisible(), false);
+  await optionalTool.selectOption("context");
+  assert.equal(await page.getByLabel("辅助资料标题", { exact: true }).inputValue(), "未上传的合成案例标题");
+  await optionalTool.selectOption("thresholds");
+  await page.getByRole("heading", { name: "用户规范 JSON（数值阈值，可选）", exact: true }).waitFor();
+  checks.push("三个可选资料工具由单一下拉菜单按需展开，窄屏无溢出且切换后保留未提交输入");
   await nav("4 ·").click();
   await nav("2 ·").click();
   await page.getByLabel(/实际支护信息/).selectOption("");
@@ -272,9 +391,11 @@ try {
   const mobile = await page.evaluate(() => ({
     width: innerWidth, pageWidth: document.documentElement.scrollWidth,
     sidebarHeight: document.querySelector(".sidebar").getBoundingClientRect().height,
+    reviewPosition: getComputedStyle(document.querySelector(".wb-result-context-sticky")).position,
   }));
   assert.equal(mobile.pageWidth, mobile.width);
   assert.ok(mobile.sidebarHeight < 160);
+  assert.equal(mobile.reviewPosition, "static");
   await page.mouse.wheel(0, 1200);
   await page.waitForFunction(() => scrollY > 500);
   assert.equal(await page.locator(".sidebar").evaluate(node => node.getBoundingClientRect().top), 0);
@@ -283,7 +404,16 @@ try {
   await page.waitForFunction(() => document.querySelector(".wb-result-info").open);
   await page.mouse.wheel(0, 1000);
   assert.equal(await page.locator(".sidebar").evaluate(node => node.getBoundingClientRect().top), 0);
-  checks.push("桌面长报告吸顶，结果与历史条件分列");
+  const reviewWorkspace = await page.locator(".wb-result-context-sticky").evaluate(node => ({
+    top: node.getBoundingClientRect().top,
+    height: node.getBoundingClientRect().height,
+    maxHeight: getComputedStyle(node).maxHeight,
+    overflowY: getComputedStyle(node).overflowY,
+  }));
+  assert.equal(reviewWorkspace.top, 16);
+  assert.ok(reviewWorkspace.height <= 868);
+  assert.equal(reviewWorkspace.overflowY, "auto");
+  checks.push("桌面长报告中右侧复核工作区吸顶并独立滚动，报告与辅助信息分列");
 
   await page.goto(`${origin}/workbench?step=results&run=${randomUUID()}`);
   await page.getByRole("alert").filter({ hasText: "无权访问合成运行" }).waitFor();
@@ -337,26 +467,23 @@ try {
   await page.getByLabel(/特殊地质条件/).selectOption("none");
   assert.equal(await page.getByText(/判据适用条件（必填）/).count(), 0);
   await nav("3 ·").click();
-  assert.equal(await page.getByText("用户规范 JSON（数值阈值，可选）", { exact: true }).count(), 0);
+  assert.equal(await page.getByLabel(/选择要配置的可选资料/).getByRole("option", { name: "用户规范 JSON（数值阈值，可选）" }).count(), 0);
   await page.getByLabel(/选择本工程已上传的监测数据/).selectOption(fileId);
   await page.clock.runFor(300);
   await page.getByRole("option", { name: "日报 · 2026-11-03", exact: true }).waitFor({ state: "attached" });
-  await nav("4 ·").click();
-  assert.equal(await page.getByRole("button", { name: "运行分析", exact: true }).isEnabled(), true);
-  assert.equal(await page.locator("#wb-analysis-prerequisites").count(), 0);
-  checks.push("隧道按自身必填参数启用分析，隐藏基坑支护与JSON阈值，限制不支持的周期");
-  await nav("2 ·").click();
-  await hasText(summary, /日报 · 2026-11-03/);
   await page.getByRole("region", { name: "监测参数确认" }).waitFor();
   await page.getByLabel(/数据含义/).selectOption("cumulative_settlement");
   await page.getByLabel("控制值依据", { exact: true }).fill("合成批准方案");
   await page.getByLabel("累计变形控制值（mm）", { exact: true }).fill("30");
   await page.getByLabel("已确认该测项的输入含义与控制要求", { exact: true }).check();
-  await page.getByRole("button", { name: "确认并保存工程配置", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "工程配置已确认保存" }).waitFor();
+  await page.getByRole("button", { name: "确认并保存监测参数", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "监测参数已确认保存" }).waitFor();
   assert.equal(writes.at(-1).path, "/api/projects/current/engineering");
   assert.equal(writes.at(-1).body.expected_revision, 0);
   await nav("4 ·").click();
+  assert.equal(await page.getByRole("button", { name: "运行分析", exact: true }).isEnabled(), true);
+  assert.equal(await page.locator("#wb-analysis-prerequisites").count(), 0);
+  checks.push("隧道上传后在第三步原地填写并保存监测参数，隐藏基坑支护与JSON阈值");
   await page.getByRole("button", { name: "运行分析", exact: true }).click();
   await resultInfo.waitFor();
   assert.equal(writes.at(-1).body.context.construction_method, "mining");
@@ -369,8 +496,120 @@ try {
   await page.getByRole("dialog").waitFor();
   await page.keyboard.press("Escape");
   assert.equal(await page.getByLabel(/施工工法/).inputValue(), "mining");
+  await nav("3 ·").click();
+  await page.getByLabel(/选择本工程已上传的监测数据/).selectOption(fileId);
+  await page.clock.runFor(300);
   assert.equal(await page.getByLabel("控制值依据", { exact: true }).inputValue(), "合成批准方案");
   checks.push("新建报告复用管理员已确认工程参数与控制值");
+
+  canCreateProject = true;
+  role = "admin";
+  activeProject = projectId;
+  engineeringType = "foundation_pit";
+  supportedReports = null;
+  sceneParameters = null;
+  records = [];
+  const writesBeforeProject = writes.length;
+  await page.goto(`${origin}/workbench?step=start`);
+  await page.getByText("保留原有快速创建", { exact: true }).waitFor();
+  await page.getByLabel("选择获授权工程", { exact: true }).selectOption("__new_project__");
+  await page.getByRole("dialog", { name: "基本信息" }).waitFor();
+  await page.getByRole("button", { name: "取消", exact: true }).click();
+  assert.equal(writes.filter(write => write.path === "/api/projects").length, 0);
+  await page.getByRole("button", { name: "新建工程", exact: true }).click();
+  const projectDialog = page.getByRole("dialog");
+  await projectDialog.waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const projectDialogMobile = await page.evaluate(() => ({
+    width: innerWidth,
+    pageWidth: document.documentElement.scrollWidth,
+    dialogWidth: document.querySelector("dialog")?.getBoundingClientRect().width,
+    dialogHeight: document.querySelector("dialog")?.getBoundingClientRect().height,
+  }));
+  assert.equal(projectDialogMobile.pageWidth, projectDialogMobile.width);
+  assert.ok(projectDialogMobile.dialogWidth <= 390);
+  assert.ok(projectDialogMobile.dialogHeight <= 844);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await projectDialog.getByLabel(/工程类型/).selectOption("foundation_pit");
+  await projectDialog.getByLabel(/工程名称/).fill("合成引导工程");
+  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  await projectDialog.getByLabel(/安全等级/).selectOption("二级");
+  await projectDialog.getByLabel(/支护形式/).selectOption("灌注桩");
+  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  await page.getByRole("button", { name: "周报 连续 7 天", exact: true }).click();
+  await page.getByLabel("周报结束日（含当日及之前6日）", { exact: true }).fill("2027-01-03");
+  await hasText(page.locator(".wb-range-preview"), /2026-12-28 至 2027-01-03/);
+  await page.getByRole("button", { name: "创建后进入详细流程", exact: true }).click();
+  await page.getByRole("heading", { name: "数据与规范", exact: true }).waitFor();
+  assert.match(page.url(), /step=data/);
+  const projectWrites = writes.slice(writesBeforeProject);
+  assert.deepEqual(projectWrites.filter(write => write.path === "/api/projects").at(-1).body, {
+    name: "合成引导工程",
+    engineering_type: "foundation_pit",
+    parameters: { safety_level: "二级", support_type: "灌注桩", excavation_depth_m: null },
+  });
+  assert.equal(projectWrites.filter(write => write.path === "/api/projects/select").length, 1);
+  await nav("2 ·").click();
+  await hasText(summary, /周报 · 2026-12-28 至 2027-01-03/);
+  assert.equal(await page.getByLabel(/安全等级/).inputValue(), "二级");
+  assert.equal(await page.getByLabel(/实际支护信息/).inputValue(), "灌注桩");
+  checks.push("新建工程向导保留创建后进入详细流程，原子保存条件并直达数据页");
+
+  const quickWritesStart = writes.length;
+  await nav("1 ·").click();
+  await page.getByRole("button", { name: "新建工程", exact: true }).click();
+  const quickDialog = page.getByRole("dialog");
+  await quickDialog.getByLabel(/工程类型/).selectOption("tunnel");
+  await quickDialog.getByLabel(/工程名称/).fill("合成隧道快速工程");
+  await quickDialog.getByRole("button", { name: "下一步", exact: true }).click();
+  await quickDialog.getByLabel(/工程类别/).selectOption("rail");
+  await quickDialog.getByLabel(/施工工法/).selectOption("mining");
+  await quickDialog.getByLabel(/工程阶段/).selectOption("construction");
+  await quickDialog.getByLabel(/特殊地质条件/).selectOption("none");
+  await quickDialog.getByRole("button", { name: "下一步", exact: true }).click();
+  await quickDialog.getByLabel("报告日期", { exact: true }).fill("2026-11-03");
+  await quickDialog.getByRole("button", { name: "下一步", exact: true }).click();
+  await quickDialog.getByLabel("快速链路监测数据文件", { exact: true }).setInputFiles({
+    name: "SIMULATED_隧道监测.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "point_id,timestamp,metric_key,value,unit,data_origin\n" +
+      "SIM-01,2026-11-03 08:00:00,surface_settlement,1,mm,simulated\n" +
+      "SIM-01,2026-11-03 11:00:00,surface_settlement,2,mm,simulated\n",
+    ),
+  });
+  await quickDialog.getByRole("button", { name: "创建工程并识别文件", exact: true }).click();
+  await quickDialog.getByRole("heading", { name: "确认运行", exact: true }).waitFor();
+  await quickDialog.getByText(/无法可靠判定的风险将标为“未知”并进入人工复核/).waitFor();
+  await hasText(quickDialog.locator(".wb-project-summary"), /运行方式仅确定性计算/);
+  assert.equal(
+    await quickDialog.getByRole("button", { name: "运行分析并查看结果", exact: true }).isEnabled(),
+    true,
+  );
+  failNextQuickRun = true;
+  await quickDialog.getByRole("button", { name: "运行分析并查看结果", exact: true }).click();
+  await quickDialog.getByRole("alert").filter({ hasText: "合成快速运行故障" }).waitFor();
+  await quickDialog.getByRole("button", { name: "运行分析并查看结果", exact: true }).click();
+  await quickDialog.waitFor({ state: "detached" });
+  await resultInfo.waitFor();
+  assert.match(page.url(), /step=results&run=/);
+  const quickWrites = writes.slice(quickWritesStart);
+  assert.equal(quickWrites.filter(write => write.path === "/api/projects").length, 1);
+  assert.equal(quickWrites.filter(write => write.path === "/api/monitoring-files").length, 1);
+  const quickConfiguration = quickWrites.find(write =>
+    write.path === "/api/projects/current/engineering"
+  );
+  assert.equal(quickWrites.filter(write =>
+    write.path === "/api/projects/current/engineering"
+  ).length, 1);
+  assert.equal(quickWrites.filter(write => write.path === "/api/runs").length, 2);
+  assert.equal(quickConfiguration.body.parameters.metric_controls, undefined);
+  const quickRun = quickWrites.find(write => write.path === "/api/runs");
+  assert.equal(quickRun.body.context.construction_method, "mining");
+  assert.equal(quickRun.body.context.metric_controls, undefined);
+  assert.equal(quickRun.body.options.generate_report, false);
+  await hasText(resultInfo, /合成隧道快速工程/);
+  checks.push("新建隧道快速链路允许控制值留空，按未知待核提示运行；失败重试不重复保存配置并直达第四步");
 
   const legacyAudit = structuredClone(latest);
   legacyAudit.result.agent_run.state.report_mode = "ai";

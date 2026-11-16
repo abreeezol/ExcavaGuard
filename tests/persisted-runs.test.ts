@@ -5,13 +5,22 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_PROJECT_ID, type LocalAccess } from "@/contracts/access";
-import type { PersistedRun } from "@/contracts/runs";
+import { persistedRunSchema, type PersistedRun } from "@/contracts/runs";
 import {
+  effectiveRiskSummary,
   riskEvaluationTargets,
+  riskReviewTargets,
   type EngineerRiskEvaluationInput,
 } from "@/contracts/engineer-evaluation";
 import type { ReportDraft, ReportArtifact } from "@/contracts/agent-runtime";
-import { deleteRun, readRun, saveRun, listRuns } from "@/server/storage/run-store";
+import {
+  compactRunRecordForSupabase,
+  deleteRun,
+  hydrateRunRecordFromSupabase,
+  readRun,
+  saveRun,
+  listRuns,
+} from "@/server/storage/run-store";
 import { executeAgentRun } from "@/server/agents/executor";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
@@ -77,6 +86,7 @@ function emptyRun(): PersistedRun {
 async function auditedRun(
   valid = true,
   alerts: Array<Record<string, unknown>> = [],
+  artifactNames: Partial<Record<ReportArtifact["kind"], string>> = {},
 ): Promise<PersistedRun> {
   const record = emptyRun();
   const artifactId = randomUUID();
@@ -87,7 +97,7 @@ async function auditedRun(
   for (const [kind, suffix] of [
     ["workbook", ".xlsx"], ["cover_markdown", "_封面.md"], ["appendices_markdown", "_附表及清单.md"],
   ] as const) {
-    const fileName = `监测日报_2026-10-14_草稿${suffix}`;
+    const fileName = artifactNames[kind] ?? `监测日报_2026-10-14_草稿${suffix}`;
     const bytes = new TextEncoder().encode(`test-only-${kind}`);
     await writeFile(join(directory, fileName), bytes);
     artifacts.push({
@@ -156,8 +166,8 @@ async function download(record: PersistedRun) {
 }
 
 describe("运行持久化与复核", () => {
-  it("逐项评价包含关注至危险报警，排除正常和未知", () => {
-    expect(riskEvaluationTargets({
+  it("必评集合排除正常和未知，可复核集合额外包含未知", () => {
+    const payload = {
       items: [
         { ...knownRisk(), risk_level: "正常" },
         { ...knownRisk(), risk_level: "关注" },
@@ -166,12 +176,86 @@ describe("运行持久化与复核", () => {
         { ...knownRisk(), risk_level: "危险报警" },
         { ...knownRisk(), risk_level: "未知" },
       ],
-    }).map((target) => [target.risk_item_index, target.risk_level])).toEqual([
+    };
+    expect(riskEvaluationTargets(payload).map((target) => [
+      target.risk_item_index,
+      target.risk_level,
+    ])).toEqual([
       [1, "关注"],
       [2, "预警"],
       [3, "报警"],
       [4, "危险报警"],
     ]);
+    expect(riskReviewTargets(payload).map((target) => [
+      target.risk_item_index,
+      target.risk_level,
+    ])).toEqual([
+      [1, "关注"],
+      [2, "预警"],
+      [3, "报警"],
+      [4, "危险报警"],
+      [5, "未知"],
+    ]);
+  });
+
+  it("复核后汇总按冻结条目计算危险10减3加2，未知12减2", () => {
+    const payload = {
+      items: [
+        ...Array.from({ length: 10 }, (_, index) => ({
+          ...knownRisk(),
+          point_id: `D-${index + 1}`,
+          risk_level: "危险报警",
+        })),
+        ...Array.from({ length: 12 }, (_, index) => ({
+          ...knownRisk(),
+          point_id: `U-${index + 1}`,
+          risk_level: "未知",
+        })),
+      ],
+    };
+    const targets = riskReviewTargets(payload);
+    const evaluations = [0, 1, 2, 10, 11].map(index => ({
+      ...targets[index],
+      disposition: "confirmed" as const,
+      comment: "工程师已核对现场与原始记录。",
+      reviewed_risk_level: index < 3 ? "正常" as const : "危险报警" as const,
+    }));
+
+    expect(effectiveRiskSummary(payload, evaluations)).toEqual({
+      total: 22,
+      overall_risk_level: "危险报警",
+      by_risk_level: {
+        正常: 3,
+        关注: 0,
+        预警: 0,
+        报警: 0,
+        危险报警: 9,
+        未知: 10,
+      },
+      adjusted_count: 5,
+    });
+  });
+
+  it("Supabase revision去除重复引擎载荷，读取时按哈希恢复完整事实", async () => {
+    const record = await auditedRun(true, [knownRisk()]);
+    const compacted = compactRunRecordForSupabase(record) as {
+      result: {
+        payload: { items: Array<Record<string, unknown>> };
+        agent_run: { state: { engine_snapshot: { payload: unknown } } };
+      };
+    };
+    expect(compacted.result.agent_run.state.engine_snapshot.payload).toEqual({
+      schema: "excavaguard.supabase_payload_ref/v1",
+      path: "result.payload",
+    });
+    expect(JSON.stringify(compacted).length).toBeLessThan(JSON.stringify(record).length);
+    expect(persistedRunSchema.parse(hydrateRunRecordFromSupabase(compacted))).toEqual(record);
+
+    const tampered = structuredClone(compacted);
+    tampered.result.payload.items[0].risk_level = "正常";
+    expect(() => hydrateRunRecordFromSupabase(tampered)).toThrow(
+      "Supabase 运行事实引用与源载荷不一致",
+    );
   });
 
   it("从磁盘恢复并保留旧修订；同修订的并发提交只有一个成功", async () => {
@@ -280,8 +364,103 @@ describe("运行持久化与复核", () => {
       comment: "已核对该点报警，安排下一时段加密监测。",
     }]);
     expect(reviewed.result?.payload).toEqual(record.result?.payload);
+    expect(reviewed.review?.effective_summary).toEqual({
+      total: 1,
+      overall_risk_level: "报警",
+      by_risk_level: {
+        正常: 0, 关注: 0, 预警: 0, 报警: 1, 危险报警: 0, 未知: 0,
+      },
+      adjusted_count: 0,
+    });
     expect(reviewed.result?.agent_run?.state.trace.at(-1)?.output_versions)
-      .toMatchObject({ decision: "accepted", risk_evaluation_count: "1" });
+      .toMatchObject({
+        decision: "accepted",
+        risk_evaluation_count: "1",
+        risk_adjustment_count: "0",
+      });
+  });
+
+  it("未知项可留空接受，选择最终等级后计入复核汇总", async () => {
+    const unknown = { ...knownRisk(), point_id: "UNKNOWN-01", risk_level: "未知" };
+    const unchangedRecord = await auditedRun(true, [knownRisk(), unknown]);
+    const unchanged = await reviewRun(unchangedRecord.run_id, reviewInput(
+      unchangedRecord,
+      "accepted",
+      [{
+        risk_item_index: 0,
+        disposition: "confirmed",
+        comment: "已核对已知报警。",
+      }],
+    ), ACCESS);
+    expect(unchanged.review?.effective_summary?.by_risk_level).toMatchObject({
+      报警: 1,
+      未知: 1,
+    });
+
+    const adjustedRecord = await auditedRun(true, [knownRisk(), unknown]);
+    await expect(reviewRun(adjustedRecord.run_id, reviewInput(
+      adjustedRecord,
+      "accepted",
+      [{
+        risk_item_index: 0,
+        disposition: "confirmed",
+        comment: "已核对已知报警。",
+      }, {
+        risk_item_index: 1,
+        disposition: "confirmed",
+        comment: "缺失数据已由现场记录补齐。",
+      }],
+    ), ACCESS)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+
+    const adjusted = await reviewRun(adjustedRecord.run_id, reviewInput(
+      adjustedRecord,
+      "accepted",
+      [{
+        risk_item_index: 0,
+        disposition: "confirmed",
+        comment: "已核对已知报警。",
+      }, {
+        risk_item_index: 1,
+        disposition: "confirmed",
+        comment: "缺失数据已由现场记录补齐。",
+        reviewed_risk_level: "危险报警",
+      }],
+    ), ACCESS);
+    expect(adjusted.review?.effective_summary).toMatchObject({
+      overall_risk_level: "危险报警",
+      adjusted_count: 1,
+      by_risk_level: { 报警: 1, 危险报警: 1, 未知: 0 },
+    });
+    expect(adjusted.result?.payload).toEqual(adjustedRecord.result?.payload);
+  });
+
+  it("旧复核记录可读取，存在的复核后汇总必须与评价事实一致", async () => {
+    const record = await auditedRun(true, [knownRisk()]);
+    const reviewed = await reviewRun(record.run_id, reviewInput(record, "accepted", [{
+      risk_item_index: 0,
+      disposition: "confirmed",
+      comment: "调整为关注并保持加密监测。",
+      reviewed_risk_level: "关注",
+    }]), ACCESS);
+    const legacy = structuredClone(reviewed);
+    delete legacy.review!.effective_summary;
+    expect(persistedRunSchema.safeParse(legacy).success).toBe(true);
+
+    const tampered = structuredClone(reviewed);
+    tampered.review!.effective_summary!.by_risk_level.关注 = 0;
+    expect(persistedRunSchema.safeParse(tampered)).toMatchObject({ success: false });
+
+    const markup = renderToStaticMarkup(createElement(RunDelivery, {
+      record: reviewed,
+      disabled: false,
+      onResume: () => {},
+      onDownload: () => {},
+      onLoadInputs: () => {},
+    }));
+    expect(markup).toContain("工程师复核后汇总");
+    expect(markup).toContain("调整 1 条");
+    expect(markup).toContain("系统原判");
+    expect(markup).toContain("工程师最终");
   });
 
   it("有异议的风险不能接受当前草稿，但可随退回决定留痕", async () => {
@@ -427,11 +606,27 @@ describe("运行持久化与复核", () => {
       evaluations: [], reason: "不允许对审查未完成草稿暂存评价",
     }, ACCESS)).rejects.toMatchObject({ code: "INVALID_TRANSITION" });
     const markup = renderToStaticMarkup(createElement(RunDelivery, { record, disabled: false,
-      onReview: () => {}, onSaveEvaluations: () => {}, onResume: () => {}, onDownload: () => {}, onLoadInputs: () => {}, onDirtyChange: () => {} }));
+        onResume: () => {}, onDownload: () => {}, onLoadInputs: () => {} }));
     expect(markup).toContain("完整审查尚未通过");
     expect(markup).not.toContain("接受草稿");
     expect(markup).not.toContain("下载 Excel");
     expect(markup).toContain("当前审查未通过，以下保留原始轨迹用于追溯，不作为通过依据");
+  });
+
+  it("隧道报告文件名可下载，路径穿越和非当前产物仍被拒绝", async () => {
+    const record = await auditedRun(true, [], {
+      workbook: "隧道变形报告.xlsx",
+      cover_markdown: "隧道变形报告_封面.md",
+      appendices_markdown: "隧道变形报告_附表.md",
+    });
+    expect((await download(record)).status).toBe(200);
+    const draftId = record.result!.agent_run!.state.report_draft!.ref.artifact_id;
+    expect((await artifactGET(new Request("http://localhost/api/report-artifacts/test"), {
+      params: Promise.resolve({ draftId, fileName: "../隧道变形报告.xlsx" }),
+    })).status).toBe(400);
+    expect((await artifactGET(new Request("http://localhost/api/report-artifacts/test"), {
+      params: Promise.resolve({ draftId, fileName: "不存在.xlsx" }),
+    })).status).toBe(404);
   });
 
   it("文件在审计后被替换时拒绝下载和接受，仍可记录退回", async () => {

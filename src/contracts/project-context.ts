@@ -23,4 +23,10 @@ export const contextDocumentSchema = contextUploadSchema.safeExtend({
   original_name: z.string().max(300).optional(), source_sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   uploaded_by: z.string().min(1), active: z.boolean().default(true),
 });
+export const contextListResponseSchema = z.strictObject({
+  documents: z.array(contextDocumentSchema).max(1000),
+});
+export const contextDocumentResponseSchema = z.strictObject({
+  document: contextDocumentSchema,
+});
 export type ContextDocument = z.infer<typeof contextDocumentSchema>;
