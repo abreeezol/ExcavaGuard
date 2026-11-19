@@ -124,6 +124,7 @@ export async function validateReport(
 
   const envelope = await callSkillScript("validate-report", "validate_report.py", {
     daily_report_input: engineSnapshot.payload,
+        require_full_coverage: adapterIdFromPayload(engineSnapshot.payload) === "tunnel-monitoring",
     report_payload: draft.payload,
     fact_bindings: draft.fact_bindings,
     artifacts: draft.artifacts,

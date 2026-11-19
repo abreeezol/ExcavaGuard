@@ -1,4 +1,5 @@
 """Offline, restartable OCR of every declared tunnel PDF; publish only after complete coverage."""
+from clause_labels import clause_label
 from pathlib import Path
 import hashlib,json,sqlite3,re,os,sys,shutil,argparse
 from concurrent.futures import ProcessPoolExecutor,as_completed
@@ -58,6 +59,7 @@ def main():
     if not text.strip():continue
     eid=f'{s["code"]}:p{page["page"]}:{start//1400}'
     meta={'standard_name':s['name'],'standard_version':s['code'],'clause':f'PDF第{page["page"]}页（候选，条款待核）','source_location':f'{Path(s["relative_path"]).name} PDF第{page["page"]}页；SHA256 {sha}；{page["method"]}待原页复核','applicability':['隧道',*s['systems'],*s['methods'],*s['stages'],*([s['special_condition']] if s['special_condition'] else [])],'effective_status':s['effective_status'],'content_sha256':hashlib.sha256(text.encode()).hexdigest()}
+    meta['clause']=clause_label(text,meta['clause'])
     rows.append((eid,text,json.dumps(meta,ensure_ascii=False)))
   entry={**s,'source_sha256':sha,'page_count':count,'record_count':len(rows)-start_count,'excluded_pages':excluded,'empty_pages':empty,'ocr_pages':ocr_pages,'extraction':'page_candidates_require_original_review'};metadata.append(entry)
   if entry['record_count']==0:raise ValueError('规范没有检索片段：'+s['code'])

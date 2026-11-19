@@ -30,7 +30,10 @@
     "adapter:release": "node --env-file-if-exists=.env.local --import ./tools/test/node-typescript-loader.mjs tools/adapters/release.mjs",
     "tunnel:knowledge": "python3 tools/knowledge/build_tunnel.py",
     "adapter:evaluate": "node --env-file-if-exists=.env.local --import ./tools/test/node-typescript-loader.mjs tools/adapters/evaluate.mjs",
-    "tunnel:verify": "node --import ./tools/test/node-typescript-loader.mjs tools/knowledge/verify_tunnel.mjs"
+    "tunnel:verify": "node --import ./tools/test/node-typescript-loader.mjs tools/knowledge/verify_tunnel.mjs",
+    "test:tunnel-data": "vitest run tests/tunnel-10min-acceptance.test.ts tests/high-frequency-model-context.test.ts tests/tunnel-report-template.test.ts tests/engineer-feedback-semantics.test.ts",
+    "test:tunnel-ai": "EXCAVAGUARD_TEST_TUNNEL_10MIN_LLM=1 node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run tests/tunnel-10min-acceptance.test.ts -t \"真实模型\"",
+    "test:tunnel-feedback": "EXCAVAGUARD_TEST_ENGINEER_FEEDBACK=1 node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run tests/tunnel-engineer-feedback-live.test.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.91",

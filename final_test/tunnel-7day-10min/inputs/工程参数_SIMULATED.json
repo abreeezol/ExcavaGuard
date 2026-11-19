@@ -1,0 +1,36 @@
+{
+  "tunnel_system": "rail",
+  "construction_method": "mining",
+  "project_stage": "construction",
+  "special_condition": "none",
+  "metric_controls": {
+    "ground_settlement": {
+      "source": "SIMULATED_地表沉降测试方案_非规范要求",
+      "confirmed": true,
+      "cumulative_limit_mm": 20,
+      "rate_limit_mm_per_day": 4.0,
+      "value_semantics": "cumulative_settlement"
+    },
+    "building_settlement": {
+      "source": "SIMULATED_建筑沉降测试方案_非规范要求",
+      "confirmed": true,
+      "cumulative_limit_mm": 15,
+      "rate_limit_mm_per_day": 3.0,
+      "value_semantics": "cumulative_settlement"
+    },
+    "crown_settlement": {
+      "source": "SIMULATED_拱顶沉降测试方案_非规范要求",
+      "confirmed": true,
+      "cumulative_limit_mm": 25,
+      "rate_limit_mm_per_day": 5.0,
+      "value_semantics": "cumulative_settlement"
+    },
+    "tunnel_convergence": {
+      "source": "SIMULATED_净空收敛测试方案_非规范要求",
+      "confirmed": true,
+      "cumulative_limit_mm": 12,
+      "rate_limit_mm_per_day": 2.4000000000000004,
+      "value_semantics": "cumulative_displacement"
+    }
+  }
+}

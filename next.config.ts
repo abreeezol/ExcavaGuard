@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
     "/*": ["./engineering-adapters/**/*", "./source/adapter_runtime/**/*.py",
       "./确定性计算层/pipeline/**/*.py", "./确定性计算层/contracts/*.json",
       "./确定性计算层/standards/default/*.json", "./确定性计算层/tools/validate_daily_report_input.py",
-      "./skills/*/scripts/**/*.py", "./rag/standard-status.json", "./src/server/agents/report-model.ts"],
+      "./skills/*/scripts/**/*.py", "./tools/knowledge/clause_labels.py", "./rag/standard-status.json", "./src/server/agents/report-model.ts"],
   },
   outputFileTracingExcludes: {
     "/*": ["./var/**/*", "./.env", "./.env.*", "./.artifacts/**/*", "./engineering-adapters/verification-monitoring/**/*", "**/__pycache__/**"],

@@ -1,0 +1,207 @@
+{
+  "dataset": "SIMULATED_TUNNEL_7D_10MIN_20261118",
+  "days": 7,
+  "interval_minutes": 10,
+  "samples_per_channel": 1008,
+  "channels": 24,
+  "records": 24192,
+  "per_sheet_records": 6048,
+  "start": "2026-11-11 00:00:00",
+  "end": "2026-11-17 23:50:00",
+  "spike_sample_index": 360,
+  "recovery_sample_index": 366,
+  "channels_expected": [
+    {
+      "point_id": "SIM10-T1-P1",
+      "metric_key": "ground_settlement",
+      "scenario": "平稳变化",
+      "records": 1008,
+      "final_cumulative_mm": 6.0,
+      "expected_final_risk": "正常"
+    },
+    {
+      "point_id": "SIM10-T1-P2",
+      "metric_key": "ground_settlement",
+      "scenario": "累计逐渐超限",
+      "records": 1008,
+      "final_cumulative_mm": 26.0,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T1-P3",
+      "metric_key": "ground_settlement",
+      "scenario": "短时速率超限后恢复",
+      "records": 1008,
+      "final_cumulative_mm": 4.2014,
+      "expected_final_risk": "正常"
+    },
+    {
+      "point_id": "SIM10-T1-P4",
+      "metric_key": "ground_settlement",
+      "scenario": "反向变形待核",
+      "records": 1008,
+      "final_cumulative_mm": -2.5035,
+      "expected_final_risk": "未知"
+    },
+    {
+      "point_id": "SIM10-T1-P5",
+      "metric_key": "ground_settlement",
+      "scenario": "厘米单位累计超限平台",
+      "records": 1008,
+      "final_cumulative_mm": 22.0,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T1-P6",
+      "metric_key": "ground_settlement",
+      "scenario": "持续速率超限",
+      "records": 1008,
+      "final_cumulative_mm": 38.363888889,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T2-P1",
+      "metric_key": "building_settlement",
+      "scenario": "平稳变化",
+      "records": 1008,
+      "final_cumulative_mm": 4.5,
+      "expected_final_risk": "正常"
+    },
+    {
+      "point_id": "SIM10-T2-P2",
+      "metric_key": "building_settlement",
+      "scenario": "累计逐渐超限",
+      "records": 1008,
+      "final_cumulative_mm": 19.5,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T2-P3",
+      "metric_key": "building_settlement",
+      "scenario": "短时速率超限后恢复",
+      "records": 1008,
+      "final_cumulative_mm": 3.2014,
+      "expected_final_risk": "正常"
+    },
+    {
+      "point_id": "SIM10-T2-P4",
+      "metric_key": "building_settlement",
+      "scenario": "反向变形待核",
+      "records": 1008,
+      "final_cumulative_mm": -2.0035,
+      "expected_final_risk": "未知"
+    },
+    {
+      "point_id": "SIM10-T2-P5",
+      "metric_key": "building_settlement",
+      "scenario": "厘米单位累计超限平台",
+      "records": 1008,
+      "final_cumulative_mm": 16.5,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T2-P6",
+      "metric_key": "building_settlement",
+      "scenario": "持续速率超限",
+      "records": 1008,
+      "final_cumulative_mm": 28.772916667,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T3-P1",
+      "metric_key": "crown_settlement",
+      "scenario": "平稳变化",
+      "records": 1008,
+      "final_cumulative_mm": 7.5,
+      "expected_final_risk": "正常"
+    },
+    {
+      "point_id": "SIM10-T3-P2",
+      "metric_key": "crown_settlement",
+      "scenario": "累计逐渐超限",
+      "records": 1008,
+      "final_cumulative_mm": 32.5,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T3-P3",
+      "metric_key": "crown_settlement",
+      "scenario": "短时速率超限后恢复",
+      "records": 1008,
+      "final_cumulative_mm": 5.2014,
+      "expected_final_risk": "正常"
+    },
+    {
+      "point_id": "SIM10-T3-P4",
+      "metric_key": "crown_settlement",
+      "scenario": "反向变形待核",
+      "records": 1008,
+      "final_cumulative_mm": -3.0035,
+      "expected_final_risk": "未知"
+    },
+    {
+      "point_id": "SIM10-T3-P5",
+      "metric_key": "crown_settlement",
+      "scenario": "厘米单位累计超限平台",
+      "records": 1008,
+      "final_cumulative_mm": 27.5,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T3-P6",
+      "metric_key": "crown_settlement",
+      "scenario": "持续速率超限",
+      "records": 1008,
+      "final_cumulative_mm": 47.954861111,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T4-P1",
+      "metric_key": "tunnel_convergence",
+      "scenario": "平稳变化",
+      "records": 1008,
+      "final_cumulative_mm": 3.6,
+      "expected_final_risk": "正常"
+    },
+    {
+      "point_id": "SIM10-T4-P2",
+      "metric_key": "tunnel_convergence",
+      "scenario": "累计逐渐超限",
+      "records": 1008,
+      "final_cumulative_mm": 15.6,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T4-P3",
+      "metric_key": "tunnel_convergence",
+      "scenario": "短时速率超限后恢复",
+      "records": 1008,
+      "final_cumulative_mm": 2.6014,
+      "expected_final_risk": "正常"
+    },
+    {
+      "point_id": "SIM10-T4-P4",
+      "metric_key": "tunnel_convergence",
+      "scenario": "反向变形待核",
+      "records": 1008,
+      "final_cumulative_mm": -1.7035,
+      "expected_final_risk": "未知"
+    },
+    {
+      "point_id": "SIM10-T4-P5",
+      "metric_key": "tunnel_convergence",
+      "scenario": "厘米单位累计超限平台",
+      "records": 1008,
+      "final_cumulative_mm": 13.2,
+      "expected_final_risk": "预警"
+    },
+    {
+      "point_id": "SIM10-T4-P6",
+      "metric_key": "tunnel_convergence",
+      "scenario": "持续速率超限",
+      "records": 1008,
+      "final_cumulative_mm": 23.018333333,
+      "expected_final_risk": "预警"
+    }
+  ]
+}

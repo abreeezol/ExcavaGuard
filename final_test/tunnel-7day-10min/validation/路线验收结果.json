@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "mode": "真实模型与真实本地RAG，工程师身份为测试模拟",
+  "parent_run_id": "2dc7cf3f-4324-4dd7-aa58-48b7694bb6fb",
+  "parent_revision": 18,
+  "child_run_id": "6337d487-e074-4764-a838-226e28929b92",
+  "feedback_items": 4,
+  "addressed_items": 4,
+  "observations": 3456,
+  "facts_unchanged": true,
+  "risk_summary": {
+    "total": 3456,
+    "by_risk_level": {
+      "正常": 1152,
+      "预警": 1728,
+      "未知": 576
+    },
+    "by_problem_category": {
+      "变形监测": 2880,
+      "变形监测待核": 576
+    },
+    "by_data_origin": {
+      "simulated": 3456
+    },
+    "abstain": {
+      "REVERSE_DIRECTION_CONTROL_NOT_PROVIDED": 576
+    },
+    "overall_risk_level": "预警"
+  },
+  "original_revision_unchanged": true,
+  "original_report_files_unchanged": true,
+  "stale_review_rejected": true,
+  "returned_report_download_blocked": true,
+  "revised_artifacts_downloaded": 3,
+  "standards_count": 16,
+  "model_calls_before": 3,
+  "model_calls_after": 3,
+  "elapsed_ms": 84100,
+  "parent_revision_files": 18
+}

@@ -1,6 +1,8 @@
 import json,sys,sqlite3,hashlib,re,math
 from collections import Counter
 from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'tools/knowledge'))
+from clause_labels import clause_label
 r=json.load(sys.stdin)
 try:
  root=Path(__file__).resolve().parents[3];adapter=r['adapter_id']
@@ -25,7 +27,7 @@ try:
   normalized=re.sub(r'\s','',body)
   if meta['effective_status']=='active' and any(c=='*' or re.search(r'(?<![\d.])'+re.escape(c)+r'(?![\d.])',normalized) for c in revoked.get(meta['standard_version'],[])):continue
   matches=[t for t in terms if t in body]
-  if matches:out.append({'id':eid,'text':body,'metadata':meta,'provider':'local','score':len(matches)/max(1,len(terms)),'matched_terms':sorted(matches)[:50]})
+  if matches:meta['clause']=clause_label(body,meta['clause']);out.append({'id':eid,'text':body,'metadata':meta,'provider':'local','score':len(matches)/max(1,len(terms)),'matched_terms':sorted(matches)[:50]})
  # Deterministic BM25-style ranking over the scoped candidate texts, with character length normalization.
  if out:
   frequencies=Counter(t for e in out for t in e['matched_terms']);n=len(out);average=sum(len(e['text']) for e in out)/n

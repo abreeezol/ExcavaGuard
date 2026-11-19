@@ -1,7 +1,7 @@
 {
   "schema": "excavaguard.engineering_adapter/v1",
   "id": "tunnel-monitoring",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "隧道工程",
   "engineering_type": "tunnel",
   "status": "development_validated_scope",
@@ -115,7 +115,7 @@
   "acceptance_suites": [
     "tests/tunnel-monitoring.test.ts"
   ],
-  "template_version": "tunnel-monitoring/v1",
+  "template_version": "tunnel-monitoring/v2",
   "handlers": {
     "parse-monitoring-data/inspect_file.py": "engineering-adapters/tunnel-monitoring/runtime/inspect_file.py",
     "normalize-monitoring-data/normalize_records.py": "engineering-adapters/tunnel-monitoring/runtime/normalize_records.py",
@@ -168,7 +168,8 @@
     "src/server/preparation/pipeline.ts",
     "src/server/preparation/fact-integrity.ts",
     "skills/prepare-engineering-facts/SKILL.md",
-    "skills/prepare-engineering-facts/scripts/finalize_facts.py"
+    "skills/prepare-engineering-facts/scripts/finalize_facts.py",
+    "tools/knowledge/clause_labels.py"
   ],
   "standard_scope": "engineering-adapters/tunnel-monitoring/scope.json"
 }

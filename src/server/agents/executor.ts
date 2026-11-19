@@ -352,7 +352,8 @@ export async function executeAgentRun(
   }
   let modelContext: ReturnType<typeof buildReportModelContext> | null = null;
   const projectDocuments = input.projectStandards?.documents ?? [];
-  if (reportMode === "ai" || projectDocuments.length) {
+  const reviewSharedStandards = reportMode === "ai" || adapterIdFromPayload(state.engine_snapshot.payload) === "tunnel-monitoring";
+  if (reviewSharedStandards || projectDocuments.length) {
     try {
       assertAdapterSnapshot(state.engine_snapshot.payload);
       modelContext = buildReportModelContext(state.engine_snapshot.payload);
@@ -368,8 +369,8 @@ export async function executeAgentRun(
         const response = await modelCall("supervisor", {...modelContext,engineer_feedback:state.revision_feedback?.payload}, 1);
         const proposedPlan = reportPlanSchema.parse(response.object);
         const plan = { ...proposedPlan, evidence_topics: modelContext.evidence_topics };
-        validateInvestigations(plan,modelContext.facts,modelContext.items.length,modelContext.evidence_topics);
-        if (plan.focus_indices.some((i) => i >= modelContext!.items.length) ||
+        validateInvestigations(plan,modelContext.facts,modelContext.item_count,modelContext.evidence_topics);
+        if (plan.focus_indices.some((i) => i >= modelContext!.item_count) ||
             proposedPlan.evidence_topics.some((topic) => !modelContext!.evidence_topics.includes(topic))) {
           throw new Error("INVALID_PLAN：规划未覆盖实际测项，或引用未知测项。");
         }
@@ -389,7 +390,7 @@ export async function executeAgentRun(
         const queries: StandardQueryReview[] = [];
         const projectRetriever = projectDocuments.length
           ? new ProjectStandardRetriever(input.projectStandards!.project_id, projectDocuments) : null;
-        const baseRetriever: StandardEvidenceRetriever | null = reportMode !== "ai" ? null : dependencies.retrieve
+        const baseRetriever: StandardEvidenceRetriever | null = !reviewSharedStandards ? null : dependencies.retrieve
           ? { provider: "local", search: async query => {
             const result = await dependencies.retrieve!({ query: query.query, filters: query.filters, limit: query.top_k });
             if (result.status === "abstained" && result.code !== "EVIDENCE_NOT_FOUND") throw new Error(result.code);
@@ -399,7 +400,7 @@ export async function executeAgentRun(
           : baseRetriever;
         const standardReview = await reviewAllStandards({
           topics: plan.evidence_topics, enginePayload: state.engine_snapshot.payload,
-          catalog: withProjectCatalog(reportMode === "ai" ? readStandardCatalog(adapterIdFromPayload(state.engine_snapshot.payload), (state.engine_snapshot.payload as {project?:{professional_parameters?:Record<string,unknown>}}).project?.professional_parameters??{}) : [], projectDocuments),
+          catalog: withProjectCatalog(reviewSharedStandards ? readStandardCatalog(adapterIdFromPayload(state.engine_snapshot.payload), (state.engine_snapshot.payload as {project?:{professional_parameters?:Record<string,unknown>}}).project?.professional_parameters??{}) : [], projectDocuments),
           search: async (request) => {
             const remaining = Date.parse(state.limits.deadline_at) - now().getTime();
             if (remaining <= 0) throw new Error("DEADLINE_EXCEEDED：规范检索预算已到。");
@@ -424,7 +425,7 @@ export async function executeAgentRun(
             if (queries.length % 4 === 0) await checkpoint(1);
           },
         });
-        if (reportMode !== "ai") standardReview.coverage.notice = "模板模式仅检索本工程补充规范；共享规范库未进行运行时检索。" + standardReview.coverage.notice;
+        if (!reviewSharedStandards) standardReview.coverage.notice = "模板模式仅检索本工程补充规范；共享规范库未进行运行时检索。" + standardReview.coverage.notice;
         standardReview.evidence.forEach(item => evidence.set(item.id, item));
         gaps.push(...standardReview.gaps);
         await checkpoint(1);

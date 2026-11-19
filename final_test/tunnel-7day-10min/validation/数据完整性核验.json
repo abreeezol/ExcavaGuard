@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "records": 24192,
+  "channels": 24,
+  "samples_per_channel": 1008,
+  "interval_seconds": 600,
+  "days": 7,
+  "data_sheets": [
+    "地表沉降",
+    "建筑沉降",
+    "拱顶沉降",
+    "净空收敛"
+  ],
+  "xlsx_csv_equivalent": true,
+  "all_simulated": true,
+  "manifest_verified": true,
+  "all_rows_have_sheet_and_row_provenance": true
+}

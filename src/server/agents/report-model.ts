@@ -239,9 +239,38 @@ export function buildReportModelContext(payload: unknown) {
   const policy = readScenePolicy(adapterIdFromPayload(payload));
   const FORM_RULES = policy.form_rules;
   const items = engine.items as Record<string, unknown>[];
-  if (!Array.isArray(items) || !items.length || items.length > 200 ||
+  if (!Array.isArray(items) || !items.length || items.length > 300_000 ||
       items.some((item) => !item || typeof item !== "object" || Array.isArray(item))) {
-    throw new Error("AI_INPUT_LIMIT：AI 日报需要一至两百条当日计算明细，请调整报告范围。");
+    throw new Error("AI_INPUT_LIMIT：日报需要有效的冻结观测，最多三十万条。");
+  }
+  // Keep original frozen indices: this is a bounded prose context, never a replacement
+  // for full calculation, report detail or file audit.
+  let selectedIndices = items.map((_, index) => index);
+  if (items.length > 200) {
+    const groups = new Map<string, number[]>();
+    items.forEach((item, index) => {
+      const key = JSON.stringify([item.point_id, item.metric_key ?? item.metric_name]);
+      const group = groups.get(key);
+      if (group) group.push(index); else groups.set(key, [index]);
+    });
+    if (groups.size > 200) throw new Error("AI_INPUT_LIMIT：正文最多支持两百个监测通道，完整观测仍需保留。");
+    const levels: Record<string, number> = {"未知": -1, "正常": 0, "关注": 1, "预警": 2, "报警": 3, "危险报警": 4};
+    const candidates = [...groups.values()].map(indices => {
+      const worst = indices.reduce((best, index) => {
+        const left = items[best], right = items[index];
+        const a = levels[String(left.risk_level)] ?? -1, b = levels[String(right.risk_level)] ?? -1;
+        return b > a || (b === a && Number(right.utilization ?? 0) > Number(left.utilization ?? 0)) ? index : best;
+      });
+      const latest = indices.reduce((a,b) => String(items[b].timestamp) > String(items[a].timestamp) ? b : a);
+      const maxRate = indices.reduce((a,b) => Number(items[b].rate ?? -1) > Number(items[a].rate ?? -1) ? b : a);
+      return [...new Set([worst, latest, indices.find(i => items[i].risk_level === "未知"), maxRate, indices[0]])]
+        .filter((index): index is number => index !== undefined);
+    });
+    const chosen = new Set<number>();
+    for (let offset = 0; offset < 5 && chosen.size < 200; offset++) {
+      for (const group of candidates) if (group[offset] !== undefined && chosen.size < 200) chosen.add(group[offset]);
+    }
+    selectedIndices = [...chosen].sort((a,b) => a-b);
   }
   const facts: Record<string, string | number | boolean | null> = {};
   const addFacts = (prefix: string, value: unknown) => {
@@ -281,7 +310,8 @@ export function buildReportModelContext(payload: unknown) {
   const forms = [...new Set(items.map((item) =>
     FORM_RULES.find(([, terms]) => terms.some((term) => String(item.metric_name).includes(term)))?.[0],
   ).filter((form): form is string => Boolean(form)))].sort();
-  items.forEach((item, i) => {
+  selectedIndices.forEach(i => {
+    const item = items[i];
     for (const field of ["point_id", "metric_name", "current", "cumulative", "single_change", "rate", "slope",
       "risk_level", "abstain_reasons", "utilization", "problem_category", "unit", "timestamp"]) {
       addFacts(`items.${i}.${field}`, item[field]);
@@ -303,11 +333,13 @@ export function buildReportModelContext(payload: unknown) {
   })];
   return {
     engineering_adapter: adapterSummary,
-    facts, forms,
-    form_items: Object.fromEntries(forms.map(form => [form, items.flatMap((item, index) =>
-      FORM_RULES.find(([, terms]) => terms.some(term => String(item.metric_name).includes(term)))?.[0] === form ? [index] : [])])),
-    items: items.map((item, index) => ({
-      index, point_id: item.point_id, metric_name: item.metric_name, risk_level: item.risk_level,
+    facts, forms, item_count: items.length,
+    context_selection: {total_observations:items.length,selected_observations:selectedIndices.length,
+      note:"仅为正文选择各通道最严重、最新、未知、最大速率及首条原观测，索引保持冻结路径；全部明细仍用于计算、报告与审计，不能据抽选断言完整过程。"},
+    form_items: Object.fromEntries(forms.map(form => [form, selectedIndices.filter(index =>
+      FORM_RULES.find(([, terms]) => terms.some(term => String(items[index].metric_name).includes(term)))?.[0] === form)])),
+    items: selectedIndices.map(index => ({
+      index, point_id: items[index].point_id, metric_name: items[index].metric_name, risk_level: items[index].risk_level,
     })),
     evidence_topics: evidenceTopics,
     ...(period ? { report_period: { type: period.type, start_date: period.start_date, end_date: period.end_date,
@@ -359,6 +391,16 @@ export function validateNarrativeGrounding(
   }
   for (const [key,label] of [["patrol_status","巡视(?:记录|资料)"],["work_condition_status","(?:工况(?:记录|资料)?|施工日志)"]]) {
     if(facts[`project.supporting_context.work_analysis.${key}`] === "provided_in_window" && new RegExp(`${label}.{0,6}(?:未提供|缺失)`).test(text)) throw new Error("PROVIDED_SUPPORT_OMITTED：已提供的辅助资料不能写成未提供，应说明关联范围或局限。");
+  }
+  if (/(?:弃权|未知|待核)(?:的)?原因(?:为|是|：|:)\s*\{\{fact:summary\.abstain\./.test(text)) {
+    throw new Error("COUNT_AS_ABSTAIN_REASON：弃权次数不能作为原因，应说明实际弃权原因。");
+  }
+  if (/\{\{fact:summary\.overall_risk_level\}\}[^。；\n]{0,30}该字段(?:表示|为)[^。；\n]{0,30}(?:数量|次数|条目统计)/.test(text)) {
+    throw new Error("RISK_LEVEL_AS_COUNT：整体风险等级不能解释为观测数量。");
+  }
+  if (facts["project.pre_agent_preparation.facts.report_kind"] === "daily" &&
+      narrative.appendix_analysis.some(entry => /(?:本表|表内|附表)(?:汇总|展示|为|是)[^。；\n]{0,100}(?:周期|区间)最严重原观测/.test(entry.analysis.text))) {
+    throw new Error("DAILY_PERIOD_CONFUSION：日报附表为当日完整观测，不能描述为周期最严重代表值。");
   }
   const policy = readScenePolicy(String(facts["project.engineering_adapter.id"] ?? "foundation-pit"));
   const FORM_RULES = policy.form_rules;

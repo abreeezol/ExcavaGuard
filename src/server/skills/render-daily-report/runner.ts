@@ -106,6 +106,7 @@ export async function renderDailyReport(
       "render_daily_report.py",
       {
         daily_report_input: engineSnapshot.payload,
+        require_full_coverage: adapterIdFromPayload(engineSnapshot.payload) === "tunnel-monitoring",
         standard_evidence: supportingPayload(evidenceSnapshot),
         work_condition_analysis: supportingPayload(analysisSnapshot),
         template_version: templateVersion,

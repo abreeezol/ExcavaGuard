@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "files": 4,
+  "records_per_file": 6048,
+  "checked_observations": 24192,
+  "matched_observations": 24192,
+  "by_risk_level": {
+    "正常": 11068,
+    "预警": 9076,
+    "未知": 4048
+  }
+}

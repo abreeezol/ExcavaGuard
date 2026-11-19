@@ -1,0 +1,65 @@
+{
+  "data_origin": "simulated",
+  "files": [
+    {
+      "file": "SIMULATED_挑战_后续工作表缺列.xlsx",
+      "bytes": 5666,
+      "sha256": "e627b057727333b911efbdc7a3762d52daa508edc2dd2f0be8335fa32a33a2e3"
+    },
+    {
+      "file": "SIMULATED_挑战_缺少单位列.xlsx",
+      "bytes": 5078,
+      "sha256": "4f989031132790e22001cd9016918793b548ab55d6440ac3b5ab3216c1cad015"
+    },
+    {
+      "file": "SIMULATED_挑战_重复观测.xlsx",
+      "bytes": 5132,
+      "sha256": "c129187c40306eb54a3624f58838c4b78256259f3b462bb0201444295f648934"
+    },
+    {
+      "file": "SIMULATED_隧道监测_7天_10分钟_多工作表.xlsx",
+      "bytes": 777140,
+      "sha256": "9fc719a7baee88fe765a919e44d79a8fe37b80b6d2b81e05e4762f86dcf1e4c6"
+    },
+    {
+      "file": "SIMULATED_隧道监测_7天_10分钟_等价长表.csv",
+      "bytes": 4285128,
+      "sha256": "02b670e73939639d3ea0fc130869d4487e65eb630fa70f11fd9bfd2ff837d167"
+    },
+    {
+      "file": "separate-files/SIMULATED_净空收敛.xlsx",
+      "bytes": 195483,
+      "sha256": "f095fc2a0e156b67a4b8feb14516d19117b663159663d9e43850c9f82aeacc38"
+    },
+    {
+      "file": "separate-files/SIMULATED_地表沉降.xlsx",
+      "bytes": 197148,
+      "sha256": "99a705f07a9a16957ce1b283bd7b3f07856a18af58a328497269bfef4884b40c"
+    },
+    {
+      "file": "separate-files/SIMULATED_建筑沉降.xlsx",
+      "bytes": 197817,
+      "sha256": "806cae2a17f9906fb1f012f59095679acb4d0ec55d6c063f75eac9cc3a4cbe4d"
+    },
+    {
+      "file": "separate-files/SIMULATED_拱顶沉降.xlsx",
+      "bytes": 198506,
+      "sha256": "176ed8f6fa16ed6a05ce0ab87687e9e1ee0b6abc01a34016db3e76a5bcddc30a"
+    },
+    {
+      "file": "工程参数_SIMULATED.json",
+      "bytes": 1165,
+      "sha256": "17b46ee94e551b58736707186aba5812e0d75e12cd5d14f060405e381ee30f7e"
+    },
+    {
+      "file": "预期结果_SIMULATED.json",
+      "bytes": 5819,
+      "sha256": "b425da42a068faf08bc9fcda1173d01fe7b72cf0d651fefa9424f846d55a2402"
+    },
+    {
+      "file": "预期逐条结果_SIMULATED.jsonl",
+      "bytes": 6173672,
+      "sha256": "9f077a1d5f505d2962e7a0ab55daa6b006847717709376fd09856e9587191583"
+    }
+  ]
+}

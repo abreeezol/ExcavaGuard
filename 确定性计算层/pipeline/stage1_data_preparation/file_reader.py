@@ -203,59 +203,50 @@ def _read_delimited(p: Path) -> tuple[list[list[str]], dict]:
     }
 
 
-def _read_excel(p: Path) -> tuple[list[list[str]], dict]:
+def _read_excel_tables(p: Path) -> list[tuple[list[list[str]], dict]]:
+    """Read every data sheet once; note sheets provide workbook-level provenance."""
     try:
         import openpyxl
-    except ModuleNotFoundError as exc:  # pragma: no cover - 取决于运行环境
-        raise RuntimeError(
-            f"读取 {p.suffix} 需要 openpyxl，当前环境未安装。"
-            "请将文件另存为 CSV（UTF-8）后重试，或安装 openpyxl。"
-        ) from exc
-
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("读取Excel需要openpyxl，请安装依赖或另存为CSV。") from exc
     wb = openpyxl.load_workbook(p, read_only=True, data_only=True)
-    ws = wb.worksheets[0]
-    sheet_title = ws.title
-    rows: list[list[str]] = []
-    for row in ws.iter_rows(values_only=True):
-        cells = ["" if c is None else str(c) for c in row]
-        if any(c.strip() for c in cells):
-            rows.append(cells)
+    try:
+        is_note = lambda title: any(token in title.lower() for token in ("说明", "note", "readme"))
+        notes = [" | ".join(str(c).strip() for c in row if c is not None and str(c).strip())
+                 for ws in wb.worksheets if is_note(ws.title)
+                 for row in ws.iter_rows(values_only=True) if any(c is not None for c in row)]
+        note_text = "\n".join(notes)
+        flags = [flag for term, flag in (("对齐", "SOURCE_TIME_ALIGNED"),
+                 ("重采样", "SOURCE_RESAMPLED"), ("线性插值", "SOURCE_LINEAR_INTERPOLATION_PRESENT"),
+                 ("末值保持", "SOURCE_END_VALUE_HOLD_PRESENT")) if term in note_text]
+        if any(flag.endswith("_PRESENT") for flag in flags):
+            flags.append("SOURCE_CELL_PROVENANCE_UNAVAILABLE")
+        tables = []
+        for ws in wb.worksheets:
+            if is_note(ws.title):
+                continue
+            rows, row_numbers = [], []
+            for number, row in enumerate(ws.iter_rows(values_only=True), 1):
+                cells = ["" if c is None else str(c) for c in row]
+                if any(c.strip() for c in cells):
+                    rows.append(cells)
+                    row_numbers.append(number)
+            tables.append((rows, {"source": str(p), "format": "excel", "encoding": None,
+                "delimiter": None, "sheet": ws.title, "sheets": list(wb.sheetnames),
+                "raw_rows": len(rows), "source_notes": notes, "source_flags": flags,
+                "_row_numbers": row_numbers}))
+        if not tables:
+            tables.append(([], {"source": str(p), "format": "excel", "sheets": list(wb.sheetnames),
+                               "source_notes": notes, "source_flags": flags, "raw_rows": 0}))
+        return tables
+    finally:
+        wb.close()
 
-    source_notes: list[str] = []
-    for note_sheet in wb.worksheets[1:]:
-        if not any(token in note_sheet.title.lower() for token in ("说明", "note", "readme")):
-            continue
-        for row in note_sheet.iter_rows(values_only=True):
-            cells = [str(c).strip() for c in row if c is not None and str(c).strip()]
-            if cells:
-                source_notes.append(" | ".join(cells))
 
-    note_text = "\n".join(source_notes)
-    source_flags: list[str] = []
-    if "对齐" in note_text:
-        source_flags.append("SOURCE_TIME_ALIGNED")
-    if "重采样" in note_text:
-        source_flags.append("SOURCE_RESAMPLED")
-    if "线性插值" in note_text:
-        source_flags.append("SOURCE_LINEAR_INTERPOLATION_PRESENT")
-    if "末值保持" in note_text:
-        source_flags.append("SOURCE_END_VALUE_HOLD_PRESENT")
-    if any(flag.endswith("_PRESENT") for flag in source_flags):
-        source_flags.append("SOURCE_CELL_PROVENANCE_UNAVAILABLE")
-
-    sheet_names = list(wb.sheetnames)
-    wb.close()
-    return rows, {
-        "source": str(p),
-        "format": "excel",
-        "encoding": None,
-        "delimiter": None,
-        "sheet": sheet_title,
-        "sheets": sheet_names,
-        "raw_rows": len(rows),
-        "source_notes": source_notes,
-        "source_flags": source_flags,
-    }
+def _read_excel(p: Path) -> tuple[list[list[str]], dict]:
+    # The low-level table API returns one table; monitoring ingestion below consumes all sheets.
+    rows, meta = _read_excel_tables(p)[0]
+    return rows, {k: v for k, v in meta.items() if k != "_row_numbers"}
 
 
 # --- 主入口 ---------------------------------------------------------------
@@ -460,8 +451,46 @@ def read_monitoring_file(path: str | Path) -> tuple[list[dict], dict]:
     五列长表按字段别名映射；混合宽表按明确通道名展开为长记录。
     ``report`` 记录布局、列映射、来源说明和展开数量，供用户核对。
     """
-    rows, meta = read_table(path)
-    return read_monitoring_rows(rows, meta)
+    p = Path(path)
+    if p.suffix.lower() not in (".xlsx", ".xlsm"):
+        rows, meta = read_table(p)
+        return read_monitoring_rows(rows, meta)
+    records, reports = [], []
+    for rows, meta in _read_excel_tables(p):
+        row_numbers = meta.pop("_row_numbers", [])
+        part, report = read_monitoring_rows(rows, meta)
+        reports.append(report)
+        if not report.get("ok"):
+            continue
+        channels = report.get("channel_count", 1) if report.get("layout") == "wide" else 1
+        for index, record in enumerate(part):
+            original = record.get("source_metadata") or {}
+            if isinstance(original, str):
+                import json
+                original = json.loads(original)
+            if not isinstance(original, dict):
+                raise ValueError("来源元数据必须为JSON对象")
+            body_index = index // channels + 1
+            record["source_metadata"] = {**original, "source_file": p.name,
+                "source_sheet": meta.get("sheet"), "source_row": row_numbers[body_index]}
+        records.extend(part)
+    failures = [r for r in reports if not r.get("ok")]
+    layouts = {r.get("layout") for r in reports if r.get("ok")}
+    errors = [f"工作表《{r.get('sheet', '未命名')}》：{error}" for r in failures for error in r.get("errors", [])]
+    if len(layouts) > 1:
+        errors.append("多个工作表须统一使用长表或宽表，不能混合输入布局。")
+    combined = {**reports[0], "sheet_reports": reports,
+        "data_sheets": [r.get("sheet") for r in reports],
+        "data_rows": sum(r.get("data_rows", 0) for r in reports),
+        "raw_rows": sum(r.get("raw_rows", 0) for r in reports),
+        "expanded_records": len(records), "ok": not failures and not errors, "errors": errors}
+    if errors:
+        return [], combined
+    if layouts == {"wide"}:
+        combined["wide_channels"] = [c for r in reports for c in r.get("wide_channels", [])]
+        combined["channel_count"] = sum(r.get("channel_count", 0) for r in reports)
+    return records, combined
+
 
 
 def _parse_record_timestamp(value: Any) -> datetime | None:

@@ -1,6 +1,8 @@
 # 最终输入与交付验收说明
 
-> **最新版入口（2026-10-27）：** [合成测试数据与可读周报展示](latest/README.md)。新样例集中在 `latest/inputs`、`latest/snapshots`、`latest/reports/weekly` 和 `latest/validation`；下方原有文件保留作为历史输入与格式参考。
+> **隧道最新测试包（2026-11-19）：** [七天十分钟多sheet/多文件数据、使用说明与精选报告](tunnel-7day-10min/README.md)。
+
+> **基坑样例入口（2026-10-27）：** [合成测试数据与可读周报展示](latest/README.md)。新样例集中在 `latest/inputs`、`latest/snapshots`、`latest/reports/weekly` 和 `latest/validation`；下方原有文件保留作为历史输入与格式参考。
 
 ## 当前输入的实测结构
 
