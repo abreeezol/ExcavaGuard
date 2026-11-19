@@ -12,6 +12,15 @@ it('高频正文有界选取关键原观测，保留原始索引及全部冻结�
   expect(model.facts[`items.${spike}.risk_level`]).toBe('预警');
   expect(model.form_items.S).toContain(spike);
  }
+ expect(model.report_scope.kind).toBe('daily');
+ expect(model.report_scope.output_item_count).toBe(3456);
+ expect(model.report_scope.table_meaning).toContain('全部原观测');
  expect(model.facts['summary.total']).toBe(3456);
  expect(model.facts['items.1.current']).toBeUndefined();
+});
+
+it('周期正文明确采用通道最严重原观测口径',()=>{
+ const model=buildReportModelContext({project:{engineering_adapter:{id:'tunnel-monitoring'}},items:[{point_id:'SIM-PERIOD',metric_name:'拱顶沉降',current:1,risk_level:'正常'}],period:{type:'weekly'}});
+ expect(model.report_scope.kind).toBe('weekly');
+ expect(model.report_scope.table_meaning).toContain('最严重原观测');
 });

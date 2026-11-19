@@ -1,0 +1,78 @@
+{
+  "schema": "excavaguard.scenario_profile/v1",
+  "id": "jikeng",
+  "name": "基坑工程监测",
+  "status": "active",
+  "description": "基线场景。取值与本仓库改造前的内置默认逐项一致，用于保证存量行为与 242 项引擎回归不变。",
+  "standards": {
+    "default_dir": "standards/default",
+    "user_dir": "standards/user_uploaded",
+    "origin_display_default": "默认规范库（基坑智守项目相关规范）",
+    "origin_display_user": "用户上传规范",
+    "spec_root_label": "基坑智守项目相关规范",
+    "judgement_library": "thresholds_gb50497_2019.json",
+    "index_file": "规范库索引.json"
+  },
+  "conditions": {
+    "defaults": {
+      "safety_level": "一级",
+      "support_type": "地下连续墙"
+    },
+    "dimensions": [
+      "safety_level",
+      "support_type",
+      "pipeline_type",
+      "road_type",
+      "crack_state"
+    ],
+    "specificity_dimensions": [
+      "support_type",
+      "pipeline_type",
+      "road_type",
+      "crack_state"
+    ],
+    "labels": {
+      "safety_level": "基坑安全等级",
+      "support_type": "支护形式",
+      "pipeline_type": "管线类型",
+      "road_type": "道路类型",
+      "crack_state": "裂缝状态"
+    }
+  },
+  "reference_lengths": {
+    "primary": "excavation_depth_m",
+    "labels": {
+      "excavation_depth_m": "基坑设计深度 H"
+    },
+    "note": "累计值限值取 min(绝对量, 比例×H)。依据 GB 50497-2019 表 8.0.4 注。"
+  },
+  "metric_aliases": {
+    "extra": {}
+  },
+  "problem_categories": {
+    "extra": {}
+  },
+  "derived_metrics": [],
+  "report": {
+    "template_version": "deep-pit-monitoring-report/service-v5",
+    "form_family": "gb50497_appendix_A_G",
+    "forms": ["表A", "表B", "表C", "表D", "表E", "表F", "表G"],
+    "renderable": true
+  },
+  "rag": {
+    "collection": "jikeng_norms",
+    "pinecone_index": "excava-guard",
+    "pinecone_namespace": "standards-v1",
+    "status_file": "rag/standard-status.json",
+    "catalogue_size": 30
+  },
+  "documented_assumptions": [
+    "默认判据库为 GB 50497-2019《建筑基坑工程监测技术标准》表 8.0.4 的 22 个监测项，限值以条文形式人工摘录。",
+    "条件维度为安全等级 / 支护形式 / 管线类型 / 道路类型 / 裂缝状态，与判据库 rule 字段同名匹配。",
+    "比例限值的参照长度固定为基坑设计深度 H，缺 H 时不得用绝对量替代，见 risk_identifier 的 MISSING_H 弃权。",
+    "底板浇筑后变化速率限值按 ×0.7 折减（GB 50497-2019 表 8.0.4 注）。",
+    "危险报警条件为 GB 50497-2019 第 8.0.9 条的 7 条强制性情形。",
+    "日报表式为 GB 50497-2019 附录 A~G，未提供巡视记录时不生成表 G，且不得写成“巡视正常”。"
+  ],
+  "pending_inputs": []
+}

@@ -1,0 +1,205 @@
+{
+  "schema_version": "1.0",
+  "source_id": "TUNNEL-PENDING",
+  "source_label": "隧道施工监测判据库（测项已定义，限值待规范接入）",
+  "source_type": "pending",
+  "builtin": false,
+  "approval_status": "pending",
+  "description": "本文件只登记隧道施工场景的监测项清单与量纲，**不含任何阈值**。限值必须逐条摘自现行规范条文（含规范名称、版本、条文号、表格位置）并经设计方/项目方确认后填入 rules，方可参与判定。在此之前，任何隧道测项在阶段三都会因找不到适用判据而弃权，不会被判为“正常”。",
+  "used_in_stage": "阶段三 · 规范比对",
+  "selection_policy": {
+    "range_resolution": "conservative",
+    "range_resolution_display": "区间取严（取区间下限，即较严格值）",
+    "note": "与基坑判据库同口径：规范给出区间时取较严格值。"
+  },
+  "cumulative_limit_policy": {
+    "rule": "min_of_absolute_and_pct_ref",
+    "rule_display": "累计值限值取「绝对量限值」与「比例 × 参照长度」两者的较小值；比例类判据必须在 rule 中显式声明 cumulative_pct_ref.ref（埋深/跨度/外径）",
+    "note": "隧道不宜照搬基坑的 %×开挖深度 H 口径。是否采用比例判据、参照量取埋深还是跨度，须由所依据的规范条文明确。"
+  },
+  "rate_alarm_policy": {
+    "rule": "pending",
+    "rule_display": "速率类判据待规范接入",
+    "note": "基坑库的「连续 3 次超 70%」出自 GB 50497-2019，不能默认适用于隧道。"
+  },
+  "danger_alarm_conditions": [],
+  "mandatory_alarm_supplement": [],
+  "disclaimer": "本判据库为空判据骨架：仅用于确认数据接入、归一化与表式映射链路是否打通，不得用于发布任何预警，也不得据此判定测点安全。",
+  "metrics": {
+    "crown_settlement": {
+      "display_name": "拱顶下沉",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "必测项目。判据待接入（规范限值通常按围岩级别/埋深分档）。",
+      "rules": []
+    },
+    "clearance_convergence": {
+      "display_name": "净空收敛",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "必测项目。差值型派生：由同一断面两点读数之差得到，配对关系须显式给出。判据待接入。",
+      "rules": []
+    },
+    "surface_settlement": {
+      "display_name": "地表下沉",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "浅埋段必测项目。判据待接入。",
+      "rules": []
+    },
+    "invert_heave": {
+      "display_name": "隧底隆起（仰拱隆起）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "选测项目。判据待接入。",
+      "rules": []
+    },
+    "segment_deformation": {
+      "display_name": "管片变形（椭圆度）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "盾构法适用。判据待接入。",
+      "rules": []
+    },
+    "segment_joint_opening": {
+      "display_name": "管片接缝张开量",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "盾构法适用。判据待接入。",
+      "rules": []
+    },
+    "surrounding_rock_pressure": {
+      "display_name": "围岩压力",
+      "unit": "kPa",
+      "limit_mode": "pressure",
+      "note": "选测项目。判据多按设计值比例，需 design_value_key。待接入。",
+      "rules": []
+    },
+    "steel_arch_stress": {
+      "display_name": "钢架应力",
+      "unit": "kPa",
+      "limit_mode": "stress",
+      "note": "选测项目。应力量纲沿用压力换算（MPa→kPa），不做独立量纲表。待接入。",
+      "rules": []
+    },
+    "lining_stress": {
+      "display_name": "衬砌应力（内力）",
+      "unit": "kPa",
+      "limit_mode": "stress",
+      "note": "选测项目。待接入。",
+      "rules": []
+    },
+    "anchor_axial_force": {
+      "display_name": "锚杆轴力",
+      "unit": "kN",
+      "limit_mode": "force",
+      "note": "选测项目。判据多按设计值比例。待接入。",
+      "rules": []
+    },
+    "support_axial_force": {
+      "display_name": "支护构件轴力",
+      "unit": "kN",
+      "limit_mode": "force",
+      "note": "明挖段或临时支护适用。待接入。",
+      "rules": []
+    },
+    "blasting_vibration_velocity": {
+      "display_name": "爆破振动速度",
+      "unit": "mm/s",
+      "limit_mode": "velocity",
+      "note": "钻爆法适用。规范常以 cm/s 给出，本库统一换算为 mm/s（cm/s ×10）。判据待接入。",
+      "rules": []
+    },
+    "pore_pressure": {
+      "display_name": "孔隙水压力",
+      "unit": "kPa",
+      "limit_mode": "pressure",
+      "note": "选测项目。待接入。",
+      "rules": []
+    },
+    "groundwater_level": {
+      "display_name": "地下水位",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "明挖段与浅埋段适用。待接入。",
+      "rules": []
+    },
+    "deep_horizontal_displacement": {
+      "display_name": "深层水平位移（测斜）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "明挖段围护结构适用。待接入。",
+      "rules": []
+    },
+    "wall_top_horizontal_displacement": {
+      "display_name": "围护结构顶部水平位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "明挖段适用。待接入。",
+      "rules": []
+    },
+    "wall_top_vertical_displacement": {
+      "display_name": "围护结构顶部竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "明挖段适用。待接入。",
+      "rules": []
+    },
+    "building_settlement": {
+      "display_name": "周边建筑物沉降",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "环境监测项。待接入。",
+      "rules": []
+    },
+    "pipeline_settlement": {
+      "display_name": "周边管线沉降",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "环境监测项。待接入。",
+      "rules": []
+    },
+    "road_settlement": {
+      "display_name": "周边道路沉降",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "环境监测项。待接入。",
+      "rules": []
+    },
+    "soil_layered_vertical_displacement": {
+      "display_name": "土体分层竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "选测项目。待接入。",
+      "rules": []
+    },
+    "basal_heave": {
+      "display_name": "基底隆起（回弹）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "明挖段/竖井适用。待接入。",
+      "rules": []
+    },
+    "crack_width_surface": {
+      "display_name": "地表裂缝宽度",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "环境监测项。待接入。",
+      "rules": []
+    },
+    "crack_width_building": {
+      "display_name": "建筑裂缝宽度",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "环境监测项。待接入。",
+      "rules": []
+    },
+    "tunnel_patrol": {
+      "display_name": "洞内外观察（巡视）",
+      "unit": null,
+      "limit_mode": "qualitative",
+      "note": "定性项目，不参与数值判定；日报中以巡视记录表呈现，未提供时不得写成“巡视正常”。",
+      "rules": []
+    }
+  }
+}

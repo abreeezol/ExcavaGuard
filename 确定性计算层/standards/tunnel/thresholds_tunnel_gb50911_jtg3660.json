@@ -1,0 +1,1417 @@
+{
+  "schema_version": "1.0",
+  "source_id": "GB50911-2013+JTGT3660-2020",
+  "source_label": "GB 50911-2013《城市轨道交通工程监测技术规范》 + JTG/T 3660-2020《公路隧道施工技术规范》",
+  "source_type": "national_standard",
+  "builtin": true,
+  "description": "隧道施工监测判据库。每一条限值均摘自现行规范条文或表格，并登记规范名称、版本、条文号/表号与适用条件。规范要求「监测项目控制值应由设计文件明确」，本库在无地方经验/无专项方案时按规范给出的表格取值；有设计文件或专项方案时，应按项目上传规范的字段级覆盖处理，不得直接覆盖为更宽松的值。",
+  "used_in_stage": "阶段三 · 规范比对",
+  "approval_by": "项目团队按规范原文逐条摘录（2026-11-03），条文位置见每条 evidence",
+  "selection_policy": {
+    "range_resolution": "conservative",
+    "range_resolution_display": "区间取严（取区间下限，即较严格值）",
+    "range_resolution_options": [
+      "conservative",
+      "lenient",
+      "midpoint"
+    ],
+    "note": "GB 50911-2013 表9.2.2/9.2.3 给出的是区间值，确定性系统必须取确定值，默认取区间下限。"
+  },
+  "cumulative_limit_policy": {
+    "rule": "min_of_absolute_and_pct_ref",
+    "rule_display": "累计值限值取「绝对量限值」与「比例 × 参照长度」两者的较小值；比例类判据必须声明 cumulative_pct_ref.ref",
+    "evidence": "GB 50911-2013 表9.2.2-1（净空收敛 0.2%D）、表9.3.3（管线差异沉降 0.3%Lg 等）",
+    "when_ref_unknown": "use_absolute_and_flag",
+    "when_ref_unknown_display": "参照长度（D/Ls/Lg）未知时退化为绝对量限值并标记 PCT_REF_NOT_EVALUATED，同时在判定侧按上界弃权处理",
+    "note": ""
+  },
+  "rate_alarm_policy": {
+    "rule": "达到控制值 或 速率分级判断",
+    "evidence": "JTG/T 3660-2020 第18.6.3条第2款：速率>1.0mm/d 为急剧变形；0.2~1.0mm/d 应加强观测；<0.2mm/d 围岩基本稳定",
+    "consecutive_ratio": 0.7,
+    "consecutive_count": 3,
+    "note": "连续3次超70%的口径沿用本系统既有策略（源自基坑 GB 50497-2019 表8.0.4 注），隧道规范无同等表述；该口径仅在 metric 显式启用时参与，不替代 18.6.3 的速率分级。"
+  },
+  "post_slab_policy": {},
+  "disclaimer": "本库限值仅适用于『无地方工程经验、无项目专项监测方案』的情形（GB 50911-2013 第9.2.1~9.3.4 条的前置条件）。实际工程应以设计文件与专项方案确定的控制值为准，并由设计方确认；系统只生成草稿，不替代工程师判断。",
+  "metrics": {
+    "crown_settlement": {
+      "display_name": "初期支护结构拱顶沉降",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "management_levels": {
+        "base": "design_value",
+        "design_value_key": "极限位移",
+        "levels": [
+          {
+            "level": "I",
+            "label": "可正常施工",
+            "ratio_upper": 0.3333,
+            "action": "可正常施工",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "表18.6.3"
+            }
+          },
+          {
+            "level": "II",
+            "label": "应加强支护",
+            "ratio_upper": 0.6667,
+            "action": "应加强支护",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "表18.6.3"
+            }
+          },
+          {
+            "level": "III",
+            "label": "应采取特殊措施",
+            "ratio_upper": 1.0,
+            "action": "应采取特殊措施",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "表18.6.3"
+            }
+          }
+        ]
+      },
+      "stability_criterion": {
+        "rate_mm_per_day": 0.2,
+        "consecutive_periods": 3,
+        "consecutive_periods_note": "规范未规定连续期数；系统取连续3期作为最小观测样本，可由项目参数覆盖。",
+        "rate_state_bands": [
+          {
+            "state": "急剧变形",
+            "rate_min": 1.0,
+            "action": "应加强初期支护",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          },
+          {
+            "state": "缓慢变形",
+            "rate_min": 0.2,
+            "rate_max": 1.0,
+            "action": "应加强观测，做好加固准备",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          },
+          {
+            "state": "基本稳定",
+            "rate_max": 0.2,
+            "action": "围岩达到基本稳定",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          }
+        ],
+        "evidence": {
+          "standard": "JTG/T 3660-2020",
+          "clause": "18.6.3-2",
+          "note": "速率小于0.2mm/d时围岩达到基本稳定；高地应力软岩、膨胀岩土、流变蠕变岩土和挤压地层应另行制定判别标准。"
+        }
+      },
+      "rules": [
+        {
+          "rule_id": "CS-MINE-SECTION",
+          "safety_level": "any",
+          "construction_method": [
+            "矿山法"
+          ],
+          "cumulative_mm": {
+            "min": 10,
+            "max": 20
+          },
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.3-1",
+            "note": "矿山法隧道支护结构变形监测项目控制值：拱顶沉降 区间 10~20mm，变化速率 3mm/d"
+          },
+          "section_location": [
+            "区间"
+          ]
+        },
+        {
+          "rule_id": "CS-MINE-STATION",
+          "safety_level": "any",
+          "construction_method": [
+            "矿山法"
+          ],
+          "cumulative_mm": {
+            "min": 20,
+            "max": 30
+          },
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.3-1",
+            "note": "矿山法隧道支护结构变形监测项目控制值：拱顶沉降 车站 20~30mm，变化速率 3mm/d"
+          },
+          "section_location": [
+            "车站"
+          ]
+        }
+      ]
+    },
+    "clearance_convergence": {
+      "display_name": "净空收敛",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "management_levels": {
+        "base": "design_value",
+        "design_value_key": "极限位移",
+        "levels": [
+          {
+            "level": "I",
+            "label": "可正常施工",
+            "ratio_upper": 0.3333,
+            "action": "可正常施工",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "表18.6.3"
+            }
+          },
+          {
+            "level": "II",
+            "label": "应加强支护",
+            "ratio_upper": 0.6667,
+            "action": "应加强支护",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "表18.6.3"
+            }
+          },
+          {
+            "level": "III",
+            "label": "应采取特殊措施",
+            "ratio_upper": 1.0,
+            "action": "应采取特殊措施",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "表18.6.3"
+            }
+          }
+        ]
+      },
+      "stability_criterion": {
+        "rate_mm_per_day": 0.2,
+        "consecutive_periods": 3,
+        "consecutive_periods_note": "规范未规定连续期数；系统取连续3期作为最小观测样本。",
+        "rate_state_bands": [
+          {
+            "state": "急剧变形",
+            "rate_min": 1.0,
+            "action": "应加强初期支护",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          },
+          {
+            "state": "缓慢变形",
+            "rate_min": 0.2,
+            "rate_max": 1.0,
+            "action": "应加强观测，做好加固准备",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          },
+          {
+            "state": "基本稳定",
+            "rate_max": 0.2,
+            "action": "围岩达到基本稳定",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          }
+        ],
+        "evidence": {
+          "standard": "JTG/T 3660-2020",
+          "clause": "18.6.3-2"
+        }
+      },
+      "rules": [
+        {
+          "rule_id": "CC-MINE",
+          "safety_level": "any",
+          "construction_method": [
+            "矿山法"
+          ],
+          "cumulative_mm": 10,
+          "rate_mm_per_day": 2,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "续表9.2.3-1",
+            "note": "矿山法隧道：净空收敛 累计值 10mm，变化速率 2mm/d"
+          }
+        },
+        {
+          "rule_id": "CC-SHIELD",
+          "safety_level": "any",
+          "construction_method": [
+            "盾构法"
+          ],
+          "cumulative_pct_ref": {
+            "ref": "diameter_m",
+            "pct": 0.2
+          },
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-1",
+            "note": "盾构法：管片结构净空收敛控制值 0.2%D（D 为隧道开挖直径），变化速率 3mm/d"
+          }
+        }
+      ]
+    },
+    "invert_heave": {
+      "display_name": "隧底（底板/仰拱）竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "stability_criterion": {
+        "rate_mm_per_day": 0.2,
+        "consecutive_periods": 3,
+        "rate_state_bands": [
+          {
+            "state": "急剧变形",
+            "rate_min": 1.0,
+            "action": "应加强初期支护",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          },
+          {
+            "state": "缓慢变形",
+            "rate_min": 0.2,
+            "rate_max": 1.0,
+            "action": "应加强观测",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          },
+          {
+            "state": "基本稳定",
+            "rate_max": 0.2,
+            "action": "围岩达到基本稳定",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          }
+        ],
+        "evidence": {
+          "standard": "JTG/T 3660-2020",
+          "clause": "18.6.3-2"
+        }
+      },
+      "rules": [
+        {
+          "rule_id": "IVD-MINE",
+          "safety_level": "any",
+          "construction_method": [
+            "矿山法"
+          ],
+          "cumulative_mm": 10,
+          "rate_mm_per_day": 2,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "续表9.2.3-1",
+            "note": "矿山法：底板竖向位移 累计值 10mm，变化速率 2mm/d；该测项仅一级为应测，二级/三级为选测"
+          }
+        }
+      ]
+    },
+    "column_vertical_displacement": {
+      "display_name": "中柱结构竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "CVD-MINE",
+          "safety_level": "any",
+          "construction_method": [
+            "矿山法"
+          ],
+          "cumulative_mm": {
+            "min": 10,
+            "max": 20
+          },
+          "rate_mm_per_day": 2,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "续表9.2.3-1",
+            "note": "中柱竖向位移 10~20mm，变化速率 2mm/d"
+          }
+        }
+      ]
+    },
+    "surface_settlement": {
+      "display_name": "地表沉降",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "stability_criterion": {
+        "rate_mm_per_day": 0.2,
+        "consecutive_periods": 3,
+        "rate_state_bands": [
+          {
+            "state": "急剧变形",
+            "rate_min": 1.0,
+            "action": "应加强初期支护并核查地表",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          },
+          {
+            "state": "缓慢变形",
+            "rate_min": 0.2,
+            "rate_max": 1.0,
+            "action": "应加强观测",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          },
+          {
+            "state": "基本稳定",
+            "rate_max": 0.2,
+            "action": "变形基本稳定",
+            "evidence": {
+              "standard": "JTG/T 3660-2020",
+              "clause": "18.6.3-2"
+            }
+          }
+        ],
+        "evidence": {
+          "standard": "JTG/T 3660-2020",
+          "clause": "18.6.3-2"
+        }
+      },
+      "rules": [
+        {
+          "rule_id": "SS-MINE-L1-SECTION",
+          "safety_level": [
+            "一级"
+          ],
+          "construction_method": [
+            "矿山法"
+          ],
+          "cumulative_mm": {
+            "min": 20,
+            "max": 30
+          },
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.3-2",
+            "note": "矿山法隧道地表沉降：一级 区间 20~30mm / 3mm·d-1"
+          },
+          "section_location": [
+            "区间"
+          ]
+        },
+        {
+          "rule_id": "SS-MINE-L1-STATION",
+          "safety_level": [
+            "一级"
+          ],
+          "construction_method": [
+            "矿山法"
+          ],
+          "cumulative_mm": {
+            "min": 40,
+            "max": 60
+          },
+          "rate_mm_per_day": 4,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.3-2",
+            "note": "矿山法隧道地表沉降：一级 车站 40~60mm / 4mm·d-1"
+          },
+          "section_location": [
+            "车站"
+          ]
+        },
+        {
+          "rule_id": "SS-MINE-L2-SECTION",
+          "safety_level": [
+            "二级"
+          ],
+          "construction_method": [
+            "矿山法"
+          ],
+          "cumulative_mm": {
+            "min": 30,
+            "max": 40
+          },
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.3-2",
+            "note": "矿山法隧道地表沉降：二级 区间 30~40mm / 3mm·d-1"
+          },
+          "section_location": [
+            "区间"
+          ]
+        },
+        {
+          "rule_id": "SS-MINE-L2-STATION",
+          "safety_level": [
+            "二级"
+          ],
+          "construction_method": [
+            "矿山法"
+          ],
+          "cumulative_mm": {
+            "min": 50,
+            "max": 70
+          },
+          "rate_mm_per_day": 4,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.3-2",
+            "note": "矿山法隧道地表沉降：二级 车站 50~70mm / 4mm·d-1"
+          },
+          "section_location": [
+            "车站"
+          ]
+        },
+        {
+          "rule_id": "SS-MINE-L3-SECTION",
+          "safety_level": [
+            "三级"
+          ],
+          "construction_method": [
+            "矿山法"
+          ],
+          "cumulative_mm": {
+            "min": 30,
+            "max": 40
+          },
+          "rate_mm_per_day": 4,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.3-2",
+            "note": "矿山法隧道地表沉降：三级 仅列区间 30~40mm / 4mm·d-1；表内无色站行，车站按区间取值并需设计确认"
+          },
+          "section_location": [
+            "区间"
+          ]
+        },
+        {
+          "rule_id": "SS-SHIELD-L1-HARD",
+          "safety_level": [
+            "一级"
+          ],
+          "construction_method": [
+            "盾构法"
+          ],
+          "soil_type": [
+            "坚硬~中硬土"
+          ],
+          "cumulative_mm": {
+            "min": 10,
+            "max": 20
+          },
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-2",
+            "note": "盾构法隧道地表沉降：一级 坚硬~中硬土 10~20mm / 3mm·d-1（适用于标准断面）"
+          }
+        },
+        {
+          "rule_id": "SS-SHIELD-L1-SOFT",
+          "safety_level": [
+            "一级"
+          ],
+          "construction_method": [
+            "盾构法"
+          ],
+          "soil_type": [
+            "中软~软弱土"
+          ],
+          "cumulative_mm": {
+            "min": 15,
+            "max": 25
+          },
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-2",
+            "note": "盾构法隧道地表沉降：一级 中软~软弱土 15~25mm / 3mm·d-1"
+          }
+        },
+        {
+          "rule_id": "SS-SHIELD-L2-HARD",
+          "safety_level": [
+            "二级"
+          ],
+          "construction_method": [
+            "盾构法"
+          ],
+          "soil_type": [
+            "坚硬~中硬土"
+          ],
+          "cumulative_mm": {
+            "min": 20,
+            "max": 30
+          },
+          "rate_mm_per_day": 4,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-2",
+            "note": "盾构法隧道地表沉降：二级 坚硬~中硬土 20~30mm / 4mm·d-1"
+          }
+        },
+        {
+          "rule_id": "SS-SHIELD-L2-SOFT",
+          "safety_level": [
+            "二级"
+          ],
+          "construction_method": [
+            "盾构法"
+          ],
+          "soil_type": [
+            "中软~软弱土"
+          ],
+          "cumulative_mm": {
+            "min": 25,
+            "max": 35
+          },
+          "rate_mm_per_day": 4,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-2",
+            "note": "盾构法隧道地表沉降：二级 中软~软弱土 25~35mm / 4mm·d-1"
+          }
+        },
+        {
+          "rule_id": "SS-SHIELD-L3-HARD",
+          "safety_level": [
+            "三级"
+          ],
+          "construction_method": [
+            "盾构法"
+          ],
+          "soil_type": [
+            "坚硬~中硬土"
+          ],
+          "cumulative_mm": {
+            "min": 30,
+            "max": 40
+          },
+          "rate_mm_per_day": 4,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-2",
+            "note": "盾构法隧道地表沉降：三级 坚硬~中硬土 30~40mm / 4mm·d-1"
+          }
+        },
+        {
+          "rule_id": "SS-SHIELD-L3-SOFT",
+          "safety_level": [
+            "三级"
+          ],
+          "construction_method": [
+            "盾构法"
+          ],
+          "soil_type": [
+            "中软~软弱土"
+          ],
+          "cumulative_mm": {
+            "min": 35,
+            "max": 45
+          },
+          "rate_mm_per_day": 5,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-2",
+            "note": "盾构法隧道地表沉降：三级 中软~软弱土 35~45mm / 5mm·d-1"
+          }
+        }
+      ]
+    },
+    "surface_heave": {
+      "display_name": "地表隆起",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SH-SHIELD",
+          "safety_level": "any",
+          "construction_method": [
+            "盾构法"
+          ],
+          "cumulative_mm": 10,
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-2",
+            "note": "盾构法隧道地表隆起 10mm / 3mm·d-1（一级~三级同值）"
+          }
+        }
+      ]
+    },
+    "segment_settlement": {
+      "display_name": "管片结构竖向位移（沉降）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "stability_criterion": {
+        "rate_mm_per_day": 0.2,
+        "consecutive_periods": 3,
+        "evidence": {
+          "standard": "JTG/T 3660-2020",
+          "clause": "18.6.3-2"
+        }
+      },
+      "rules": [
+        {
+          "rule_id": "SGS-HARD",
+          "safety_level": "any",
+          "construction_method": [
+            "盾构法"
+          ],
+          "soil_type": [
+            "坚硬~中硬土"
+          ],
+          "cumulative_mm": {
+            "min": 10,
+            "max": 20
+          },
+          "rate_mm_per_day": 2,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-1",
+            "note": "管片结构沉降：坚硬~中硬土 10~20mm / 2mm·d-1"
+          },
+          "requires_conditions": [
+            "soil_type"
+          ]
+        },
+        {
+          "rule_id": "SGS-SOFT",
+          "safety_level": "any",
+          "construction_method": [
+            "盾构法"
+          ],
+          "soil_type": [
+            "中软~软弱土"
+          ],
+          "cumulative_mm": {
+            "min": 20,
+            "max": 30
+          },
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-1",
+            "note": "管片结构沉降：中软~软弱土 20~30mm / 3mm·d-1"
+          },
+          "requires_conditions": [
+            "soil_type"
+          ]
+        }
+      ]
+    },
+    "segment_differential_settlement": {
+      "display_name": "管片结构差异沉降",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "SGDS",
+          "safety_level": "any",
+          "construction_method": [
+            "盾构法"
+          ],
+          "cumulative_pct_ref": {
+            "ref": "monitoring_spacing_m",
+            "pct": 0.04
+          },
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.2.2-1",
+            "note": "管片结构差异沉降 0.04%Ls，Ls 为沿隧道轴向两监测点间距；表中未给出变化速率（原表为“—”）"
+          }
+        }
+      ]
+    },
+    "segment_deformation": {
+      "display_name": "管片变形（椭圆度）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "GB 50911-2013 表4.2.2 列有管片结构水平位移与净空收敛，但未单列椭圆度控制值；本项无判据，需设计文件给定。",
+      "rules": []
+    },
+    "segment_joint_opening": {
+      "display_name": "管片接缝张开量",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "GB 50911-2013 监测项目表中无接缝张开量；GB 50446-2017 涉及拼装质量，未给出运营期张开量控制值。本项无判据，需设计文件或专项方案给定。",
+      "rules": []
+    },
+    "building_settlement": {
+      "display_name": "周边建（构）筑物沉降",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "BS-LOWRISK",
+          "safety_level": "any",
+          "cumulative_mm": {
+            "min": 10,
+            "max": 30
+          },
+          "rate_mm_per_day": {
+            "min": 1,
+            "max": 3
+          },
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "9.3.1-3",
+            "note": "无地方工程经验时，风险等级较低且无特殊要求的建（构）筑物：沉降控制值 10~30mm，变化速率 1~3mm·d-1。风险等级为一级/二级的建（构）筑物应通过结构检测、计算分析和安全性评估确定，不得直接套用本行。"
+          }
+        }
+      ]
+    },
+    "pipeline_settlement": {
+      "display_name": "地下管线沉降",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "PS-GAS",
+          "safety_level": "any",
+          "pipeline_type": [
+            "燃气管道"
+          ],
+          "cumulative_mm": {
+            "min": 10,
+            "max": 30
+          },
+          "rate_mm_per_day": 2,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.3.3",
+            "note": "燃气管道 10~30mm / 2mm·d-1；适用于管径 100~400mm"
+          },
+          "requires_conditions": [
+            "pipeline_type"
+          ]
+        },
+        {
+          "rule_id": "PS-SEWAGE",
+          "safety_level": "any",
+          "pipeline_type": [
+            "雨污水管"
+          ],
+          "cumulative_mm": {
+            "min": 10,
+            "max": 20
+          },
+          "rate_mm_per_day": 2,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.3.3",
+            "note": "雨污水管 10~20mm / 2mm·d-1"
+          },
+          "requires_conditions": [
+            "pipeline_type"
+          ]
+        },
+        {
+          "rule_id": "PS-WATER",
+          "safety_level": "any",
+          "pipeline_type": [
+            "供水管"
+          ],
+          "cumulative_mm": {
+            "min": 10,
+            "max": 30
+          },
+          "rate_mm_per_day": 2,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.3.3",
+            "note": "供水管 10~30mm / 2mm·d-1"
+          },
+          "requires_conditions": [
+            "pipeline_type"
+          ]
+        }
+      ]
+    },
+    "pipeline_differential_settlement": {
+      "display_name": "地下管线差异沉降",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "PDS-GAS",
+          "safety_level": "any",
+          "pipeline_type": [
+            "燃气管道"
+          ],
+          "cumulative_pct_ref": {
+            "ref": "pipe_length_m",
+            "pct": 0.3
+          },
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.3.3",
+            "note": "燃气管道差异沉降 0.3%Lg（Lg 为管节长度）"
+          },
+          "requires_conditions": [
+            "pipeline_type"
+          ]
+        },
+        {
+          "rule_id": "PDS-SEWAGE",
+          "safety_level": "any",
+          "pipeline_type": [
+            "雨污水管"
+          ],
+          "cumulative_pct_ref": {
+            "ref": "pipe_length_m",
+            "pct": 0.25
+          },
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.3.3",
+            "note": "雨污水管差异沉降 0.25%Lg"
+          },
+          "requires_conditions": [
+            "pipeline_type"
+          ]
+        },
+        {
+          "rule_id": "PDS-WATER",
+          "safety_level": "any",
+          "pipeline_type": [
+            "供水管"
+          ],
+          "cumulative_pct_ref": {
+            "ref": "pipe_length_m",
+            "pct": 0.25
+          },
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.3.3",
+            "note": "供水管差异沉降 0.25%Lg"
+          },
+          "requires_conditions": [
+            "pipeline_type"
+          ]
+        }
+      ]
+    },
+    "road_settlement": {
+      "display_name": "道路路基沉降",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "rules": [
+        {
+          "rule_id": "RS-MAIN",
+          "safety_level": "any",
+          "road_type": [
+            "高速公路",
+            "城市主干道"
+          ],
+          "cumulative_mm": {
+            "min": 10,
+            "max": 30
+          },
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.3.4",
+            "note": "高速公路、城市主干道 路基沉降 10~30mm / 3mm·d-1"
+          },
+          "requires_conditions": [
+            "road_type"
+          ]
+        },
+        {
+          "rule_id": "RS-ORDINARY",
+          "safety_level": "any",
+          "road_type": [
+            "一般城市道路"
+          ],
+          "cumulative_mm": {
+            "min": 20,
+            "max": 40
+          },
+          "rate_mm_per_day": 3,
+          "evidence": {
+            "standard": "GB 50911-2013",
+            "clause": "表9.3.4",
+            "note": "一般城市道路 路基沉降 20~40mm / 3mm·d-1"
+          },
+          "requires_conditions": [
+            "road_type"
+          ]
+        }
+      ]
+    },
+    "blasting_vibration_velocity": {
+      "display_name": "爆破振动速度",
+      "unit": "mm/s",
+      "limit_mode": "velocity",
+      "note": "规范以 cm/s 给出允许质点振动速度，量纲已统一换算为 mm/s（cm/s ×10）。控制值随保护对象类别与主振频率变化，必须显式给出 protection_object；频率未知时按 f≤10Hz 的最严档取值。",
+      "rules": [
+        {
+          "rule_id": "BV-TUNNEL-LOWF",
+          "safety_level": "any",
+          "protection_object": [
+            "交通隧道"
+          ],
+          "frequency_band": [
+            "f≤10Hz"
+          ],
+          "cumulative_mm": {
+            "min": 100,
+            "max": 120
+          },
+          "rate_mm_per_day": null,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "表18.5.21",
+            "note": "交通隧道 安全允许质点振动速度 10~12cm/s（f≤10Hz）；换算 100~120mm/s"
+          },
+          "requires_conditions": [
+            "protection_object"
+          ]
+        },
+        {
+          "rule_id": "BV-TUNNEL-MIDF",
+          "safety_level": "any",
+          "protection_object": [
+            "交通隧道"
+          ],
+          "frequency_band": [
+            "10Hz<f≤50Hz"
+          ],
+          "cumulative_mm": {
+            "min": 120,
+            "max": 150
+          },
+          "rate_mm_per_day": null,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "表18.5.21",
+            "note": "交通隧道 12~15cm/s（10Hz<f≤50Hz）；换算 120~150mm/s"
+          },
+          "requires_conditions": [
+            "protection_object"
+          ]
+        },
+        {
+          "rule_id": "BV-TUNNEL-HIGHF",
+          "safety_level": "any",
+          "protection_object": [
+            "交通隧道"
+          ],
+          "frequency_band": [
+            "f>50Hz"
+          ],
+          "cumulative_mm": {
+            "min": 150,
+            "max": 200
+          },
+          "rate_mm_per_day": null,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "表18.5.21",
+            "note": "交通隧道 15~20cm/s（f>50Hz）；换算 150~200mm/s"
+          },
+          "requires_conditions": [
+            "protection_object"
+          ]
+        },
+        {
+          "rule_id": "BV-BUILDING-LOWF",
+          "safety_level": "any",
+          "protection_object": [
+            "一般民用建筑物"
+          ],
+          "frequency_band": [
+            "f≤10Hz"
+          ],
+          "cumulative_mm": {
+            "min": 15,
+            "max": 20
+          },
+          "rate_mm_per_day": null,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "表18.5.21",
+            "note": "一般民用建筑物 1.5~2.0cm/s（f≤10Hz）；换算 15~20mm/s"
+          },
+          "requires_conditions": [
+            "protection_object"
+          ]
+        },
+        {
+          "rule_id": "BV-BUILDING-MIDF",
+          "safety_level": "any",
+          "protection_object": [
+            "一般民用建筑物"
+          ],
+          "frequency_band": [
+            "10Hz<f≤50Hz"
+          ],
+          "cumulative_mm": {
+            "min": 20,
+            "max": 25
+          },
+          "rate_mm_per_day": null,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "表18.5.21",
+            "note": "一般民用建筑物 2.0~2.5cm/s（10Hz<f≤50Hz）；换算 20~25mm/s"
+          },
+          "requires_conditions": [
+            "protection_object"
+          ]
+        },
+        {
+          "rule_id": "BV-BUILDING-HIGHF",
+          "safety_level": "any",
+          "protection_object": [
+            "一般民用建筑物"
+          ],
+          "frequency_band": [
+            "f>50Hz"
+          ],
+          "cumulative_mm": {
+            "min": 25,
+            "max": 30
+          },
+          "rate_mm_per_day": null,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "表18.5.21",
+            "note": "一般民用建筑物 2.5~3.0cm/s（f>50Hz）；换算 25~30mm/s"
+          },
+          "requires_conditions": [
+            "protection_object"
+          ]
+        },
+        {
+          "rule_id": "BV-TUNNEL-ANYF",
+          "safety_level": "any",
+          "protection_object": [
+            "交通隧道"
+          ],
+          "frequency_band": "any",
+          "requires_conditions": [
+            "protection_object"
+          ],
+          "cumulative_mm": {
+            "min": 100,
+            "max": 120
+          },
+          "rate_mm_per_day": null,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "表18.5.21",
+            "note": "未提供主振频率时按最严频率档 f≤10Hz 取值（10~12cm/s → 100~120mm/s）；提供频率后应改用对应档"
+          }
+        },
+        {
+          "rule_id": "BV-BUILDING-ANYF",
+          "safety_level": "any",
+          "protection_object": [
+            "一般民用建筑物"
+          ],
+          "frequency_band": "any",
+          "requires_conditions": [
+            "protection_object"
+          ],
+          "cumulative_mm": {
+            "min": 15,
+            "max": 20
+          },
+          "rate_mm_per_day": null,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "表18.5.21",
+            "note": "未提供主振频率时按最严频率档 f≤10Hz 取值（1.5~2.0cm/s → 15~20mm/s）"
+          }
+        }
+      ]
+    },
+    "surrounding_rock_pressure": {
+      "display_name": "围岩压力",
+      "unit": "kPa",
+      "limit_mode": "pressure",
+      "design_value_key": "允许值",
+      "note": "选测项目。规范未给绝对量控制值，按 JTG/T 3660-2020 第18.6.3条第4款以「实测值/允许值」比值判断，需设计允许值。",
+      "rules": [
+        {
+          "rule_id": "SRP-DESIGN",
+          "safety_level": "any",
+          "max_ratio_of_design": 0.8,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "18.6.3-4",
+            "note": "初期支护承受的应力、应变、压力实测值与允许值之比大于或等于0.8时，围岩不稳定，应加强初期支护"
+          }
+        }
+      ]
+    },
+    "steel_arch_stress": {
+      "display_name": "钢架应力",
+      "unit": "kPa",
+      "limit_mode": "stress",
+      "design_value_key": "允许值",
+      "note": "选测项目。按 JTG/T 3660-2020 第18.6.3条第4款以比 0.8 判断，需设计允许值。",
+      "rules": [
+        {
+          "rule_id": "SAS-DESIGN",
+          "safety_level": "any",
+          "max_ratio_of_design": 0.8,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "18.6.3-4"
+          }
+        }
+      ]
+    },
+    "lining_stress": {
+      "display_name": "衬砌应力（内力）",
+      "unit": "kPa",
+      "limit_mode": "stress",
+      "design_value_key": "允许值",
+      "note": "选测项目。按 JTG/T 3660-2020 第18.6.3条第4款以比 0.8 判断，需设计允许值。",
+      "rules": [
+        {
+          "rule_id": "LS-DESIGN",
+          "safety_level": "any",
+          "max_ratio_of_design": 0.8,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "18.6.3-4"
+          }
+        }
+      ]
+    },
+    "anchor_axial_force": {
+      "display_name": "锚杆轴力",
+      "unit": "kN",
+      "limit_mode": "force",
+      "design_value_key": "允许值",
+      "note": "选测项目。按 JTG/T 3660-2020 第18.6.3条第4款以比 0.8 判断，需设计允许值。",
+      "rules": [
+        {
+          "rule_id": "AAF-DESIGN",
+          "safety_level": "any",
+          "max_ratio_of_design": 0.8,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "18.6.3-4"
+          }
+        }
+      ]
+    },
+    "support_axial_force": {
+      "display_name": "支护构件轴力",
+      "unit": "kN",
+      "limit_mode": "force",
+      "design_value_key": "允许值",
+      "note": "选测项目（明挖段支撑轴力）。按 JTG/T 3660-2020 第18.6.3条第4款以比 0.8 判断，需设计允许值。",
+      "rules": [
+        {
+          "rule_id": "SAF-DESIGN",
+          "safety_level": "any",
+          "max_ratio_of_design": 0.8,
+          "evidence": {
+            "standard": "JTG/T 3660-2020",
+            "clause": "18.6.3-4"
+          }
+        }
+      ]
+    },
+    "groundwater_level": {
+      "display_name": "地下水位",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "GB 50911-2013 表4.2.3 将地下水位列为应测项目，但未给数值控制值（第9章控制值表未涵盖水位）。需设计文件或专项方案给定；本库不填无出处数值。",
+      "rules": []
+    },
+    "deep_horizontal_displacement": {
+      "display_name": "土体深层水平位移（测斜）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "矿山法/盾构法为选测项目；GB 50911-2013 表9.2.2/9.2.3 未给控制值。明挖段可复用基坑判据库（GB 50497-2019 表8.0.4）。",
+      "rules": []
+    },
+    "wall_top_horizontal_displacement": {
+      "display_name": "围护结构顶部水平位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "明挖段适用。建议复用基坑判据库（GB 50497-2019 表8.0.4），本库不重复摘录以免出现两套口径。",
+      "rules": []
+    },
+    "wall_top_vertical_displacement": {
+      "display_name": "围护结构顶部竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "明挖段适用。建议复用基坑判据库（GB 50497-2019 表8.0.4）。",
+      "rules": []
+    },
+    "basal_heave": {
+      "display_name": "基底隆起（回弹）",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "明挖段/竖井适用。GB 50911-2013 表9.2.1 有明挖法控制值，本次未摘录（该表 OCR 表格错行，需逐格核对后补入）；建议明挖段直接复用基坑判据库。",
+      "rules": []
+    },
+    "soil_layered_vertical_displacement": {
+      "display_name": "土体分层竖向位移",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "选测项目，规范未给控制值。需设计文件给定。",
+      "rules": []
+    },
+    "crack_width_surface": {
+      "display_name": "地表裂缝宽度",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "GB 50911-2013 未给地表裂缝宽度控制值（第9章为变形/力学控制值）。需按专项方案或地方标准确定。",
+      "rules": []
+    },
+    "crack_width_building": {
+      "display_name": "建筑裂缝宽度",
+      "unit": "mm",
+      "limit_mode": "displacement",
+      "note": "GB 50911-2013 第9.3.1 条要求按 GB 50007 确定；本库不含 GB 50007 条文摘录，需项目上传规范或按专项方案。",
+      "rules": []
+    },
+    "tunnel_patrol": {
+      "display_name": "洞内外观察（巡视）",
+      "unit": null,
+      "limit_mode": "qualitative",
+      "note": "定性项目。GB 50911-2013 第9.1.6 条规定巡查发现警情时应按预警管理制度报送；日报中以巡视记录呈现，未提供时不得写成“巡视正常”。",
+      "rules": []
+    }
+  },
+  "danger_alarm_conditions": [
+    {
+      "code": "TUN-DANGER-1",
+      "condition": "基坑、隧道支护结构出现明显变形、较大裂缝、断裂、较严重渗漏水、隧道底鼓，支撑出现明显变位或脱落、锚杆出现松弛或拔出等",
+      "evidence": {
+        "standard": "GB 50911-2013",
+        "clause": "9.1.6-1",
+        "mandatory": true
+      }
+    },
+    {
+      "code": "TUN-DANGER-2",
+      "condition": "基坑、隧道周围岩土体出现涌砂、涌土、管涌，较严重渗漏水、突水，滑移、坍塌，基底较大隆起等",
+      "evidence": {
+        "standard": "GB 50911-2013",
+        "clause": "9.1.6-2",
+        "mandatory": true
+      }
+    },
+    {
+      "code": "TUN-DANGER-3",
+      "condition": "周边地表出现突然明显沉降或较严重的突发裂缝、坍塌",
+      "evidence": {
+        "standard": "GB 50911-2013",
+        "clause": "9.1.6-3",
+        "mandatory": true
+      }
+    },
+    {
+      "code": "TUN-DANGER-4",
+      "condition": "建（构）筑物、桥梁等周边环境出现危害正常使用功能或结构安全的过大沉降、倾斜、裂缝等",
+      "evidence": {
+        "standard": "GB 50911-2013",
+        "clause": "9.1.6-4",
+        "mandatory": true
+      }
+    },
+    {
+      "code": "TUN-DANGER-5",
+      "condition": "周边地下管线变形突然明显增大或出现裂缝、泄漏等",
+      "evidence": {
+        "standard": "GB 50911-2013",
+        "clause": "9.1.6-5",
+        "mandatory": true
+      }
+    },
+    {
+      "code": "TUN-DANGER-6",
+      "condition": "根据当地工程经验判断应进行警情报送的其他情况",
+      "evidence": {
+        "standard": "GB 50911-2013",
+        "clause": "9.1.6-6",
+        "mandatory": true
+      }
+    },
+    {
+      "code": "TUN-DANGER-7",
+      "condition": "围岩位移速率持续上升（速率上升表示围岩处于危险状态），必须立即停止掘进并采取应急措施",
+      "evidence": {
+        "standard": "JTG/T 3660-2020",
+        "clause": "18.6.3-3",
+        "mandatory": true
+      }
+    },
+    {
+      "code": "TUN-DANGER-8",
+      "condition": "位移-时间曲线出现反常（非工序变化引起的位移急骤增大），必要时立即停止开挖并进行施工处理",
+      "evidence": {
+        "standard": "JTG/T 3660-2020",
+        "clause": "18.6.2-2",
+        "mandatory": false
+      }
+    }
+  ],
+  "mandatory_alarm_supplement": [
+    {
+      "code": "TUN-RATE-1",
+      "condition": "位移速率大于 1.0mm/d，围岩处于急剧变形状态，应加强初期支护",
+      "evidence": {
+        "standard": "JTG/T 3660-2020",
+        "clause": "18.6.3-2"
+      }
+    },
+    {
+      "code": "TUN-RATE-2",
+      "condition": "位移速率在 0.2~1.0mm/d，应加强观测并做好加固准备",
+      "evidence": {
+        "standard": "JTG/T 3660-2020",
+        "clause": "18.6.3-2"
+      }
+    },
+    {
+      "code": "TUN-RATE-3",
+      "condition": "位移速率保持不变（未收敛），围岩尚不稳定，应加强支护",
+      "evidence": {
+        "standard": "JTG/T 3660-2020",
+        "clause": "18.6.3-3"
+      }
+    },
+    {
+      "code": "TUN-STRESS-1",
+      "condition": "初期支护承受的应力、应变、压力实测值与允许值之比大于或等于 0.8，围岩不稳定，应加强初期支护",
+      "evidence": {
+        "standard": "JTG/T 3660-2020",
+        "clause": "18.6.3-4"
+      }
+    }
+  ]
+}

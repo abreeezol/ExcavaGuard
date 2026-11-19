@@ -37,23 +37,53 @@ SPEC_ROOT = Path(r"C:\Study\bisai\Hai AI Agent\基坑智守项目相关规范")
 ORIGIN_DEFAULT = "default_library"
 ORIGIN_USER = "user_uploaded"
 
+# 规范来源显示名（默认值 = 改造前硬编码的字符串，必须保持不变）
+DEFAULT_ORIGIN_LABELS = {
+    ORIGIN_DEFAULT: "默认规范库（基坑智守项目相关规范）",
+    ORIGIN_USER: "用户上传规范",
+}
+
 MERGEABLE_RULE_FIELDS = (
     "safety_level",
     "support_type",
     "pipeline_type",
     "road_type",
     "crack_state",
+    # 场景扩展条件维度（隧道：construction_method / section_type / rock_class 等）。
+    # 未在 rule 中出现的维度不参与匹配，对既有基坑判据无影响。
+    "construction_method",
+    "section_type",
+    "rock_class",
+    "soil_type",
+    "protection_object",
+    "frequency_band",
     "cumulative_mm",
     "cumulative_pct_H",
+    # 通用比例限值：{"ref": "<参照长度 key>", "pct": <百分比>}
+    # 与 cumulative_pct_H 等价但参照量可配置，供非基坑场景使用；两者可并存，取较小值。
+    "cumulative_pct_ref",
     "rate_mm_per_day",
     "max_ratio_of_design",
     "min_ratio_of_design",
     "cumulative_inclination",
     "rate_inclination_per_day",
     "requires_continuous_development",
+    "requires_conditions",
     "evidence",
 )
-MERGEABLE_METRIC_FIELDS = ("unit", "limit_mode", "design_value_key", "note", "display_name")
+MERGEABLE_METRIC_FIELDS = (
+    "unit",
+    "limit_mode",
+    "design_value_key",
+    "note",
+    "display_name",
+    # 隧道等场景的附加口径（缺省不存在，对基坑判据无影响）：
+    # 位移管理等级（按 U/U0 分档）、收敛稳定性判据、同断面必测项。
+    "management_levels",
+    "stability_criterion",
+    "required_section_metrics",
+)
+
 
 
 class StandardsError(Exception):
@@ -68,13 +98,13 @@ class StandardSource:
     source_type: str
     path: str | None
     payload: dict
+    origin_display_override: str | None = None
 
     @property
     def origin_display(self) -> str:
-        return {
-            ORIGIN_DEFAULT: "默认规范库（基坑智守项目相关规范）",
-            ORIGIN_USER: "用户上传规范",
-        }.get(self.origin, self.origin)
+        if self.origin_display_override:
+            return self.origin_display_override
+        return DEFAULT_ORIGIN_LABELS.get(self.origin, self.origin)
 
     def summary(self) -> dict:
         return {
@@ -95,11 +125,21 @@ class StandardsRegistry:
         self,
         default_dir: str | Path | None = None,
         user_dir: str | Path | None = None,
+        *,
+        origin_labels: dict[str, str] | None = None,
+        condition_dimensions: tuple[str, ...] | list[str] | None = None,
+        specificity_dimensions: tuple[str, ...] | list[str] | None = None,
+        reference_length_label: Any = None,
     ) -> None:
         self.default_dir = Path(default_dir) if default_dir else DEFAULT_DIR
         self.user_dir = Path(user_dir) if user_dir else USER_DIR
         self.sources: list[StandardSource] = []
         self.index: dict | None = None
+        # 场景画像注入项：缺省即改造前行为
+        self.origin_labels = {**DEFAULT_ORIGIN_LABELS, **(origin_labels or {})}
+        self.condition_dimensions = tuple(condition_dimensions) if condition_dimensions else None
+        self.specificity_dimensions = tuple(specificity_dimensions) if specificity_dimensions else None
+        self._reference_length_label = reference_length_label
 
         self._load_index()
         self._load_default()
@@ -143,6 +183,7 @@ class StandardsRegistry:
                     source_type=payload["source_type"],
                     path=str(p),
                     payload=payload,
+                    origin_display_override=self.origin_labels.get(origin),
                 )
             )
 
@@ -201,6 +242,21 @@ class StandardsRegistry:
         return merged
 
     # -- 查询 ------------------------------------------------------------
+
+    def origin_display(self, origin: str) -> str:
+        """规范来源的中文显示名；由场景画像注入，缺省为基坑默认文案。"""
+        return self.origin_labels.get(origin, DEFAULT_ORIGIN_LABELS.get(origin, origin))
+
+    def reference_length_label(self, key: str | None) -> str:
+        """比例限值的参照长度名称（基坑：基坑设计深度 H）。"""
+        if callable(self._reference_length_label):
+            try:
+                return str(self._reference_length_label(key))
+            except Exception:  # noqa: BLE001 - 标签失败不得影响判定
+                pass
+        if key in (None, "excavation_depth_m"):
+            return "基坑设计深度 H"
+        return str(key)
 
     def source_report(self) -> list[dict]:
         return [s.summary() for s in self.sources]

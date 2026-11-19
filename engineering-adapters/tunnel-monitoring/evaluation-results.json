@@ -1,6 +1,6 @@
 {
   "adapter_id": "tunnel-monitoring",
-  "producer_adapter_digest": "3d0a9e5c0f5ac426cfb3c0e8f8602f7552c8000ab60c3a9bff905c2e8fef936e",
+  "producer_adapter_digest": "5d274e2cfec12cab34a80d54b88b87698df3e311d13de62b478d9803d2594372",
   "fixture_sha256": "60aac845d260573f0a26946376031c19441407e1894b125fcc9e092684290a15",
   "simulation_only": true,
   "professional_review": "pending_engineer_review",

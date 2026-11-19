@@ -175,13 +175,14 @@ function compactEvidence(payload: unknown, draft: unknown): unknown {
   const evidence = (payload as { evidence?: unknown }).evidence;
   if (!Array.isArray(evidence)) return payload;
   const ids = citedEvidenceIds(draft);
-  const coverage = (payload as { coverage?: { catalogue_count?: unknown; queried_count?: unknown; completed?: unknown; notice?: unknown } }).coverage;
+  const coverage = (payload as { coverage?: { catalogue_count?: unknown; queried_count?: unknown; completed?: unknown; notice?: unknown; standards?: Array<{ standard_version?: unknown; status?: unknown; reason?: unknown }> } }).coverage;
   return {
     schema: (payload as { schema?: unknown }).schema,
     gaps: (payload as { gaps?: unknown }).gaps,
     extended_review: (payload as { extended_review?: unknown }).extended_review,
     coverage: coverage ? { catalogue_count: coverage.catalogue_count, queried_count: coverage.queried_count,
-      completed: coverage.completed, notice: coverage.notice } : undefined,
+      completed: coverage.completed, notice: coverage.notice,
+      standards: coverage.standards?.map(({standard_version,status,reason}) => ({standard_version,status,reason})) } : undefined,
     // Every source cited in the prose remains available; uncited OCR tables were
     // already fully checked by the deterministic artifact auditor.
     evidence: evidence.filter(item => ids === null || ids.has(String((item as { id?: unknown }).id))).map((item) => {
@@ -617,10 +618,11 @@ export async function executeAgentRun(
           const judgmentSources = [...new Map(engineItems.filter(item => item.evidence).map(item => [JSON.stringify(item.evidence), item.evidence])).values()];
           const auditContext = {
             facts: auditFacts,
+            report_scope: modelContext.report_scope,
             engineer_feedback: state.revision_feedback?.payload,
             numeric_judgment_sources: judgmentSources,
             workbook_sheets: state.report_draft.artifacts.find(artifact => artifact.kind === "workbook")?.sheets,
-            audit_scope: "仅审查draft中模型撰写段落。facts是已通过确定性核验的正文标量及整体汇总；数值判据来源独立于RAG候选，不要求每项阈值来源在RAG中再次命中。完整表格、统计、引用与文件由确定性审计负责，不自行重新统计。",
+            audit_scope: "仅审查draft中模型撰写段落。report_scope明确日报或周期以及附表口径，不得由正文抽选推断为周期代表值；规范coverage区分全部目录适用性核查与可用规范逐本检索。facts是已通过确定性核验的正文标量及整体汇总；数值判据来源独立于RAG候选，不要求每项阈值来源在RAG中再次命中。完整表格、统计、引用与文件由确定性审计负责，不自行重新统计。",
             forms: modelContext.forms,
             evidence_ids: state.evidence_snapshot?.evidence_ids ?? [],
             evidence: compactEvidence(state.evidence_snapshot?.artifact?.payload, state.report_draft.payload),

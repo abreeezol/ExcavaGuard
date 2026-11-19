@@ -1,0 +1,52 @@
+{
+  "generated_at": "2026-11-03T17:26:24",
+  "engine": "rapidocr-onnxruntime",
+  "source_root": "C:/Study/bisai/Hai AI Agent/隧道施工相关规范",
+  "files": [
+    {
+      "file": "GB-T 50299-2018 地下铁道工程施工质量验收标准",
+      "category": "轨道交通配套",
+      "out": "data_tunnel/ocr_text/轨道交通配套/GB-T 50299-2018 地下铁道工程施工质量验收标准.ocr.txt",
+      "pages_done": 407,
+      "page_range": [
+        1,
+        407
+      ],
+      "pages_total": 407,
+      "chars": 207881,
+      "low_text_pages": [],
+      "seconds": 354.7,
+      "dpi": 200
+    },
+    {
+      "file": "GB-T 51310-2018 地下铁道工程施工标准",
+      "category": "轨道交通配套",
+      "out": "data_tunnel/ocr_text/轨道交通配套/GB-T 51310-2018 地下铁道工程施工标准.ocr.txt",
+      "pages_done": 394,
+      "page_range": [
+        1,
+        394
+      ],
+      "pages_total": 394,
+      "chars": 232905,
+      "low_text_pages": [],
+      "seconds": 373.9,
+      "dpi": 200
+    },
+    {
+      "file": "GB 50026-2020 工程测量标准",
+      "category": "通用基础",
+      "out": "data_tunnel/ocr_text/通用基础/GB 50026-2020 工程测量标准.ocr.txt",
+      "pages_done": 218,
+      "page_range": [
+        1,
+        218
+      ],
+      "pages_total": 218,
+      "chars": 124055,
+      "low_text_pages": [],
+      "seconds": 217.8,
+      "dpi": 200
+    }
+  ]
+}

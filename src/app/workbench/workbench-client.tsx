@@ -1,8 +1,13 @@
 "use client";
 import { MonitoringParameters,type MonitoringMetric } from "./monitoring-parameters";
 import { ProfessionalReviewPanel } from "./professional-review-panel";
+import { EngineerReviewPanel } from "./engineer-review-panel";
 import { ProjectContextPanel } from "./project-context-panel";
 import { ProjectStandards } from "./project-standards";
+import { ReportRangeDialog } from "./report-range-dialog";
+import { latestSuccessfulRun, reportRangeLabel, resolveReportRange, type ReportRange } from "./report-range";
+import { RunConditions } from "./run-conditions";
+import type { WorkbenchStep } from "@/components/workspace-sidebar";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -16,7 +21,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { presetReportPeriod, reportPeriodSchema, type ReportKind } from "@/contracts/report-period";
+import type { ReportKind } from "@/contracts/report-period";
 import { listFilesResponseSchema, type ReadReport, type StoredFile, type StrictnessReport } from "@/contracts/monitoring-files";
 import type { AccessStatus } from "@/contracts/access";
 import type { CreateRunRequest, PersistedRun, ReviewRequest, RunSummary } from "@/contracts/runs";
@@ -25,7 +30,7 @@ import type { EngineerRiskEvaluationInput } from "@/contracts/engineer-evaluatio
 import { decisionLabel, executionLabel, RunDelivery } from "./run-delivery";
 
 /**
- * 可视化测试工作台（客户端）
+ * 工程监测工作台（客户端）
  *
  * 走的是真实链路：上传 → `/api/monitoring-files`；上传规范 → `/api/standards`；
  * 运行分析 → `/api/runs`（内部以子进程调用确定性计算引擎）。
@@ -136,6 +141,8 @@ type RunResponse = {
 };
 
 type ApiErrorBody = { error?: { code?: string; message?: string; fields?: string[] } };
+type OptionalTool = "" | "context" | "project-standard" | "thresholds";
+const OPTIONAL_TOOLS: OptionalTool[] = ["", "context", "project-standard", "thresholds"];
 
 // --- 展示辅助 -------------------------------------------------------------
 
@@ -188,16 +195,37 @@ async function readError(response: Response): Promise<string> {
 
 // --- 主组件 ---------------------------------------------------------------
 
-export function ProjectWorkbench({ session, onBusyChange }: {
+export function ProjectWorkbench({
+  session,
+  onBusyChange,
+  onDirtyChange,
+  step,
+  onStepChange,
+  onDefaultStep,
+  initialRunId,
+  initialReportRange,
+  onInitialReportRangeConsumed,
+  sessionPending,
+}: {
   session: AccessStatus & { project_id: string }; onBusyChange: (busy: boolean) => void;
+  onDirtyChange: (dirty: boolean) => void;
+  step: WorkbenchStep;
+  onStepChange: (step: WorkbenchStep, runId?: string | null) => void;
+  onDefaultStep: (step: WorkbenchStep, runId?: string) => void;
+  initialRunId: string | null;
+  initialReportRange?: ReportRange | null;
+  onInitialReportRangeConsumed?: () => void;
+  sessionPending: boolean;
 }) {
   const project = session.projects?.find(p => p.id === session.project_id);
-  const canWrite = project?.role !== "viewer";
-  const canReview = !project || ["admin", "reviewer"].includes(project.role);
-  const canDelete = !project || project.role === "admin";
+  const canWrite = Boolean(project && project.role !== "viewer");
+  const canReview = Boolean(project && ["admin", "reviewer"].includes(project.role));
+  const canDelete = project?.role === "admin";
   const [files, setFiles] = useState<StoredFile[]>([]);
   const [standardFiles, setStandardFiles] = useState<StoredFile[]>([]);
   const [history, setHistory] = useState<RunSummary[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [historyDate, setHistoryDate] = useState("");
   const [onlyPending, setOnlyPending] = useState(false);
   const [remoteRevision, setRemoteRevision] = useState<number | null>(null);
@@ -207,21 +235,61 @@ export function ProjectWorkbench({ session, onBusyChange }: {
   const [generateReport, setGenerateReport] = useState(true);
   const [reportMode, setReportMode] = useState<"ai" | "template">("ai");
   const [selectedStandardId, setSelectedStandardId] = useState<string | null>(null);
+  const [optionalTool, setOptionalTool] = useState<OptionalTool>("");
+  const [openedOptionalTools, setOpenedOptionalTools] = useState<Exclude<OptionalTool, "">[]>([]);
   const [rerunInput, setRerunInput] = useState<CreateRunRequest | null>(null);
   const [parentRunId, setParentRunId] = useState<string | null>(null);
   const operation = useRef(false);
+  const dirty = useRef(false);
+  const initialized = useRef(false);
+  const rangePrompted = useRef(Boolean(initialReportRange));
+  const confirmedRange = useRef(Boolean(initialReportRange));
+  const requestController = useRef<AbortController | null>(null);
+  const applicabilityDetails = useRef<HTMLDetailsElement>(null);
   const [scene, setScene] = useState<{ engineering_type?:{id:string;name:string}; monitoring_metrics?:MonitoringMetric[]; adapter: { id: string; name: string; version: string; supported_reports: string[]; core_fields: Array<{ key: string; label: string; required: boolean; choices?: string[]; choice_labels?:Record<string,string>; input_type?: string }> }; parameters: Record<string, unknown> | null; revision: number } | null>(null);
-  const [detectedMetrics,setDetectedMetrics]=useState<MonitoringMetric[]>([]);
+  const [detectedMetrics, setDetectedMetrics] = useState<MonitoringMetric[]>([]);
   const [parameters, setParameters] = useState<Record<string, unknown>>({});
-  function updateCoreParameter(key:string,value:unknown){setParameters(current=>{const next={...current,[key]:value};if(key==='construction_method'){const context={...(current.case_context as Record<string,unknown>??{})};delete context.method;next.case_context=context;}return next;});}
-  const [projectName, setProjectName] = useState(project?.name || "工程");
-  const [reportDate, setReportDate] = useState("");
   const [windows, setWindows] = useState<Array<{id:string;type:ReportKind;start_date:string;end_date:string;label:string;missing_days:string[]}>>([]);
-  const [windowId,setWindowId]=useState("");
-  const [windowMessage,setWindowMessage]=useState("");
-  const [reportKind, setReportKind] = useState<ReportKind>("daily");
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState("");
+  const [windowId, setWindowId] = useState("");
+  const [windowMessage, setWindowMessage] = useState("");
+  const isPit = scene?.engineering_type?.id === "foundation_pit";
+  const supportType = String(parameters.support_type ?? "");
+  const depth = parameters.excavation_depth_m == null ? null : Number(parameters.excavation_depth_m);
+  const depthValid = !isPit || depth === null || (Number.isFinite(depth) && depth > 0 && depth <= 200);
+  function updateCoreParameter(key: string, value: unknown) {
+    setParameters(current => {
+      const next = { ...current, [key]: value };
+      if (key === "construction_method") {
+        const context = { ...(current.case_context as Record<string, unknown> ?? {}) };
+        delete context.method;
+        next.case_context = context;
+      }
+      return next;
+    });
+  }
+  const [projectName, setProjectName] = useState(project?.name ?? "");
+  const [reportDate, setReportDate] = useState(initialReportRange?.date ?? "");
+  const [reportKind, setReportKind] = useState<ReportKind>(initialReportRange?.kind ?? "daily");
+  const [periodStart, setPeriodStart] = useState(initialReportRange?.start ?? "");
+  const [periodEnd, setPeriodEnd] = useState(initialReportRange?.end ?? "");
+  const [rangeConfirmed, setRangeConfirmed] = useState(Boolean(initialReportRange));
+  const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
+  const [resultInfoOpen, setResultInfoOpen] = useState(true);
+  const range: ReportRange = { kind: reportKind, date: reportDate, start: periodStart, end: periodEnd };
+  const rangeSummary = rangeConfirmed ? reportRangeLabel(range) : "尚未选择报告范围";
+  const notifyDirty = useCallback((value: boolean) => {
+    dirty.current = value;
+    onDirtyChange(value);
+  }, [onDirtyChange]);
+  const confirmRange = useCallback((selected: ReportRange) => {
+    setReportKind(selected.kind);
+    setReportDate(selected.date);
+    setPeriodStart(selected.start);
+    setPeriodEnd(selected.end);
+    setRangeConfirmed(true);
+    confirmedRange.current = true;
+    rangePrompted.current = true;
+  }, []);
 
   const [monitoring, setMonitoring] = useState<{ file: StoredFile; read_report: ReadReport | null } | null>(null);
   const [standard, setStandard] = useState<{
@@ -239,41 +307,111 @@ export function ProjectWorkbench({ session, onBusyChange }: {
   const apiFetch = useCallback((url: string, init?: RequestInit) => {
     const headers = new Headers(init?.headers);
     headers.set("X-Excavaguard-Project", session.project_id);
-    return fetch(url, { ...init, headers, cache: "no-store" });
+    return fetch(url, { ...init, headers, signal: requestController.current?.signal, cache: "no-store" });
   }, [session.project_id]);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 760px)");
+    const update = () => setResultInfoOpen(!query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    if (initialReportRange) onInitialReportRangeConsumed?.();
+  }, [initialReportRange, onInitialReportRangeConsumed]);
+  useEffect(() => {
+    const controller = new AbortController();
+    requestController.current = controller;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (dirty.current || operation.current) event.preventDefault();
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      controller.abort();
+      onDirtyChange(false);
+      window.removeEventListener("beforeunload", beforeUnload);
+    };
+  }, [onDirtyChange]);
+  useEffect(() => {
+    if (step === "conditions" && isPit && !supportType && applicabilityDetails.current) {
+      applicabilityDetails.current.open = true;
+    }
+  }, [step, isPit, supportType]);
+  useEffect(() => {
+    if (step === "conditions" && !rangeConfirmed && !rangePrompted.current && canWrite) {
+      rangePrompted.current = true;
+      setRangeDialogOpen(true);
+    }
+  }, [step, rangeConfirmed, canWrite]);
   useEffect(() => {
     let cancelled = false;
     void apiFetch("/api/projects/current/engineering").then(async response => {
       if (!response.ok) throw new Error(await readError(response));
       return response.json();
-    }).then(body => { if (!cancelled) { setScene(body); setParameters(body.parameters ?? {}); } }).catch(caught => { if (!cancelled) setError(caught.message); });
+    }).then(body => {
+      if (!cancelled) {
+        setScene(body);
+        setParameters(body.parameters ?? (body.engineering_type?.id === "foundation_pit" ? { excavation_depth_m: null } : {}));
+      }
+    }).catch(caught => { if (!cancelled) setError(caught instanceof Error ? caught.message : "工程配置加载失败。"); });
     return () => { cancelled = true; };
   }, [apiFetch]);
   useEffect(() => {
-    if(!monitoring)return;
+    if (!monitoring || !canWrite) return;
     let cancelled=false;
     const timer=setTimeout(()=>{void apiFetch("/api/report-windows",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({file_ids:[monitoring.file.file_id,...additionalFileIds]})}).then(async response=>{const body=await response.json();if(!response.ok)throw new Error(body.error?.message??"周期识别失败");return body;}).then(body=>{
-      if(cancelled)return;setWindows(body.windows);setDetectedMetrics(body.detected_metrics??[]);setWindowMessage(body.notice);const first=body.windows[0];if(first&&!parentRunId){setWindowId(first.id);setReportKind(first.type);setReportDate(first.end_date);setPeriodStart(first.start_date);setPeriodEnd(first.end_date);}
-    }).catch(error=>{if(!cancelled){setWindows([]);setWindowMessage(error.message);}});},200);
+      if(cancelled)return;setWindows(body.windows);setDetectedMetrics(body.detected_metrics??[]);setWindowMessage(body.notice);const first=body.windows[0];if(first&&!parentRunId&&!confirmedRange.current){setWindowId(first.id);confirmRange({kind:first.type,date:first.end_date,start:first.start_date,end:first.end_date});}
+    }).catch(error=>{if(!cancelled){setWindows([]);setDetectedMetrics([]);setWindowId("");setWindowMessage(error.message);}});},200);
     return()=>{cancelled=true;clearTimeout(timer);};
-  },[apiFetch,monitoring,additionalFileIds,parentRunId]);
+  },[apiFetch,monitoring,additionalFileIds,parentRunId,canWrite,confirmRange]);
   useEffect(() => { onBusyChange(busy !== null); }, [busy, onBusyChange]);
   useEffect(() => {
+    if (initialized.current) return;
     let cancelled = false;
+    operation.current = true;
+    setBusy("history");
+    setHistoryError(null);
     void (async () => {
       try {
         const responses = await Promise.all([apiFetch("/api/runs"), apiFetch("/api/monitoring-files"), apiFetch("/api/standards")]);
         for (const response of responses) if (!response.ok) throw new Error(await readError(response));
         const [runs, monitoringFiles, standards] = await Promise.all(responses.map(response => response.json()));
         if (!cancelled) {
-          setHistory(runListResponseSchema.parse(runs).runs);
+          const summaries = runListResponseSchema.parse(runs).runs;
+          setHistory(summaries);
           setFiles(listFilesResponseSchema.parse(monitoringFiles).files);
           setStandardFiles(listFilesResponseSchema.parse(standards).files);
+          const candidates = [...summaries];
+          let runId = initialRunId ?? latestSuccessfulRun(candidates)?.run_id;
+          let restored = false;
+          while (runId && !cancelled) {
+            const response = await apiFetch(`/api/runs/${encodeURIComponent(runId)}`);
+            if (!response.ok) throw new Error(await readError(response));
+            const body = await response.json() as RunResponse;
+            persistedRunSchema.parse(body.record);
+            if (cancelled) return;
+            if (initialRunId || body.record.result) {
+              setResult(body);
+              onDefaultStep("results", body.record.run_id);
+              restored = true;
+              break;
+            }
+            candidates.splice(candidates.findIndex(item => item.run_id === runId), 1);
+            runId = latestSuccessfulRun(candidates)?.run_id;
+          }
+          if (!cancelled) {
+            initialized.current = true;
+            if (!restored) onDefaultStep("conditions");
+          }
         }
-      } catch (caught) { if (!cancelled) setError(caught instanceof Error ? caught.message : "加载项目失败。"); }
+      } catch (caught) {
+        if (!cancelled) setHistoryError(caught instanceof Error ? caught.message : "加载项目失败。");
+      } finally {
+        if (!cancelled) { operation.current = false; setBusy(null); }
+      }
     })();
     return () => { cancelled = true; };
-  }, [apiFetch]);
+  }, [apiFetch, initialRunId, onDefaultStep, loadAttempt]);
   useEffect(() => {
     let cancelled = false;
     let refreshing = false;
@@ -333,7 +471,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
   }
 
   function begin(name: string): boolean {
-    if (operation.current) return false;
+    if (operation.current || sessionPending) return false;
     operation.current = true;
     reset();
     setBusy(name);
@@ -357,18 +495,22 @@ export function ProjectWorkbench({ session, onBusyChange }: {
   }
 
   async function openRun(runId: string) {
-    const response = await apiFetch(`/api/runs/${runId}`);
+    if (!confirmReplaceReview()) return;
+    const response = await apiFetch(`/api/runs/${encodeURIComponent(runId)}`);
     if (!response.ok) {
-      if (response.status === 404 && result?.record.run_id === runId) setResult(null);
+      if (response.status === 404 && result?.record.run_id === runId) { notifyDirty(false); setResult(null); }
       throw new Error(await readError(response));
     }
     const body = await response.json() as RunResponse;
     persistedRunSchema.parse(body.record);
+    notifyDirty(false);
     setResult(body);
+    onStepChange("results", body.record.run_id);
     setRemoteRevision(null);
   }
 
   async function deleteHistory(run: RunSummary) {
+    if (result?.record.run_id === run.run_id && !confirmReplaceReview()) return;
     const response = await apiFetch(
       `/api/runs/${run.run_id}?expected_revision=${run.revision}`,
       { method: "DELETE" },
@@ -382,7 +524,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
       throw new Error("删除响应不完整，请刷新历史确认结果。");
     }
     setHistory((current) => current.filter((item) => item.run_id !== run.run_id));
-    if (result?.record.run_id === run.run_id) setResult(null);
+    if (result?.record.run_id === run.run_id) { notifyDirty(false); setResult(null); onStepChange("results", null); }
     if (parentRunId === run.run_id) {
       setParentRunId(null);
       setRerunInput(null);
@@ -398,33 +540,38 @@ export function ProjectWorkbench({ session, onBusyChange }: {
     if (!record) return;
     const response = await apiFetch("/api/monitoring-files");
     if (!response.ok) throw new Error(await readError(response));
-    const files = (await response.json() as { files: StoredFile[] }).files;
+    const files = listFilesResponseSchema.parse(await response.json()).files;
     const file = files.find((file) => file.file_id === record.request.monitoring_file_id);
-    if (!file) throw new Error("原监测文件已不可用，请重新上传。");
     const input = record.request;
     const additional = record.request.additional_monitoring_file_ids ?? [];
-    if (additional.some(id => !files.some(file => file.file_id === id))) {
-      throw new Error("参与汇总的监测文件已不可用，请重新上传。");
-    }
-    setMonitoring({ file, read_report: (record.result?.read_report as ReadReport | null) ?? null });
+    const availableAdditional = additional.filter(id => files.some(file => file.file_id === id));
+    const missingFiles = !file || availableAdditional.length !== additional.length;
+    setMonitoring(!missingFiles && file ? { file, read_report: (record.result?.read_report as ReadReport | null) ?? null } : null);
     setFiles(files);
-    setAdditionalFileIds(additional);
-    if (!scene?.parameters) setParameters(input.context);
+    setAdditionalFileIds(missingFiles ? [] : availableAdditional);
+    setParameters(scene?.parameters ?? input.context);
     setProjectName(project?.name ?? input.project?.name ?? "");
     setReportDate(input.report_date);
     setReportKind(input.report_period?.type ?? "daily");
     setPeriodStart(input.report_period?.start_date ?? input.report_date);
     setPeriodEnd(input.report_period?.end_date ?? input.report_date);
+    setRangeConfirmed(true);
+    confirmedRange.current = true;
+    setWindowId("");
+    rangePrompted.current = true;
     const revising = record.review?.decision === "needs_changes" || (!record.review && Boolean(record.revision_feedback));
     setGenerateReport(revising || (input.options?.generate_report ?? true));
     setReportMode(revising ? "ai" : (input.options?.report_mode ?? "ai"));
     setSelectedStandardId(input.standards_file_id ?? null);
     setStandard(null);
     setStandardText("");
-    setRerunInput(input);
+    setRerunInput({ ...input, project_standard_ids: input.project_standard_ids ??
+      record.result?.project_standards?.map(document => document.document_id) ?? [] });
     setParentRunId(record.run_id);
-    setNotice(revising ? "已载入原输入并开启AI报告；运行后将逐项回应退回意见，未解决事项交由人工确认。"
-      : `已加载 ${record.run_id.slice(0, 8)} 的输入；修正后点“运行分析”将创建关联运行。`);
+    onStepChange("conditions");
+    setNotice(`${revising ? "已载入原输入并开启AI报告；运行后将逐项回应退回意见，未解决事项交由人工确认。"
+      : `已加载 ${record.run_id.slice(0, 8)} 的工程条件及规范引用，后续分析将创建关联运行。`}${missingFiles
+      ? "原监测文件或部分汇总文件已不可用，请在数据与规范中重新选择或上传所需文件。" : "请核对输入后运行分析。"}`);
   }
 
   async function review(
@@ -454,6 +601,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
     }
     const body = await response.json() as RunResponse;
     persistedRunSchema.parse(body.record);
+    notifyDirty(false);
     setResult(body);
     await refreshHistory();
     setRemoteRevision(null);
@@ -476,6 +624,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
     }
     const body = await response.json() as RunResponse;
     persistedRunSchema.parse(body.record);
+    notifyDirty(false);
     setResult(body);
     await refreshHistory();
     setRemoteRevision(null);
@@ -493,14 +642,65 @@ export function ProjectWorkbench({ session, onBusyChange }: {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   }
 
+  const analysisPrerequisites: Array<{ id: string; message: string; step: WorkbenchStep }> = [];
+  if (!scene) analysisPrerequisites.push({ id: "scene", message: "加载工程类型与参数配置", step: "conditions" });
+  if (!rangeConfirmed) analysisPrerequisites.push({ id: "range", message: "选择并确认报告范围", step: "conditions" });
+  else if (scene && !scene.adapter.supported_reports.includes(reportKind)) analysisPrerequisites.push({ id: "range", message: "选择当前工程类型支持的报告范围", step: "conditions" });
+  for (const field of scene?.adapter.core_fields ?? []) {
+    const value = parameters[field.key];
+    if (field.required && (value == null || (typeof value === "string" && !value.trim()))) {
+      analysisPrerequisites.push({ id: field.key, message: isPit && field.key === "support_type"
+        ? "确认实际支护信息（判据适用条件）" : `确认${field.label}`, step: "conditions" });
+    }
+  }
+  if (!depthValid) analysisPrerequisites.push({ id: "depth", message: "修正设计深度 H：大于0且不超过200m，或留空表示未提供", step: "conditions" });
+  if (!monitoring) analysisPrerequisites.push({ id: "monitoring", message: "选择或上传监测文件", step: "data" });
+  else if (monitoring.read_report?.ok === false) {
+    analysisPrerequisites.push({ id: "monitoring", message: "修正监测文件的必填列并重新上传", step: "data" });
+  }
+
+  function completePrerequisite(item: typeof analysisPrerequisites[number]) {
+    if (item.id === "support_type" && applicabilityDetails.current) applicabilityDetails.current.open = true;
+    onStepChange(item.step);
+    if (item.id === "range") setRangeDialogOpen(true);
+  }
+
   function reset() {
     setError(null);
     setNotice(null);
   }
 
+  function confirmReplaceReview() {
+    return !dirty.current || window.confirm("当前报告有未保存的评价或总评，继续会替换这些内容。确认继续？");
+  }
+
+  function startNewReport() {
+    if (operation.current || !canWrite) return;
+    setMonitoring(null);
+    setAdditionalFileIds([]);
+    setWindows([]);
+    setDetectedMetrics([]);
+    setWindowId("");
+    setWindowMessage("");
+    setStandard(null);
+    setSelectedStandardId(null);
+    setStandardText("");
+    setRerunInput(null);
+    setParentRunId(null);
+    setParameters(scene?.parameters ?? (isPit ? { excavation_depth_m: null } : {}));
+    setReportDate("");
+    setPeriodStart("");
+    setPeriodEnd("");
+    setReportKind("daily");
+    setRangeConfirmed(false);
+    confirmedRange.current = false;
+    rangePrompted.current = false;
+    reset();
+    onStepChange("conditions");
+  }
+
   async function uploadMonitoring(file: File) {
     if (!begin("upload")) return;
-    setResult(null);
     try {
       const form = new FormData();
       form.set("file", file);
@@ -523,9 +723,41 @@ export function ProjectWorkbench({ session, onBusyChange }: {
     }
   }
 
+  async function saveEngineeringConfiguration(successMessage: string) {
+    if (!scene || !begin("configuration")) return;
+    try {
+      const response = await apiFetch("/api/projects/current/engineering", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          expected_revision: scene.revision,
+          adapter_version: scene.adapter.version,
+          parameters,
+        }),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      const body = await response.json();
+      setScene(current => current ? {
+        ...current,
+        parameters: body.engineering.parameters,
+        revision: body.engineering.revision,
+      } : current);
+      setParameters(body.engineering.parameters);
+      setNotice(successMessage);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "配置保存失败。");
+    } finally {
+      finish();
+    }
+  }
+
   async function uploadStandard() {
     if (operation.current) return;
     reset();
+    if (!canWrite || !isPit || !parameters.safety_level || !supportType || !depthValid) {
+      setError("请先在工程条件中确认判据适用条件，并检查设计深度。");
+      return;
+    }
     const text = standardText.trim();
     if (!text) {
       setError("请先粘贴或选择用户规范 JSON。");
@@ -575,6 +807,10 @@ export function ProjectWorkbench({ session, onBusyChange }: {
   async function runAnalysis() {
     if (operation.current) return;
     reset();
+    if (!canWrite || analysisPrerequisites.length > 0) {
+      setError(analysisPrerequisites[0]?.message ?? "当前账号没有运行分析权限。");
+      return;
+    }
     if (!monitoring) {
       setError("请先上传监测数据文件。");
       return;
@@ -582,13 +818,12 @@ export function ProjectWorkbench({ session, onBusyChange }: {
     if(!reportDate){setError("请先上传数据并选择推荐周期，或展开手动设置填写日期。");return;}
     let reportPeriod;
     try {
-      reportPeriod = reportKind === "daily" ? undefined : reportKind === "custom"
-        ? reportPeriodSchema.parse({ type: "custom", start_date: periodStart, end_date: periodEnd })
-        : presetReportPeriod(reportKind, reportDate);
+      reportPeriod = resolveReportRange(range).report_period;
     } catch {
       setError("请检查报告起止日期：起始日不得晚于结束日，区间最多366天。");
       return;
     }
+    if (!confirmReplaceReview()) return;
     if (!begin("run")) return;
     try {
       const response = await apiFetch("/api/runs", {
@@ -600,6 +835,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
           monitoring_file_id: monitoring.file.file_id,
           additional_monitoring_file_ids: additionalFileIds,
           standards_file_id: selectedStandardId,
+          project_standard_ids: rerunInput?.project_standard_ids,
           report_date: reportPeriod?.end_date ?? reportDate,
           report_period: reportPeriod,
           context: parameters,
@@ -611,7 +847,11 @@ export function ProjectWorkbench({ session, onBusyChange }: {
         setError(await readError(response));
         return;
       }
-      setResult((await response.json()) as RunResponse);
+      const body = await response.json() as RunResponse;
+      persistedRunSchema.parse(body.record);
+      notifyDirty(false);
+      setResult(body);
+      onStepChange("results", body.record.run_id);
       setRerunInput(null);
       setParentRunId(null);
     } catch (caught) {
@@ -624,7 +864,25 @@ export function ProjectWorkbench({ session, onBusyChange }: {
   }
 
   const payload = result?.payload;
-  const byLevel = payload?.summary?.by_risk_level ?? {};
+  const originalByLevel = payload?.summary?.by_risk_level ?? {};
+  const effectiveSummary = result?.record.review?.effective_summary;
+  const byLevel = effectiveSummary?.by_risk_level ?? originalByLevel;
+  const overallRiskLevel = effectiveSummary?.overall_risk_level ??
+    payload?.summary?.overall_risk_level;
+  const totalRiskItems = effectiveSummary?.total ?? payload?.summary?.total ?? 0;
+  const alarmOrHigherCount = effectiveSummary
+    ? effectiveSummary.by_risk_level.报警 + effectiveSummary.by_risk_level.危险报警
+    : payload?.alerts?.length ?? 0;
+  const pendingReviewCount = effectiveSummary
+    ? effectiveSummary.by_risk_level.未知
+    : payload?.review_queue?.length ?? 0;
+  const reviewedRiskByIndex = new Map(
+    result?.record.review?.evaluations.flatMap(evaluation =>
+      evaluation.reviewed_risk_level
+        ? [[evaluation.risk_item_index, evaluation.reviewed_risk_level] as const]
+        : [],
+    ) ?? [],
+  );
   const maxLevelCount = Math.max(1, ...Object.values(byLevel));
   const visibleHistory = history.filter(run =>
     (!historyDate || run.report_date === historyDate) &&
@@ -633,12 +891,24 @@ export function ProjectWorkbench({ session, onBusyChange }: {
 
   return (
     <>
-      <div className="wb-steps">
-        <span className={monitoring ? "done" : ""}>① 工程条件</span>
-        <span className={monitoring ? "done" : ""}>② 上传监测数据</span>
-        <span className={standard ? "done" : ""}>③ 用户规范（可选）</span>
-        <span className={result ? "done" : ""}>④ 运行分析</span>
-      </div>
+      {rangeDialogOpen && <ReportRangeDialog initial={rangeConfirmed ? range : null} supportedReports={scene?.adapter.supported_reports}
+        onClose={() => setRangeDialogOpen(false)} onConfirm={next => {
+          confirmRange(next);
+          setWindowId("");
+          setRangeDialogOpen(false);
+        }} />}
+      <div hidden={step === "start"}>
+      {step === "results" && canWrite && <div className="wb-actions wb-stage-actions">
+        <button className="wb-btn wb-btn-primary" disabled={busy !== null} onClick={startNewReport}>新建报告</button>
+      </div>}
+      {historyError && <div role="alert" className="wb-alert wb-alert-error">
+        <div>工程资料或历史加载失败：{historyError}
+          <div className="wb-actions">
+            <button className="wb-btn wb-btn-sm" disabled={busy !== null} onClick={() => setLoadAttempt(value => value + 1)}>重试加载</button>
+            {canWrite && <button className="wb-btn wb-btn-sm" disabled={busy !== null} onClick={startNewReport}>开始新报告</button>}
+          </div>
+        </div>
+      </div>}
 
       {error && (
         <div className="wb-alert wb-alert-error" role="alert">
@@ -653,18 +923,28 @@ export function ProjectWorkbench({ session, onBusyChange }: {
         </div>
       )}
 
-      <div className="wb-grid">
-        {/* ---------------- 左列：输入 ---------------- */}
-        <div className="wb-col">
+      <div className={`wb-grid wb-stage-${step}`}>
+        <div className="wb-col wb-result-context" hidden={step !== "results"}>
+          <div className="wb-result-context-sticky">
+          {result?.record && <EngineerReviewPanel
+            key={`review:${result.record.run_id}:${result.record.revision}`}
+            record={result.record}
+            disabled={busy !== null || sessionPending}
+            canReviewRole={canReview}
+            onDirtyChange={notifyDirty}
+            onReview={(decision, reason, evaluations) => void perform("review", () => review(decision, reason, evaluations))}
+            onSaveEvaluations={(evaluations, reason) => void perform("evaluation", () => saveEvaluations(evaluations, reason))}
+          />}
+          <details className="wb-result-info" open={resultInfoOpen} onToggle={event => setResultInfoOpen(event.currentTarget.open)}>
+            <summary>工程条件与运行历史</summary>
+            {result && <RunConditions record={result.record} currentName={project?.name} fields={scene?.adapter.core_fields} />}
           <section className="wb-card" aria-label="运行历史">
-            <div className="wb-card-head"><h2>工程共享日报与运行历史</h2></div>
+            <div className="wb-card-head"><h2>工程运行历史</h2></div>
             <div className="wb-actions">
               <button className="wb-btn wb-btn-sm" disabled={busy !== null} onClick={() => void perform("history", refreshSharedData)}>刷新历史</button>
               {result && <button className="wb-btn wb-btn-sm" disabled={busy !== null}
                 onClick={() => {
-                  if (window.confirm("刷新当前运行会替换未保存的评价和总评，确认继续？")) {
-                    void perform("history", () => openRun(result.record.run_id));
-                  }
+                  void perform("history", () => openRun(result.record.run_id));
                 }}>刷新当前运行</button>}
             </div>
             <p className="wb-hint">本工程最近 100 次运行。每15秒同步成员上传和复核状态；打开同一运行即可协作。{syncedAt && `最近同步 ${syncedAt}。`}</p>
@@ -677,17 +957,16 @@ export function ProjectWorkbench({ session, onBusyChange }: {
               该运行已有更新，当前页面仍保留你的未保存内容。
               <button className="wb-btn wb-btn-sm" disabled={busy !== null}
                 onClick={() => {
-                  if (window.confirm("加载最新运行将替换当前未保存的评价和总评，确认继续？")) {
-                    void perform("history", () => openRun(result.record.run_id));
-                  }
+                  void perform("history", () => openRun(result.record.run_id));
                 }}>加载最新协作版本</button>
             </div></div>}
             <div className="wb-history">
               {visibleHistory.map((run) => (
                 <div className="wb-history-row" key={run.run_id}>
-                  <button className="wb-history-item"
+                  <button className="wb-history-item" aria-current={result?.record.run_id === run.run_id ? "true" : undefined}
                     disabled={busy !== null} onClick={() => void perform("history", () => openRun(run.run_id))}>
-                    <strong>{run.project_name} · {run.report_period ? `${run.report_period.start_date} 至 ${run.report_period.end_date}` : run.report_date}</strong>
+                    <strong>{reportRangeLabel({ kind: run.report_period?.type ?? "daily", date: run.report_date,
+                      start: run.report_period?.start_date ?? run.report_date, end: run.report_period?.end_date ?? run.report_date })}</strong>
                     <span>{run.run_id.slice(0, 8)} · {run.decision ? decisionLabel(run.decision) : executionLabel(run.execution_status === "completed" && !run.error ? run.agent_status ?? run.execution_status : run.execution_status)}</span>
                     <span>生成者：{run.created_by?.name ?? "历史记录未保存姓名"} · {run.reviewed_by ? `复核人：${run.reviewed_by.name}` : `暂存评价 ${run.evaluation_count ?? 0}${run.risk_evaluation_total != null ? `/${run.risk_evaluation_total}` : ""} 条`}</span>
                   </button>
@@ -715,65 +994,74 @@ export function ProjectWorkbench({ session, onBusyChange }: {
                   )}
                 </div>
               ))}
-              {visibleHistory.length === 0 && <p className="wb-hint">暂无符合筛选条件的运行记录。</p>}
+              {visibleHistory.length === 0 && <p className="wb-hint">{busy === "history" ? "正在加载工程历史…" : historyError ? "历史尚未加载，请重试。" : "暂无符合筛选条件的运行记录。"}</p>}
             </div>
           </section>
-          <fieldset className="wb-inputs" disabled={busy !== null || !canWrite}>
-          <ProjectContextPanel apiFetch={apiFetch} start={() => begin("context")} finish={finish} />
-          <ProfessionalReviewPanel apiFetch={apiFetch} canReview={canReview} />
-          <section className="wb-card">
-            <div className="wb-card-head">
-              <span className="wb-step">1</span>
-              <h2>工程条件</h2>
-              <label>按数据选择报告周期<select value={windowId} onChange={event=>{const selected=windows.find(w=>w.id===event.target.value);if(selected){setWindowId(selected.id);setReportKind(selected.type);setReportDate(selected.end_date);setPeriodStart(selected.start_date);setPeriodEnd(selected.end_date);}}}><option value="">上传数据后自动推荐</option>{windows.map(w=><option key={w.id} value={w.id}>{w.label}{w.missing_days.length?` · 缺${w.missing_days.length}日`:""}</option>)}</select></label>
-              <p className="wb-hint">{windowMessage}</p>
-            </div>
-            <p className="wb-hint">{scene?.engineering_type?.name ?? "正在加载工程条件…"}。请确认核心参数；保存后日常报告自动复用，变更需重新确认。</p>
-            <div className="wb-row">
-              {scene?.adapter.core_fields.map(field => <Field key={field.key} label={`${field.label}${field.required ? "（必填）" : "（可留空）"}`}>
-                {field.choices ? <select value={String(parameters[field.key] ?? "")} onChange={event => updateCoreParameter(field.key,event.target.value)}>
-                  <option value="">请选择</option>{field.choices.map(choice => <option key={choice} value={choice}>{field.choice_labels?.[choice]??choice}</option>)}
-                </select> : field.input_type === "checkbox" ? <input type="checkbox" checked={parameters[field.key]===true} onChange={event=>updateCoreParameter(field.key,event.target.checked)} /> : <input type={field.input_type ?? "text"} value={String(parameters[field.key] ?? "")} onChange={event => updateCoreParameter(field.key,field.input_type === "number" ? (event.target.value === "" ? null : Number(event.target.value)) : event.target.value)} />}
-              </Field>)}
-            </div>
-            {scene?.engineering_type?.id==='tunnel'&&<MonitoringParameters metrics={monitoring?detectedMetrics:[]} definitions={scene.monitoring_metrics??[]} parameters={parameters} onChange={setParameters}/>}
-            {(project?.role === "admin") && <button className="wb-btn wb-btn-sm" type="button" disabled={!scene || busy !== null} onClick={() => {
-              if (!scene || !begin("configuration")) return;
-              void (async () => { try {
-                const response = await apiFetch("/api/projects/current/engineering", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expected_revision: scene.revision, adapter_version: scene.adapter.version, parameters }) });
-                if (!response.ok) throw new Error(await readError(response));
-                const body = await response.json(); setScene(current => current ? { ...current, parameters: body.engineering.parameters, revision: body.engineering.revision } : current); setNotice("工程配置已确认保存，后续报告自动复用。");
-              } catch (caught) { setError(caught instanceof Error ? caught.message : "配置保存失败。"); } finally { finish(); } })();
-            }}>确认并保存工程配置</button>}
-            <div className="wb-row">
-              <Field label="工程名称（由当前工程确定）">
-                <input value={projectName} readOnly />
-              </Field>
-            </div>
-            <details><summary>手动调整报告区间（可选）</summary>
-              {reportKind !== "custom" && <Field label={reportKind === "monthly" ? "所属月份（选择任一天）" : reportKind === "weekly" ? "周报结束日期（含当日共7天）" : "报告日期"}>
-                <input
-                  type="date"
-                  value={reportDate}
-                  onChange={(event) => setReportDate(event.target.value)}
-                />
-              </Field>}
-            <Field label="报告周期">
-              <select value={reportKind} onChange={(event) => setReportKind(event.target.value as ReportKind)}>
-                {([["daily", "日报"], ["weekly", "周报（连续7天）"], ["monthly", "月报（自然月）"], ["custom", "自定义区间"]] as const).filter(([kind]) => !scene || scene.adapter.supported_reports.includes(kind)).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}
-              </select>
-            </Field>
-            {reportKind === "custom" && <div className="wb-row">
-              <Field label="区间开始日期"><input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} /></Field>
-              <Field label="区间结束日期"><input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} /></Field>
-            </div>}
-            {reportKind !== "daily" && <p className="wb-hint">区间含首尾日，最多366天；保留必要历史计算，缺测不补值。月报覆盖所选日期所在完整自然月。多日预警将触发AI模式的追加规范核查。</p>}
-            </details>
-          </section>
-
-          <section className="wb-card">
+          </details>
+          </div>
+        </div>
+        <div className="wb-col wb-stage-input">
+          <fieldset className="wb-inputs" disabled={busy !== null || sessionPending || !canWrite}>
+          <section className="wb-card" hidden={step !== "conditions"}>
             <div className="wb-card-head">
               <span className="wb-step">2</span>
+              <h2>工程条件</h2>
+            </div>
+            <p className="wb-hint">{scene?.engineering_type?.name ?? "正在加载工程条件…"}。请确认真实核心参数；保存后日常报告自动复用，变更需重新确认。</p>
+            {isPit && <p className="wb-hint"><strong>留空 H 不会放宽判据</strong> ——
+              含 %H 的累计值判据会转为弃权并进入人工复核队列。
+            </p>}
+            <div className="wb-row">
+              {scene?.adapter.core_fields.filter(field => !isPit || field.key !== "support_type").map(field =>
+                <Field key={field.key} label={`${field.label}${field.required ? "（必填）" : "（可留空）"}`}>
+                  {field.choices ? <select value={String(parameters[field.key] ?? "")} onChange={event => updateCoreParameter(field.key, event.target.value)}>
+                    <option value="">请选择实际{field.label}</option>
+                    {parameters[field.key] && !field.choices.includes(String(parameters[field.key])) ? <option value={String(parameters[field.key])}>{String(parameters[field.key])}</option> : null}
+                    {field.choices.map(choice => <option key={choice} value={choice}>{field.choice_labels?.[choice] ?? choice}</option>)}
+                  </select> : field.input_type === "checkbox"
+                    ? <input type="checkbox" checked={parameters[field.key] === true} onChange={event => updateCoreParameter(field.key, event.target.checked)} />
+                    : <input type={field.input_type ?? "text"} value={String(parameters[field.key] ?? "")} onChange={event => updateCoreParameter(field.key,
+                      field.input_type === "number" ? (event.target.value === "" ? null : Number(event.target.value)) : event.target.value || null)} />}
+                </Field>)}
+              <Field label="工程名称（项目名称，第一步选定）"><input value={projectName} readOnly /></Field>
+              {isPit && <Field label="底板浇筑日期（可选）"><input type="date" value={String(parameters.post_slab_from ?? "")}
+                onChange={event => updateCoreParameter("post_slab_from", event.target.value || null)} /></Field>}
+            </div>
+            {isPit && <details className="wb-accordion" ref={applicabilityDetails}>
+              <summary>判据适用条件（必填） · {supportType ? `已确认：${supportType}` : "待确认支护信息"}</summary>
+              <p className="wb-hint">实际支护信息指工程采用的支护类型，如地下连续墙、灌注桩等；请按工程资料选择，用于匹配适用规范。</p>
+              <Field label="实际支护信息（必填）">
+                <select value={supportType} onChange={event => updateCoreParameter("support_type", event.target.value)}>
+                  <option value="">请选择实际支护类型</option>
+                  {supportType && !scene?.adapter.core_fields.find(field => field.key === "support_type")?.choices?.includes(supportType) && <option value={supportType}>{supportType}</option>}
+                  {scene?.adapter.core_fields.find(field => field.key === "support_type")?.choices?.map(choice => <option key={choice} value={choice}>{choice}</option>)}
+                </select>
+              </Field>
+            </details>}
+              {(project?.role === "admin") && <button
+                className="wb-btn wb-btn-sm"
+                type="button"
+                disabled={!scene || busy !== null}
+                onClick={() => void saveEngineeringConfiguration(
+                  "工程条件已确认保存，后续报告自动复用。",
+                )}
+              >
+                确认并保存工程配置
+              </button>}
+            <div className="wb-range-summary">
+              <div><h3>报告范围</h3><p>{rangeSummary}</p></div>
+              <button className="wb-btn" type="button" onClick={() => setRangeDialogOpen(true)}>{rangeConfirmed ? "修改范围" : "选择范围"}</button>
+            </div>
+            {!depthValid && <p className="wb-hint">基坑设计深度需大于0且不超过200m，或留空表示未提供。</p>}
+            <div className="wb-actions">
+              <button className="wb-btn wb-btn-primary" type="button" onClick={() => onStepChange("data")}>下一步：数据与规范</button>
+            </div>
+          </section>
+
+          <div className="wb-col" hidden={step !== "data"}>
+          <section className="wb-card">
+            <div className="wb-card-head">
+              <span className="wb-step">3</span>
               <h2>监测数据</h2>
             </div>
             <p className="wb-hint">
@@ -790,7 +1078,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
             <Field label="选择本工程已上传的监测数据">
               <select value={monitoring?.file.file_id ?? ""} onChange={event => {
                 const file = files.find(f => f.file_id === event.target.value);
-                setMonitoring(file ? { file, read_report: null } : null); setAdditionalFileIds([]); setResult(null); setParentRunId(null);
+                setMonitoring(file ? { file, read_report: null } : null); setAdditionalFileIds([]);
               }}>
                 <option value="">请选择，或上传新文件</option>
                 {files.map(file => <option key={file.file_id} value={file.file_id}>{file.original_name} · {file.uploaded_by?.name ?? "历史上传"} · {file.created_at.slice(0, 10)}</option>)}
@@ -869,9 +1157,80 @@ export function ProjectWorkbench({ session, onBusyChange }: {
             )}
           </section>
 
-          {session?.authenticated && <ProjectStandards projectId={session.project_id} canReview={canReview} disabled={busy !== null || !canWrite}
-            usesProjectControls={scene?.engineering_type?.id==='tunnel'} onBusyChange={active => { operation.current = active; setBusy(active ? "project-standard" : null); }} />}
-          {scene?.engineering_type?.id==='foundation_pit'&&<section className="wb-card">
+          <section className="wb-card">
+            <h2>按数据选择报告周期</h2>
+            <Field label="推荐报告周期"><select value={windowId} onChange={event => {
+              const selected = windows.find(item => item.id === event.target.value);
+              if (selected) {
+                setWindowId(selected.id);
+                confirmRange({ kind: selected.type, date: selected.end_date, start: selected.start_date, end: selected.end_date });
+              }
+            }}><option value="">上传数据后推荐，或使用已确认范围</option>
+              {windows.map(item => <option key={item.id} value={item.id}>{item.label}{item.missing_days.length ? ` · 缺${item.missing_days.length}日` : ""}</option>)}
+            </select></Field>
+            <p className="wb-hint">{windowMessage}</p><p>{rangeSummary}</p>
+          </section>
+            {scene?.engineering_type?.id === "tunnel" && monitoring && <section
+              className="wb-card"
+              aria-label="监测参数设置"
+            >
+              <MonitoringParameters
+                metrics={detectedMetrics}
+                definitions={scene.monitoring_metrics ?? []}
+                parameters={parameters}
+                onChange={setParameters}
+              />
+              <p className="wb-hint">
+                当前填写值会用于本次运行；项目管理员保存后，同一工程后续报告可自动复用。
+              </p>
+              {project?.role === "admin" && <button
+                className="wb-btn wb-btn-sm"
+                type="button"
+                disabled={!scene || busy !== null}
+                onClick={() => void saveEngineeringConfiguration(
+                  "监测参数已确认保存，后续报告自动复用。",
+                )}
+              >
+                确认并保存监测参数
+              </button>}
+            </section>}
+          <section className="wb-card wb-optional-tools">
+            <div className="wb-card-head"><h2>可选资料</h2></div>
+            <Field label="选择要配置的可选资料">
+              <select value={optionalTool} onChange={event => {
+                const value = event.target.value;
+                if (!OPTIONAL_TOOLS.includes(value as OptionalTool)) return;
+                const selected = value as OptionalTool;
+                setOptionalTool(selected);
+                if (selected) {
+                  setOpenedOptionalTools(current => current.includes(selected) ? current : [...current, selected]);
+                }
+              }}>
+                <option value="">暂不配置</option>
+                <option value="context">案例、工况与巡视资料（可选）</option>
+                <option value="project-standard">项目补充规范（全文检索）</option>
+                {isPit && <option value="thresholds">用户规范 JSON（数值阈值，可选）</option>}
+              </select>
+            </Field>
+          </section>
+          {openedOptionalTools.includes("context") && <ProjectContextPanel
+            hidden={optionalTool !== "context"}
+            apiFetch={apiFetch}
+            start={() => begin("context")}
+            finish={finish}
+          />}
+          {session?.authenticated && openedOptionalTools.includes("project-standard") && <ProjectStandards
+            hidden={optionalTool !== "project-standard"}
+            projectId={session.project_id}
+            canReview={canReview}
+            disabled={busy !== null || sessionPending || !canWrite}
+            usesProjectControls={scene?.engineering_type?.id === "tunnel"}
+            onBusyChange={active => {
+              operation.current = active;
+              setBusy(active ? "project-standard" : null);
+            }}
+          />}
+          {isPit && openedOptionalTools.includes("thresholds") && <section className="wb-card" hidden={optionalTool !== "thresholds"}>
             <div className="wb-card-head">
               <span className="wb-step">3</span>
               <h2>用户规范 JSON（数值阈值，可选）</h2>
@@ -913,7 +1272,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
                 className="wb-btn wb-btn-sm"
                 type="button"
                 onClick={() => void uploadStandard()}
-                disabled={busy === "standard" || !standardText.trim()}
+                disabled={busy === "standard" || !standardText.trim() || !parameters.safety_level || !supportType || !depthValid}
               >
                 {busy === "standard" ? (
                   <Loader2 size={14} className="wb-spin" aria-hidden="true" />
@@ -964,22 +1323,46 @@ export function ProjectWorkbench({ session, onBusyChange }: {
               </>
             )}
           </section>}
+          <div className="wb-actions">
+            <button className="wb-btn" type="button" onClick={() => onStepChange("conditions")}>上一步：工程条件</button>
+            <button className="wb-btn wb-btn-primary" type="button" onClick={() => onStepChange("results")}>下一步：分析与复核</button>
+          </div>
+          </div>
 
-          <section className="wb-card">
+          <section className="wb-card" hidden={step !== "results" || !canWrite || (Boolean(result) && !monitoring)}>
             <div className="wb-card-head">
               <span className="wb-step">4</span>
               <h2>运行分析</h2>
             </div>
             <p className="wb-hint">
               阶段一 数据准备 → 阶段二 确定性计算 → 阶段三 规范比对。
-              AI 日报继续执行模型规划、规范检索、报告写作与独立语义审计。
+              AI 报告继续执行模型规划、规范检索、报告写作与独立语义审计。
             </p>
+            <div className="wb-meta">
+              <span className="wb-chip">新任务：{rangeSummary}</span>
+              <span className="wb-chip">{monitoring ? `监测文件 ${1 + additionalFileIds.length} 份` : "尚未选择监测文件"}</span>
+              <span className="wb-chip">{analysisPrerequisites.some(item => item.step === "conditions" && item.id !== "range") ? "适用条件待确认" : "适用条件已确认"}</span>
+              {parentRunId && <span className="wb-chip">关联原运行 {parentRunId.slice(0, 8)}</span>}
+            </div>
+            {analysisPrerequisites.length > 0 && <div id="wb-analysis-prerequisites" className="wb-alert wb-alert-warn" role="status">
+              <div>
+                <strong>运行分析前还需完成以下内容：</strong>
+                <ul className="wb-analysis-checklist">
+                  {analysisPrerequisites.map(item => <li key={item.id}>
+                    {item.message}
+                    <button type="button" className="wb-btn wb-btn-sm" onClick={() => completePrerequisite(item)}>
+                      {item.step === "conditions" ? "返回第二步补充" : "返回第三步补充"}
+                    </button>
+                  </li>)}
+                </ul>
+              </div>
+            </div>}
             <label className="wb-report-toggle">
               <input type="checkbox" checked={generateReport} onChange={(event) => setGenerateReport(event.target.checked)} />
-              生成并审计日报三件套
+              生成并审计监测报告三件套
             </label>
             {generateReport && (
-              <Field label="日报生成方式">
+              <Field label="报告生成方式">
                 <select value={reportMode} onChange={(event) => setReportMode(event.target.value as "ai" | "template")}>
                   <option value="ai">AI分析与独立审查</option>
                   <option value="template">仅模板：计算结果与附表</option>
@@ -991,7 +1374,8 @@ export function ProjectWorkbench({ session, onBusyChange }: {
                 className="wb-btn wb-btn-primary"
                 type="button"
                 onClick={() => void runAnalysis()}
-                disabled={busy !== null || !monitoring}
+                disabled={busy !== null || analysisPrerequisites.length > 0}
+                aria-describedby={analysisPrerequisites.length ? "wb-analysis-prerequisites" : undefined}
               >
                 {busy === "run" ? (
                   <Loader2 size={15} className="wb-spin" aria-hidden="true" />
@@ -1004,18 +1388,9 @@ export function ProjectWorkbench({ session, onBusyChange }: {
                 <button
                   className="wb-btn"
                   type="button"
-                  onClick={() => {
-                    setResult(null);
-                    setMonitoring(null);
-                    setStandard(null);
-                    setSelectedStandardId(null);
-                    setRerunInput(null);
-                    setParentRunId(null);
-                    setStandardText("");
-                    reset();
-                  }}
+                  onClick={startNewReport}
                 >
-                  清空
+                  重新填写
                 </button>
               )}
             </div>
@@ -1024,10 +1399,8 @@ export function ProjectWorkbench({ session, onBusyChange }: {
         </div>
 
         {/* ---------------- 右列：结果 ---------------- */}
-        <div className="wb-col">
-          {result?.record && <RunDelivery key={`${result.record.run_id}:${result.record.revision}`} record={result.record} disabled={busy !== null} canReviewRole={canReview} canWrite={canWrite}
-            onReview={(decision, reason, evaluations) => void perform("review", () => review(decision, reason, evaluations))}
-            onSaveEvaluations={(evaluations, reason) => void perform("evaluation", () => saveEvaluations(evaluations, reason))}
+        <div className="wb-col wb-result-main" hidden={step !== "results"}>
+          {result?.record && <RunDelivery key={`${result.record.run_id}:${result.record.revision}`} record={result.record} disabled={busy !== null || sessionPending} canWrite={canWrite}
             onDownload={(url, fileName) => void perform("download", () => download(url, fileName))}
             onLoadInputs={() => void perform("inputs", loadInputs)}
             onResume={() => void perform("resume", async () => {
@@ -1036,21 +1409,22 @@ export function ProjectWorkbench({ session, onBusyChange }: {
                 body: JSON.stringify({ expected_revision: result.record.revision }),
               });
               if (!response.ok) throw new Error(await readError(response));
-              setResult(await response.json() as RunResponse);
+              const body = await response.json() as RunResponse;
+              persistedRunSchema.parse(body.record);
+              notifyDirty(false);
+              setResult(body);
               await refreshHistory();
             })} />}
           {!result && (
             <section className="wb-card">
               <div className="wb-empty">
-                <h3>还没有分析结果</h3>
-                <p>
-                  点击左侧「下载示例数据」拿到一份可直接用的 CSV，
-                  <br />
-                  上传后点「运行分析」即可看到确定性计算与风险识别结果。
-                </p>
+                <h3>{busy === "history" ? "正在加载工程成果" : historyError ? "暂未加载分析结果" : "尚无分析结果"}</h3>
+                <p>已有报告可从工程历史直接打开；新报告请依次确认工程条件、上传数据并运行分析。</p>
+                {canWrite && <button className="wb-btn" disabled={busy !== null} onClick={startNewReport}>开始新报告</button>}
               </div>
             </section>
           )}
+          <ProfessionalReviewPanel apiFetch={apiFetch} canReview={canReview && busy === null && !sessionPending} />
 
           {result && payload && (
             <>
@@ -1073,22 +1447,22 @@ export function ProjectWorkbench({ session, onBusyChange }: {
                 </div>
                 <div className="wb-kpis">
                   <div className="wb-kpi">
-                    <span>总体风险等级</span>
+                    <span>{effectiveSummary ? "工程师最终风险等级" : "总体风险等级"}</span>
                     <strong>
-                      <LevelBadge level={payload.summary?.overall_risk_level} />
+                      <LevelBadge level={overallRiskLevel} />
                     </strong>
                   </div>
                   <div className="wb-kpi">
                     <span>判定条目</span>
-                    <strong>{payload.summary?.total ?? 0}</strong>
+                    <strong>{totalRiskItems}</strong>
                   </div>
                   <div className="wb-kpi">
                     <span>报警及以上</span>
-                    <strong>{payload.alerts?.length ?? 0}</strong>
+                    <strong>{alarmOrHigherCount}</strong>
                   </div>
                   <div className="wb-kpi">
                     <span>待人工复核</span>
-                    <strong>{payload.review_queue?.length ?? 0}</strong>
+                    <strong>{pendingReviewCount}</strong>
                   </div>
                   <div className="wb-kpi">
                     <span>数据质量阻塞</span>
@@ -1110,6 +1484,21 @@ export function ProjectWorkbench({ session, onBusyChange }: {
                   {result.engine?.python && <span className="wb-chip">Python {result.engine.python}</span>}
                   <span className="wb-chip">运行 {result.run_id?.slice(0, 8)}</span>
                 </div>
+
+                {effectiveSummary && <div className="wb-alert wb-alert-info" role="status">
+                  <div>
+                    <strong>当前总览采用工程师复核后口径</strong>
+                    <p>
+                      已调整 {effectiveSummary.adjusted_count} 条；系统原始判定保持不变并用于审计。
+                      总体等级 {payload.summary?.overall_risk_level ?? "未知"} → {effectiveSummary.overall_risk_level}。
+                    </p>
+                    <div className="wb-meta">
+                      {LEVEL_ORDER.map(level => <span className="wb-chip" key={level}>
+                        {level} {originalByLevel[level] ?? 0} → {effectiveSummary.by_risk_level[level]}
+                      </span>)}
+                    </div>
+                  </div>
+                </div>}
 
                 <div className="wb-dist" style={{ marginTop: 18 }}>
                   {LEVEL_ORDER.filter((level) => (byLevel[level] ?? 0) > 0).map((level) => (
@@ -1160,8 +1549,11 @@ export function ProjectWorkbench({ session, onBusyChange }: {
 
               <section className="wb-card">
                 <div className="wb-card-head">
-                  <h2>报警清单（报警及以上）</h2>
+                  <h2>{effectiveSummary ? "系统原始报警清单（报警及以上）" : "报警清单（报警及以上）"}</h2>
                 </div>
+                {effectiveSummary && <p className="wb-hint">
+                  此清单保留引擎原始输出用于审计；工程师调整见“逐测点明细”和上方复核后汇总。
+                </p>}
                 {(payload.alerts?.length ?? 0) === 0 ? (
                   <div className="wb-empty">
                     <p>无报警及以上条目。</p>
@@ -1209,10 +1601,11 @@ export function ProjectWorkbench({ session, onBusyChange }: {
 
               <section className="wb-card">
                 <div className="wb-card-head">
-                  <h2>待人工复核（弃权项）</h2>
+                  <h2>{effectiveSummary ? "系统原始待人工复核（弃权项）" : "待人工复核（弃权项）"}</h2>
                 </div>
                 <p className="wb-hint">
                   「未知」表示<strong>弃权，不是「安全」</strong>。缺 H、缺判据、数据质量问题都会进入这里，必须转人工复核。
+                  {effectiveSummary && " 此处保留系统原始队列，已处理数量以上方复核后汇总为准。"}
                 </p>
                 {(payload.review_queue?.length ?? 0) === 0 ? (
                   <div className="wb-empty">
@@ -1278,6 +1671,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
                         const cumulativeCheck = (item.checks ?? []).find((check) =>
                           String(check.check ?? "").startsWith("累计值"),
                         );
+                        const reviewedRiskLevel = reviewedRiskByIndex.get(index);
                         return (
                           <tr key={`${item.point_id}-${item.timestamp}-${item.metric_key}-${index}`}>
                             <td>{item.point_id}</td>
@@ -1299,7 +1693,13 @@ export function ProjectWorkbench({ session, onBusyChange }: {
                             <td className="wb-num">{num(item.utilization, 3)}</td>
                             <td>
                               <LevelBadge level={item.risk_level} />
-                              {item.needs_review && <span className="wb-basis">待复核</span>}
+                              {reviewedRiskLevel && reviewedRiskLevel !== item.risk_level && <>
+                                <span className="wb-basis">系统原判 → 工程师最终</span>
+                                <LevelBadge level={reviewedRiskLevel} />
+                              </>}
+                              {item.needs_review && <span className="wb-basis">
+                                {reviewedRiskLevel ? "系统原始弃权已由工程师判定" : "待复核"}
+                              </span>}
                             </td>
                           </tr>
                         );
@@ -1374,6 +1774,7 @@ export function ProjectWorkbench({ session, onBusyChange }: {
             </>
           )}
         </div>
+      </div>
       </div>
     </>
   );

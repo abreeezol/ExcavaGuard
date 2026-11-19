@@ -10,6 +10,7 @@ import { AppError } from "@/server/api/errors";
 import { atomicJson } from "@/server/storage/atomic";
 import { getStorageProvider } from "@/server/storage/monitoring-file-store";
 import { deleteReportFilesForRun } from "@/server/storage/report-files";
+import { prepareAgentPayload, verifyEngineSnapshot } from "@/server/preparation/fact-integrity";
 import {
   ensureSupabaseProject,
   isUniqueViolation,
@@ -47,6 +48,94 @@ type SupabaseRunSummaryRow = {
   review_evaluations?: unknown;
   risk_evaluation_total?: string | null;
 };
+
+type SupabaseRunRef = {
+  run_id: string;
+  revision: number;
+  project_id: string;
+  created_at: string;
+};
+
+const SUPABASE_RUN_SUMMARY_SELECT = `
+  run_id,
+  revision,
+  project_id,
+  row_created_at:created_at,
+  owner_id:record->>owner_id,
+  record_created_at:record->>created_at,
+  record_updated_at:record->>updated_at,
+  execution_status:record->>execution_status,
+  error:record->error,
+  report_date:record->request->>report_date,
+  project_name:record->request->project->>name,
+  agent_status:record->result->agent_run->state->run->>status,
+  decision:record->review->>decision,
+  parent_run_id:record->request->>parent_run_id,
+  report_period:record->request->report_period,
+  created_by:record->created_by,
+  reviewed_by:record->review->submitted_by,
+  draft_evaluations:record->evaluation_draft->evaluations,
+  review_evaluations:record->review->evaluations,
+  risk_evaluation_total:record->>risk_evaluation_total
+`;
+
+const ENGINE_PAYLOAD_REFERENCE = {
+  schema: "excavaguard.supabase_payload_ref/v1",
+  path: "result.payload",
+} as const;
+
+type CompactableRunRecord = {
+  result?: {
+    payload?: unknown;
+    supporting_context?: unknown;
+    agent_run?: {
+      state?: {
+        engine_snapshot?: {
+          ref: { content_hash: string };
+          payload: unknown;
+        };
+      };
+    } | null;
+  } | null;
+};
+
+function isEnginePayloadReference(value: unknown): boolean {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    (value as { schema?: unknown }).schema === ENGINE_PAYLOAD_REFERENCE.schema &&
+    (value as { path?: unknown }).path === ENGINE_PAYLOAD_REFERENCE.path,
+  );
+}
+
+export function compactRunRecordForSupabase(record: PersistedRun): unknown {
+  const compacted = structuredClone(record) as PersistedRun & CompactableRunRecord;
+  const result = compacted.result;
+  const snapshot = result?.agent_run?.state.engine_snapshot;
+  if (!result || !snapshot) return compacted;
+  verifyEngineSnapshot(snapshot);
+  const reconstructed = prepareAgentPayload(result.payload, result.supporting_context);
+  verifyEngineSnapshot({ ref: snapshot.ref, payload: reconstructed });
+  snapshot.payload = ENGINE_PAYLOAD_REFERENCE;
+  return compacted;
+}
+
+export function hydrateRunRecordFromSupabase(value: unknown): unknown {
+  const hydrated = structuredClone(value) as CompactableRunRecord;
+  const result = hydrated.result;
+  const snapshot = result?.agent_run?.state?.engine_snapshot;
+  if (!snapshot || !isEnginePayloadReference(snapshot.payload)) return hydrated;
+  if (!result || !("payload" in result)) {
+    throw new AppError(500, "STORAGE_ERROR", "Supabase 运行事实引用缺少源载荷。");
+  }
+  try {
+    snapshot.payload = prepareAgentPayload(result.payload, result.supporting_context);
+    verifyEngineSnapshot(snapshot);
+  } catch {
+    throw new AppError(500, "STORAGE_ERROR", "Supabase 运行事实引用与源载荷不一致。");
+  }
+  return hydrated;
+}
 
 const runExecutionStatusSchema = persistedRunSchema.shape.execution_status;
 const runErrorSchema = persistedRunSchema.shape.error;
@@ -111,7 +200,7 @@ async function localDraftIds(runId: string, latest: PersistedRun): Promise<Set<s
 }
 
 function parseSupabaseRun(row: SupabaseRunRow): PersistedRun {
-  const record = persistedRunSchema.parse(row.record);
+  const record = persistedRunSchema.parse(hydrateRunRecordFromSupabase(row.record));
   if (
     record.run_id !== row.run_id ||
     record.revision !== row.revision ||
@@ -186,7 +275,7 @@ async function saveSupabaseRun(
     run_id: parsed.run_id,
     revision: parsed.revision,
     project_id: parsed.project_id,
-    record: parsed,
+    record: compactRunRecordForSupabase(parsed),
     created_at: parsed.updated_at,
   });
   if (error && isUniqueViolation(error)) {
@@ -263,52 +352,50 @@ function supabaseSummary(row: SupabaseRunSummaryRow, access: LocalAccess): RunSu
 
 async function listSupabaseRuns(access: LocalAccess): Promise<RunSummary[]> {
   const { client } = supabaseContext();
-  const latestByRun = new Map<string, RunSummary>();
+  const latestRefs = new Map<string, SupabaseRunRef>();
   for (
     let page = 0;
-    page < RUN_HISTORY_MAX_PAGES && latestByRun.size < RUN_HISTORY_LIMIT;
+    page < RUN_HISTORY_MAX_PAGES && latestRefs.size < RUN_HISTORY_LIMIT;
     page += 1
   ) {
     const from = page * RUN_HISTORY_PAGE_SIZE;
     const { data, error } = await client
       .from("excavaguard_run_revisions")
-      .select(`
-        run_id,
-        revision,
-        project_id,
-        row_created_at:created_at,
-        owner_id:record->>owner_id,
-        record_created_at:record->>created_at,
-        record_updated_at:record->>updated_at,
-        execution_status:record->>execution_status,
-        error:record->error,
-        report_date:record->request->>report_date,
-        project_name:record->request->project->>name,
-        agent_status:record->result->agent_run->state->run->>status,
-        decision:record->review->>decision,
-        parent_run_id:record->request->>parent_run_id,
-        report_period:record->request->report_period,
-        created_by:record->created_by,
-        reviewed_by:record->review->submitted_by,
-        draft_evaluations:record->evaluation_draft->evaluations,
-        review_evaluations:record->review->evaluations,
-        risk_evaluation_total:record->>risk_evaluation_total
-      `)
+      .select("run_id,revision,project_id,created_at")
       .eq("project_id", access.project_id)
       .order("created_at", { ascending: false })
       .order("revision", { ascending: false })
       .order("run_id", { ascending: true })
       .range(from, from + RUN_HISTORY_PAGE_SIZE - 1);
-    if (error) throw supabaseStorageError("Supabase 运行历史读取失败", error);
-    const rows = (data ?? []) as SupabaseRunSummaryRow[];
+    if (error) throw supabaseStorageError("Supabase 运行历史索引读取失败", error);
+    const rows = (data ?? []) as SupabaseRunRef[];
     for (const row of rows) {
-      if (latestByRun.has(row.run_id)) continue;
-      const summary = supabaseSummary(row, access);
-      if (summary) latestByRun.set(row.run_id, summary);
+      if (!latestRefs.has(row.run_id)) latestRefs.set(row.run_id, row);
+      if (latestRefs.size >= RUN_HISTORY_LIMIT) break;
     }
     if (rows.length < RUN_HISTORY_PAGE_SIZE) break;
   }
-  return [...latestByRun.values()]
+
+  const summaries: RunSummary[] = [];
+  const refs = [...latestRefs.values()];
+  for (let index = 0; index < refs.length; index += 10) {
+    const rows = await Promise.all(refs.slice(index, index + 10).map(async (ref) => {
+      const { data, error } = await client
+        .from("excavaguard_run_revisions")
+        .select(SUPABASE_RUN_SUMMARY_SELECT)
+        .eq("run_id", ref.run_id)
+        .eq("revision", ref.revision)
+        .eq("project_id", access.project_id)
+        .single();
+      if (error) throw supabaseStorageError("Supabase 最新运行摘要读取失败", error);
+      return data as SupabaseRunSummaryRow;
+    }));
+    for (const row of rows) {
+      const summary = supabaseSummary(row, access);
+      if (summary) summaries.push(summary);
+    }
+  }
+  return summaries
     .sort((left, right) => right.created_at.localeCompare(left.created_at))
     .slice(0, RUN_HISTORY_LIMIT);
 }

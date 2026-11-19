@@ -14,5 +14,5 @@ export async function POST(request:Request){try{
   const local=await materializeStoredFile(id);if(!local)return apiError(404,'FILE_NOT_FOUND','文件不可用。');
   try{const inspected=await inspectMonitoringFile(local.path,scene.adapter.id);const coverage=inspected.report.temporal_coverage as {dates?:string[]}|undefined;dates.push(...coverage?.dates??[]);for(const metric of (inspected.report.detected_metrics??[]) as Array<{key:string;name:string;supported:boolean}>)metrics.set(metric.key,metric);}finally{await local.cleanup();}
  }
- return apiOk({detected_metrics:[...metrics.values()],windows:recommendReportWindows(dates).filter(w=>scene.adapter.supported_reports.includes(w.type)),notice:'按输入有记录日期推荐；不代表所有测点完整覆盖。缺测仍须在报告中披露。'});
+ return apiOk({detected_metrics:[...metrics.values()],available_dates:[...new Set(dates)].sort(),windows:recommendReportWindows(dates).filter(w=>scene.adapter.supported_reports.includes(w.type)),notice:'按输入有记录日期推荐；不代表所有测点完整覆盖。缺测仍须在报告中披露。'});
 }catch(error){return apiErrorFromException(error);}}

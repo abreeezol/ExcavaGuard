@@ -1,0 +1,20 @@
+{
+  "skill": "guardian-testcase-generation",
+  "status": "skipped",
+  "gate_status": "skipped",
+  "missing_inputs": ["feature", "prd_url"],
+  "reason": "本轮按用户对话实现新建工程快速分析链路，无 Lume feature 或飞书 PRD；按技能早退规则跳过正式 TestCases.yaml 生成。",
+  "local_validation": [
+    "tests/engineering-type-workflow.test.ts 与 tests/tunnel-adapter.test.ts 共17项通过；覆盖未确认控制值时后端输出未知/待核，不补造阈值。",
+    "tests/workbench-ui.browser.mjs：25组隔离浏览器场景通过；覆盖隧道快速向导控制值全部留空时按钮可用、请求不携带伪造 metric_controls，并直达第四步。",
+    "详细流程浏览器回归覆盖上传后在第三步原地显示、填写并保存隧道监测参数；后续新报告重新选择文件后可复用已保存控制值。",
+    "Supabase历史查询改为先读取轻量revision索引，再仅解析每个运行最新摘要；真实“隧道4”从statement timeout恢复为2.402秒返回1个运行。",
+    "快速运行失败后重试不会重复保存同一工程配置；新运行请求包含冻结工程条件、文件、报告范围和测项控制值。",
+    "tests/persisted-runs.test.ts：覆盖Supabase检查点去除重复engine_snapshot载荷、读取时按哈希恢复完整事实以及篡改拒绝。",
+    "隧道报告下载回归通过：允许已审计草稿中的隧道文件名，路径穿越返回400，安全但非当前产物返回404；实际Supabase workbook哈希与16458字节大小校验通过。",
+    "真实失败周报revision压缩前6.00 MiB、压缩后3.01 MiB；临时Supabase revision在3.546秒写入成功并完成清理。",
+    "显式Supabase Provider纵向验收进入模板运行后命中当前分支既有waiting/completed断言差异，清理钩子已执行；该失败与本轮JSONB压缩无关。",
+    "TypeScript 检查、ESLint 和生产构建通过。",
+    "全量 Vitest 279项通过、10项跳过、13项失败；失败集中在当前分支已有报告运行时、旧访问断言及缺失隧道知识库，与本轮快速链路无关。"
+  ]
+}

@@ -1,0 +1,351 @@
+{
+  "schema": "excavaguard.scenario_profile/v1",
+  "id": "tunnel",
+  "name": "隧道施工监测",
+  "status": "active",
+  "description": "隧道施工场景骨架。结构、条件维度、测项清单、别名、差值型派生、表式分组已就位；判据库与规范来源待接入。status=skeleton 期间，任何缺判据的测项一律弃权，不得判为“正常”。",
+  "standards": {
+    "default_dir": "standards/tunnel",
+    "user_dir": "standards/user_uploaded",
+    "origin_display_default": "默认规范库（隧道施工监测：GB 50911-2013 / JTG\\T 3660-2020）",
+    "origin_display_user": "用户上传规范",
+    "spec_root_label": "隧道施工监测相关规范",
+    "judgement_library": "thresholds_tunnel_gb50911_jtg3660.json",
+    "index_file": "规范库索引.json"
+  },
+  "conditions": {
+    "defaults": {
+      "safety_level": "二级",
+      "construction_method": "矿山法",
+      "soil_type": "坚硬~中硬土",
+      "section_location": "区间"
+    },
+    "dimensions": [
+      "safety_level",
+      "construction_method",
+      "section_location",
+      "section_type",
+      "soil_type",
+      "rock_class",
+      "pipeline_type",
+      "road_type",
+      "protection_object",
+      "frequency_band"
+    ],
+    "specificity_dimensions": [
+      "construction_method",
+      "section_location",
+      "section_type",
+      "soil_type",
+      "pipeline_type",
+      "road_type",
+      "protection_object",
+      "frequency_band"
+    ],
+    "labels": {
+      "safety_level": "工程监测等级（GB 50911-2013 表3.3.5）",
+      "construction_method": "施工工法",
+      "section_type": "断面形式（单线/双线/大断面）",
+      "soil_type": "土质类型",
+      "rock_class": "围岩级别",
+      "pipeline_type": "管线类型",
+      "road_type": "道路类型",
+      "protection_object": "爆破保护对象",
+      "frequency_band": "爆破振动主振频率段",
+      "section_location": "区域类型（区间/车站）"
+    }
+  },
+  "reference_lengths": {
+    "primary": "buried_depth_m",
+    "labels": {
+      "buried_depth_m": "隧道埋深 H",
+      "span_m": "隧道开挖跨度 B",
+      "diameter_m": "隧道开挖直径 D（GB 50911-2013 表9.2.2-1 注）",
+      "monitoring_spacing_m": "沿隧道轴向两监测点间距 Ls（GB 50911-2013 表9.2.2-1 注）",
+      "pipe_length_m": "管节长度 Lg（GB 50911-2013 表9.3.3 注）"
+    },
+    "note": "隧道判据多为绝对量（按围岩级别/工法分档）或相对埋深、跨度的比例值。比例类判据必须在 rule 中显式声明 cumulative_pct_ref.ref，不得默认套用基坑的 %H 口径。",
+    "candidates": [
+      "diameter_m",
+      "monitoring_spacing_m",
+      "pipe_length_m",
+      "buried_depth_m",
+      "span_m"
+    ]
+  },
+  "metric_aliases": {
+    "extra": {
+      "拱顶下沉": "crown_settlement",
+      "拱顶沉降": "crown_settlement",
+      "拱顶下沉量": "crown_settlement",
+      "下沉": "crown_settlement",
+      "净空收敛": "clearance_convergence",
+      "周边收敛": "clearance_convergence",
+      "收敛": "clearance_convergence",
+      "净空变化": "clearance_convergence",
+      "水平收敛": "clearance_convergence",
+      "地表下沉": "surface_settlement",
+      "隧底隆起": "invert_heave",
+      "仰拱隆起": "invert_heave",
+      "隧底回弹": "invert_heave",
+      "围岩压力": "surrounding_rock_pressure",
+      "围岩接触压力": "surrounding_rock_pressure",
+      "钢架应力": "steel_arch_stress",
+      "钢拱架应力": "steel_arch_stress",
+      "钢架内力": "steel_arch_stress",
+      "衬砌应力": "lining_stress",
+      "衬砌内力": "lining_stress",
+      "二衬应力": "lining_stress",
+      "管片变形": "segment_deformation",
+      "管片椭圆度": "segment_deformation",
+      "管片接缝张开": "segment_joint_opening",
+      "接缝张开量": "segment_joint_opening",
+      "爆破振动": "blasting_vibration_velocity",
+      "爆破振动速度": "blasting_vibration_velocity",
+      "振动速度": "blasting_vibration_velocity",
+      "洞内观察": "tunnel_patrol",
+      "洞内外观察": "tunnel_patrol",
+      "掌子面观察": "tunnel_patrol",
+      "管片结构沉降": "segment_settlement",
+      "管片沉降": "segment_settlement",
+      "管片差异沉降": "segment_differential_settlement",
+      "地表隆起": "surface_heave",
+      "底板竖向位移": "invert_heave",
+      "仰拱竖向位移": "invert_heave",
+      "中柱竖向位移": "column_vertical_displacement",
+      "中柱沉降": "column_vertical_displacement",
+      "路基沉降": "road_settlement",
+      "隧道结构沉降": "segment_settlement"
+    }
+  },
+  "problem_categories": {
+    "extra": {
+      "crown_settlement": "变形过大",
+      "clearance_convergence": "变形过大",
+      "surface_settlement": "变形过大",
+      "invert_heave": "变形过大",
+      "segment_deformation": "变形过大",
+      "deep_horizontal_displacement": "变形过大",
+      "wall_top_horizontal_displacement": "变形过大",
+      "wall_top_vertical_displacement": "变形过大",
+      "building_settlement": "变形过大",
+      "pipeline_settlement": "变形过大",
+      "road_settlement": "变形过大",
+      "soil_layered_vertical_displacement": "变形过大",
+      "basal_heave": "变形过大",
+      "surrounding_rock_pressure": "支护受力异常",
+      "steel_arch_stress": "支护受力异常",
+      "lining_stress": "支护受力异常",
+      "anchor_axial_force": "支护受力异常",
+      "support_axial_force": "支护受力异常",
+      "earth_pressure": "支护受力异常",
+      "groundwater_level": "渗漏水与地下水异常",
+      "pore_pressure": "渗漏水与地下水异常",
+      "seepage_flow": "渗漏水与地下水异常",
+      "segment_joint_opening": "结构损伤与接缝张开",
+      "crack_width_building": "裂缝发展",
+      "crack_width_surface": "裂缝发展",
+      "blasting_vibration_velocity": "爆破影响",
+      "tunnel_patrol": "巡视观察",
+      "segment_settlement": "变形过大",
+      "segment_differential_settlement": "差异变形",
+      "surface_heave": "变形过大",
+      "pipeline_differential_settlement": "差异变形"
+    }
+  },
+  "derived_metrics": [
+    {
+      "metric_key": "clearance_convergence",
+      "display_name": "净空收敛",
+      "method": "difference_abs",
+      "unit": "mm",
+      "pair_by": "section",
+      "pair_label": "同一断面的两个收敛测点（如 A/B 测线两端）",
+      "requires_explicit_pairs": true,
+      "note": "差值型派生：收敛值 = |测点A读数 − 测点B读数|，再按时间序列计算累计、本次变化与速率。配对关系必须由数据侧显式给出，系统不按点号猜测配对。盾构法净空收敛的控制值为 0.2%D（D 为隧道开挖直径，GB 50911-2013 表9.2.2-1），需要以 reference_lengths.diameter_m 提供 D。"
+    }
+  ],
+  "report": {
+    "template_version": "tunnel-monitoring-report/gb50911-v1",
+    "form_family": "gb50911_appendix_D",
+    "forms": [
+      "表D1",
+      "表D2",
+      "表D3",
+      "表D4"
+    ],
+    "renderable": true,
+    "form_titles": {
+      "表D1": "附表D1_水平位移竖向位移监测日报表",
+      "表D2": "附表D2_深层水平位移监测日报表",
+      "表D3": "附表D3_轴力拉力监测日报表",
+      "表D4": "附表D4_应力压力监测日报表"
+    },
+    "form_rules": {
+      "表D2": [
+        "深层水平位移",
+        "测斜",
+        "深层位移"
+      ],
+      "表D3": [
+        "轴力",
+        "锚杆拉力",
+        "锚索拉力",
+        "支撑轴力"
+      ],
+      "表D4": [
+        "应力",
+        "围岩压力",
+        "土压力",
+        "孔隙水压力",
+        "压力"
+      ],
+      "表D1": [
+        "拱顶沉降",
+        "拱顶下沉",
+        "净空收敛",
+        "周边收敛",
+        "净空变化",
+        "地表沉降",
+        "地表下沉",
+        "地表竖向位移",
+        "地表隆起",
+        "隆起",
+        "隧底",
+        "底板",
+        "仰拱",
+        "中柱",
+        "管片",
+        "建筑",
+        "管线",
+        "道路",
+        "路基",
+        "分层"
+      ]
+    },
+    "basis": "GB 50911-2013 第11.0.5条：监测项目日报表可采用本规范附录D的样式；现场巡查按附录C分工法填报。",
+    "unsupported_form_metrics": [
+      "地下水位",
+      "裂缝宽度",
+      "爆破振动速度"
+    ],
+    "unsupported_form_note": "本规范附录D未规定上述测项的日报表式，不生成附表；数值仍在冻结明细与超限清单中列示，表式按项目模板补充，禁止套用其他标准的表。",
+    "note": "表式已按 GB 50911-2013 附录 D 与第 11.0.5 条改造：日报正文五项内容 + 系统附列章节；现场巡查按附录 C 分工法出表；测点平面位置图以清单+可选坐标给出，正式图需项目提供。未提供巡查记录、仪器信息或坐标时如实披露，不以空表或“正常”结论补齐。",
+    "daily_report_structure": {
+      "clause": "GB 50911-2013 第 11.0.5 条第 1 款",
+      "sections": [
+        {
+          "no": 1,
+          "title": "工程施工概况",
+          "source": "载荷 project（工程、工法、监测等级、埋深/跨度）+ 工况分析"
+        },
+        {
+          "no": 2,
+          "title": "现场巡查信息",
+          "source": "载荷 patrol；无记录时只披露缺失，不出附表 C，不得判定巡查正常"
+        },
+        {
+          "no": 3,
+          "title": "监测项目日报表",
+          "source": "附录 D 表式 + 冻结判据控制值 + 测点平面位置图"
+        },
+        {
+          "no": 4,
+          "title": "监测数据、现场巡查信息的分析与说明",
+          "source": "冻结判定、断面综合判定、周期统计"
+        },
+        {
+          "no": 5,
+          "title": "结论与建议",
+          "source": "冻结判定最不利结论 + 模型建议（无模型时用确定性建议）"
+        }
+      ],
+      "system_sections": [
+        "六、待复核事项",
+        "七、规范核对依据（RAG知识库检索）",
+        "八、签署"
+      ],
+      "note": "第 1~5 节对应规范要求内容；其后为系统审计与签认所必需的附列章节，不替代规范章节。"
+    },
+    "patrol_forms": [
+      "表C1",
+      "表C2",
+      "表C3"
+    ],
+    "patrol_form_rule": "按施工工法选表：明挖法/盖挖法→C.0.1，盾构法→C.0.2，矿山法→C.0.3；工法未知不出表。",
+    "point_layout": "监测点平面位置图：输出测点清单（点号/名称/测项/里程/可选坐标）；正式平面图由项目提供，系统不绘制测量成果图。",
+    "header_elements": [
+      "仪器型号",
+      "仪器出厂编号",
+      "检定日期",
+      "监测日期",
+      "观测时间",
+      "天气情况",
+      "累计变化值",
+      "变化速率值",
+      "控制值",
+      "监测点平面位置图"
+    ]
+  },
+  "rag": {
+    "collection": "tunnel_norms",
+    "pinecone_index": null,
+    "pinecone_namespace": null,
+    "status_file": null,
+    "catalogue_size": 0,
+    "note": "16 本规范已落盘，其中 14 本为扫描件，已 OCR 4 本核心（JTG/T 3660-2020、GB 50446-2017、GB 50911-2013、GB 50086-2015，共 554 页）。切片与向量库尚未建立。"
+  },
+  "proposed_standards": [
+    {
+      "code": "GB 50911-2013",
+      "name": "城市轨道交通工程监测技术规范",
+      "status": "待用户提供正式版本并核实现行性"
+    },
+    {
+      "code": "GB 50446-2017",
+      "name": "盾构法隧道施工及验收规范",
+      "status": "待用户提供正式版本并核实现行性"
+    },
+    {
+      "code": "GB 50086-2015",
+      "name": "岩土锚杆与喷射混凝土支护工程技术规范",
+      "status": "待用户提供正式版本并核实现行性"
+    },
+    {
+      "code": "GB 6722-2014",
+      "name": "爆破安全规程",
+      "status": "待用户提供正式版本并核实现行性"
+    },
+    {
+      "code": "TB 10121-2007",
+      "name": "铁路隧道监控量测技术规程",
+      "status": "待用户提供正式版本并核实现行性"
+    },
+    {
+      "code": "JTG/T 3660-2020",
+      "name": "公路隧道施工技术规范",
+      "status": "待用户提供正式版本并核实现行性"
+    }
+  ],
+  "pending_inputs": [
+    "工程监测等级（一级/二级/三级）与施工工法：决定套用哪张控制值表（GB 50911-2013 表9.2.2/9.2.3）",
+    "设计极限位移 U0 / 预留变形量：JTG/T 3660-2020 表18.6.3 位移管理等级按 U/U0 分档；设计未给定时可参照 JTG 3370.1-2018 表8.4.1（按围岩级别×两/三车道）由设计确认后填入 design_values['极限位移']，系统不自动套用",
+    "隧道开挖直径 D（盾构净空收敛 0.2%D）、监测点间距 Ls（管片差异沉降 0.04%Ls）、管节长度 Lg（管线差异沉降 0.3/0.25%Lg）",
+    "应力类测项（围岩压力、钢架/衬砌应力、锚杆轴力）的设计允许值：JTG/T 3660-2020 第18.6.3条第4款按实测/允许≥0.8判断不稳定",
+    "现场巡查记录结构（部位/内容/结果/处理建议）：附录 C 按工法分 C.0.1/C.0.2/C.0.3，当前载荷未提供时不生成巡查表",
+    "附录 D 未涵盖测项的项目表式：地下水位、裂缝宽度、爆破振动速度",
+    "明挖段是否复用基坑判据库（GB 50497-2019 / JGJ 120-2012）",
+    "断面里程字段命名规则（当前用 points_meta.section_id 或 options.section_map）"
+  ],
+  "section_judgment": {
+    "enabled": true,
+    "strict": true,
+    "required_metrics": [
+      "crown_settlement",
+      "clearance_convergence"
+    ],
+    "basis": "GB 50911-2013 表4.2.3：初期支护结构拱顶沉降、初期支护结构净空收敛为应测项目（一~三级均为√）。"
+  },
+  "ready": true,
+  "pending_note": "以下为每个项目需要提供的运行时参数与后续增强项；缺失时对应判据弃权或只给未分档结论，不代表判据库不可用。"
+}

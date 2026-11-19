@@ -78,7 +78,7 @@ def main():
         for col,width in [('A',23),('B',23),('C',25),('D',18),('E',12),('F',15),('G',70)]:sheet.column_dimensions[col].width=width
     workbook = DEST/'SIMULATED_隧道监测_7天_10分钟_多工作表.xlsx';wb.save(workbook)
     with (DEST/'SIMULATED_隧道监测_7天_10分钟_等价长表.csv').open('w',encoding='utf-8-sig',newline='') as f:
-        writer=csv.writer(f);writer.writerow(HEADER);writer.writerows(all_rows)
+        writer=csv.writer(f,lineterminator="\n");writer.writerow(HEADER);writer.writerows(all_rows)
     with (DEST/'预期逐条结果_SIMULATED.jsonl').open('w') as f:
         for item in expected_records:f.write(json.dumps(item,ensure_ascii=False)+'\n')
     (DEST/'工程参数_SIMULATED.json').write_text(json.dumps(context,ensure_ascii=False,indent=2)+'\n')

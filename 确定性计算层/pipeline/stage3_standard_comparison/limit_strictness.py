@@ -49,7 +49,7 @@ LIMIT_FIELDS: "OrderedDict[str, tuple[str, str]]" = OrderedDict([
 ])
 
 # 累计值限值由这两个字段合成，需整体比较
-CUMULATIVE_INPUTS = ("cumulative_mm", "cumulative_pct_H")
+CUMULATIVE_INPUTS = ("cumulative_mm", "cumulative_pct_H", "cumulative_pct_ref")
 
 RATIO_FIELDS = {"max_ratio_of_design", "min_ratio_of_design"}
 
@@ -76,8 +76,23 @@ def _delta_pct(user_v: float, default_v: float, direction: str) -> float:
     return (float(default_v) - float(user_v)) / base * 100.0
 
 
+def pct_reference(rule: dict) -> tuple[str | None, Any]:
+    """解析规则中的比例限值：返回 (参照长度 key, 百分比规格)。
+
+    兼容两种写法：
+      - `cumulative_pct_ref = {"ref": "buried_depth_m", "pct": 0.2}`（通用，隧道等场景）
+      - `cumulative_pct_H = 0.2`（基坑，参照量固定为设计深度 H）
+    """
+    spec = rule.get("cumulative_pct_ref")
+    if isinstance(spec, dict):
+        return str(spec.get("ref") or "") or None, spec.get("pct", spec.get("value"))
+    if rule.get("cumulative_pct_H") is not None:
+        return "excavation_depth_m", rule.get("cumulative_pct_H")
+    return None, None
+
+
 def _effective_cumulative(rule: dict, registry: Any, ctx: Any) -> tuple[float | None, str]:
-    """按判定同口径解析累计值有效限值：min(绝对量, %H)。
+    """按判定同口径解析累计值有效限值：min(绝对量, 比例×参照长度)。
 
     返回 (值 mm, 依据说明)；无法解析时返回 (None, 原因)。
     """
@@ -85,23 +100,31 @@ def _effective_cumulative(rule: dict, registry: Any, ctx: Any) -> tuple[float | 
 
     mode = registry.range_resolution
     abs_limit = _pick(rule.get("cumulative_mm"), mode)
-    pct_spec = rule.get("cumulative_pct_H")
+    ref_key, pct_spec = pct_reference(rule)
     pct = _pick(pct_spec, mode) if (pct_spec is not None) else None
 
-    h = getattr(ctx, "excavation_depth_m", None)
+    ref_value = None
+    if ctx is not None and ref_key and hasattr(ctx, "ref_length"):
+        ref_value = ctx.ref_length(ref_key)
+    elif ref_key == "excavation_depth_m" and ctx is not None:
+        h = getattr(ctx, "excavation_depth_m", None)
+        ref_value = float(h) if isinstance(h, (int, float)) and h > 0 else None
+
+    label = registry.reference_length_label(ref_key) if hasattr(registry, "reference_length_label") else "基坑设计深度 H"
+    short = "H" if ref_key in (None, "excavation_depth_m") else label
     pct_limit = None
     if pct is not None:
-        if isinstance(h, (int, float)) and h > 0:
-            pct_limit = pct * float(h) * 10.0          # pct[%] × H[m] × 10 = mm
+        if ref_value is not None:
+            pct_limit = pct * float(ref_value) * 10.0          # pct[%] × 参照长度[m] × 10 = mm
         else:
-            return None, "缺少基坑设计深度 H，无法换算 %H 限值"
+            return None, f"缺少{label}，无法换算 {pct:g}%×{short} 限值"
 
     if abs_limit is not None and pct_limit is not None:
-        return min(abs_limit, pct_limit), f"min(绝对量 {abs_limit:g} mm, {pct:g}%×H={pct_limit:g} mm)"
+        return min(abs_limit, pct_limit), f"min(绝对量 {abs_limit:g} mm, {pct:g}%×{short}={pct_limit:g} mm)"
     if abs_limit is not None:
         return abs_limit, f"绝对量限值 {abs_limit:g} mm"
     if pct_limit is not None:
-        return pct_limit, f"{pct:g}%×H = {pct_limit:g} mm"
+        return pct_limit, f"{pct:g}%×{short} = {pct_limit:g} mm"
     return None, "规则未给出累计值限值"
 
 
@@ -149,8 +172,12 @@ def find_default_rule(
     if user_rule_id and user_rule_id in rules:
         return rules[user_rule_id], "同 rule_id 覆盖"
 
-    # 条件匹配：安全等级 / 支护形式 / 管线类型 / 道路类型 / 裂缝状态
-    cond_keys = ("safety_level", "support_type", "pipeline_type", "road_type", "crack_state")
+    # 条件匹配：优先用注册表的场景维度（隧道含施工工法/断面形式/围岩级别），
+    # 缺省回落改造前的 5 个基坑维度。
+    cond_keys = tuple(
+        getattr(registry, "condition_dimensions", None)
+        or ("safety_level", "support_type", "pipeline_type", "road_type", "crack_state")
+    )
     hits = []
     for rid, r in rules.items():
         ok = True
@@ -231,15 +258,28 @@ def compare_rule_strictness(
         out.append(item)
 
     # --- 1) 累计值限值 ---
-    # 有 H 时按判定同口径比较**合并后**的有效值 min(绝对量, %H)；
-    # 无 H 且规则含 %H 分量时判为"不可比"（无法确定有效限值，不能默认放过）；
-    # 无 H 且规则不含 %H 时可直接比较绝对量。
-    h = getattr(ctx, "excavation_depth_m", None) if ctx is not None else None
-    has_h = isinstance(h, (int, float)) and h > 0
-    pct_involved = ("cumulative_pct_H" in default_rule) or ("cumulative_pct_H" in eff)
+    # 参照长度可用时按判定同口径比较**合并后**的有效值 min(绝对量, 比例×参照长度)；
+    # 参照长度缺失且规则含比例分量时判为"不可比"（无法确定有效限值，不能默认放过）；
+    # 不含比例分量时可直接比较绝对量。
+    ref_key, _pct = pct_reference(eff)
+    if ref_key is None:
+        ref_key, _pct = pct_reference(default_rule)
+    ref_value = None
+    if ctx is not None and ref_key and hasattr(ctx, "ref_length"):
+        ref_value = ctx.ref_length(ref_key)
+    has_ref = ref_value is not None
+    pct_involved = any(
+        ("cumulative_pct_H" in r) or ("cumulative_pct_ref" in r)
+        for r in (default_rule, eff)
+    )
+    ref_label = (
+        registry.reference_length_label(ref_key)
+        if hasattr(registry, "reference_length_label")
+        else "基坑设计深度 H"
+    )
 
     if scope & set(CUMULATIVE_INPUTS):
-        if has_h:
+        if has_ref:
             u_eff, u_basis = _effective_cumulative(eff, registry, ctx)
             d_eff, d_basis = _effective_cumulative(default_rule, registry, ctx)
             if u_eff is None or d_eff is None:
@@ -248,13 +288,13 @@ def compare_rule_strictness(
             else:
                 direction = "looser" if u_eff > d_eff else ("stricter" if u_eff < d_eff else "equal")
                 emit("cumulative_mm", "累计值限值", direction, u_eff, d_eff, d_basis,
-                     note="按判定同口径比较（合并后的 min(绝对量, %H)）")
+                     note="按判定同口径比较（合并后的 min(绝对量, 比例×参照长度)）")
         elif pct_involved:
             u_val = _scalar(eff.get("cumulative_mm"))
             d_val = _scalar(default_rule.get("cumulative_mm"))
             emit("cumulative_mm", "累计值限值", "incomparable", u_val, d_val, "",
-                 note="未提供基坑设计深度 H，无法确定 min(绝对量, %H) 的有效限值，"
-                      "故不判定严格程度；请补充 H 后复核")
+                 note=f"未提供{ref_label}，无法确定 min(绝对量, 比例×参照长度) 的有效限值，"
+                      "故不判定严格程度；请补充该参数后复核")
         else:
             u_val = _scalar(eff.get("cumulative_mm"))
             d_val = _scalar(default_rule.get("cumulative_mm"))

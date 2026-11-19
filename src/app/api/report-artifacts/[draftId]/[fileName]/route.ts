@@ -8,21 +8,21 @@ import { readReportFile } from "@/server/storage/report-files";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const paramsSchema = z.strictObject({
+export const reportArtifactParamsSchema = z.strictObject({
   draftId: z.uuid(),
   fileName: z
     .string()
     .trim()
-    .regex(
-      /^(?:隧道变形报告(?:_封面|_附表)?|(?:监测日报_(?:\d{4}-\d{2}-\d{2}|date-pending)|监测(?:周报|月报|区间报告)_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2})_草稿(?:_封面|_附表及清单)?)\.(?:xlsx|md)$/,
-    ),
+    .min(1)
+    .max(500)
+    .regex(/^[^/\\\0]+$/),
 });
 
 export async function GET(
   request: Request,
   context: { params: Promise<{ draftId: string; fileName: string }> },
 ) {
-  const parsed = paramsSchema.safeParse(await context.params);
+  const parsed = reportArtifactParamsSchema.safeParse(await context.params);
   if (!parsed.success) {
     return apiError(400, "INVALID_REQUEST", "报告产物路径不合法。");
   }

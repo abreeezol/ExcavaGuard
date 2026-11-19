@@ -10,9 +10,12 @@ import {
   supervisorActionSchema,
 } from "@/contracts/agent-runtime";
 import {
+  effectiveRiskSummary,
+  effectiveRiskSummarySchema,
   engineerRiskEvaluationInputSchema,
   engineerRiskEvaluationSchema,
   riskEvaluationTargets,
+  riskReviewTargets,
 } from "@/contracts/engineer-evaluation";
 
 /**
@@ -197,6 +200,7 @@ export const persistedRunSchema = z.strictObject({
     decision: reviewRequestSchema.shape.decision,
     reason: reviewRequestSchema.shape.reason,
     evaluations: z.array(engineerRiskEvaluationSchema).max(500).default([]),
+    effective_summary: effectiveRiskSummarySchema.optional(),
     draft_ref: artifactRefSchema,
     submitted_at: z.iso.datetime(),
     owner_id: z.union([z.literal("local-operator"), z.uuid()]),
@@ -229,10 +233,11 @@ export const persistedRunSchema = z.strictObject({
     human?.decision !== value.review.decision ||
     JSON.stringify(draft?.ref) !== JSON.stringify(value.review.draft_ref)
   )) context.addIssue({ code: "custom", message: "复核记录必须绑定当前决定与草稿。" });
-  const targets = new Map(
-    riskEvaluationTargets(value.result?.payload).map(target => [target.risk_item_index, target]),
+  const requiredTargets = riskEvaluationTargets(value.result?.payload);
+  const reviewTargets = new Map(
+    riskReviewTargets(value.result?.payload).map(target => [target.risk_item_index, target]),
   );
-  if (value.risk_evaluation_total !== undefined && value.risk_evaluation_total !== targets.size) {
+  if (value.risk_evaluation_total !== undefined && value.risk_evaluation_total !== requiredTargets.length) {
     context.addIssue({ code: "custom", message: "风险评价总数必须与冻结事实一致。" });
   }
   for (const evaluations of [value.review?.evaluations, value.evaluation_draft?.evaluations]) {
@@ -240,17 +245,24 @@ export const persistedRunSchema = z.strictObject({
       const indexes = evaluations.map(evaluation => evaluation.risk_item_index);
       if (new Set(indexes).size !== indexes.length ||
           evaluations.some(evaluation => {
-            const target = targets.get(evaluation.risk_item_index);
+            const target = reviewTargets.get(evaluation.risk_item_index);
             return !target ||
               target.point_id !== evaluation.point_id ||
               target.metric_key !== evaluation.metric_key ||
               target.metric_name !== evaluation.metric_name ||
               target.timestamp !== evaluation.timestamp ||
-              target.risk_level !== evaluation.risk_level;
+              target.risk_level !== evaluation.risk_level ||
+              (target.risk_level === "未知" && evaluation.reviewed_risk_level === undefined);
           })) {
         context.addIssue({ code: "custom", message: "工程师评价必须逐项绑定当前冻结风险事实。" });
       }
     }
+  }
+  if (value.review?.effective_summary &&
+      JSON.stringify(value.review.effective_summary) !== JSON.stringify(
+        effectiveRiskSummary(value.result?.payload, value.review.evaluations),
+      )) {
+    context.addIssue({ code: "custom", message: "复核后汇总必须与冻结事实及工程师评价一致。" });
   }
 });
 

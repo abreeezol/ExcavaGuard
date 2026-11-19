@@ -42,6 +42,12 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 from standards_registry import ORIGIN_DEFAULT, ORIGIN_USER, StandardsRegistry
+from convergence import (
+    STATUS_NO_CRITERION,
+    evaluate_management_level,
+    evaluate_rate_state,
+    evaluate_stability,
+)
 
 # --- 风险等级 -------------------------------------------------------------
 
@@ -62,10 +68,12 @@ BAND_DANGER = 1.20
 ABSTAIN_REASONS = {
     "ABSTAIN_FROM_STAGE2": "阶段二已弃权，无可比对的确定性结果",
     "UNKNOWN_METRIC": "规范库中不存在该监测项的判据",
-    "NO_APPLICABLE_RULE": "当前安全等级/支护形式组合下无适用判据",
+    "NO_APPLICABLE_RULE": "当前工程条件（安全等级/工法或支护形式等）组合下无适用判据",
     "NO_LIMIT": "该监测项在当前条件下未给出可比对的限值",
     "MISSING_DESIGN_VALUE": "该监测项需按设计值校核，但未提供设计值",
     "MISSING_H": "该监测项需按基坑设计深度 H 校核，但未提供 H",
+    "MISSING_REF_LENGTH": "该监测项的比例限值需按参照长度（埋深/跨度/外径）换算，但未提供该参数",
+    "SCENARIO_PENDING": "当前场景的判据库尚未接入或未复核，按安全原则不判定",
     "DATA_QUALITY_BLOCKED": "该期数据存在高严重度质量问题，按安全原则不参与风险判定，需现场复核",
 }
 
@@ -121,9 +129,25 @@ PROBLEM_CATEGORIES: dict[str, str] = {
     "crack_width_surface": "裂缝发展",
 }
 
+# 场景画像追加的问题类别（默认为空）。注册后优先于内置映射。
+EXTRA_PROBLEM_CATEGORIES: dict[str, str] = {}
+
 
 def problem_category(metric_key: str) -> str:
-    return PROBLEM_CATEGORIES.get(metric_key, "其他")
+    return EXTRA_PROBLEM_CATEGORIES.get(metric_key) or PROBLEM_CATEGORIES.get(metric_key, "其他")
+
+
+def register_problem_categories(mapping: dict[str, str] | None) -> None:
+    """由场景画像追加问题类别（如隧道：支护受力异常 / 结构损伤与接缝张开 / 爆破影响）。
+
+    只做**追加**：同名 key 以场景声明为准，未声明的仍走内置基坑映射。
+    默认不注册任何内容，行为与改造前一致。
+    """
+    if not mapping:
+        return
+    for key, value in mapping.items():
+        if isinstance(key, str) and isinstance(value, str) and key and value:
+            EXTRA_PROBLEM_CATEGORIES[key] = value
 
 
 # --- 工程上下文 -----------------------------------------------------------
@@ -131,7 +155,15 @@ def problem_category(metric_key: str) -> str:
 
 @dataclass
 class ProjectContext:
-    """判定所需的工程条件。缺失字段按弃权处理，不做推断。"""
+    """判定所需的工程条件。缺失字段按弃权处理，不做推断。
+
+    场景化说明
+    ----------
+    参数名 `excavation_depth_m` 沿用基坑语义（%H 判据的参照长度）。
+    非基坑场景（如隧道）通过 `conditions` 声明自己的条件维度
+    （施工工法 / 断面形式 / 围岩级别…），通过 `reference_lengths` 提供比例限值所需的
+    参照长度（埋深 / 跨度 / 外径）。两者都是**新增可选字段**，不改变原有判定。
+    """
 
     safety_level: str = "一级"
     support_type: str = "地下连续墙"
@@ -149,6 +181,13 @@ class ProjectContext:
     point_overrides: dict[str, dict] = field(default_factory=dict)
     # 底板浇筑日期；记录时间 >= 该日期时，速率限值按 ×0.7 折减
     post_slab_from: str | None = None
+    # --- 场景扩展（新增，默认不影响既有判定）---
+    scenario_id: str | None = None
+    # 通用条件维度：{"construction_method": "矿山法", "rock_class": "IV", ...}
+    # 与判据库 rule 的同名字段按值匹配；同时兼容 point_overrides 逐测点覆盖。
+    conditions: dict[str, Any] = field(default_factory=dict)
+    # 比例限值参照长度：{"buried_depth_m": 32.5, "span_m": 6.2}（单位 m）
+    reference_lengths: dict[str, float] = field(default_factory=dict)
 
     def for_point(self, point_id: str | None) -> "ProjectContext":
         """返回某测点的有效上下文（应用逐测点条件覆盖）。"""
@@ -159,6 +198,26 @@ class ProjectContext:
         c = _copy.copy(self)
         c.__dict__.update({k: v for k, v in self.point_overrides[point_id].items() if hasattr(self, k)})
         return c
+
+    def condition_value(self, key: str) -> Any:
+        """取某条件维度的值：conditions 优先，其次同名属性（兼容旧字段）。"""
+        if key in self.conditions:
+            return self.conditions[key]
+        return getattr(self, key, None)
+
+    def ref_length(self, key: str | None) -> float | None:
+        """取比例限值的参照长度（m）。
+
+        - `excavation_depth_m`（默认）沿用基坑字段，保证既有 %H 判据不变；
+        - 其他 key 从 `reference_lengths` 取，缺失返回 None（判定侧弃权，不猜测）。
+        """
+        if key in (None, "", "excavation_depth_m"):
+            v = self.excavation_depth_m
+            if v is None:
+                v = self.reference_lengths.get("excavation_depth_m")
+        else:
+            v = self.reference_lengths.get(key)
+        return float(v) if _num(v) and float(v) > 0 else None
 
     def is_post_slab(self, timestamp: str | None) -> bool:
         """按记录时间判断是否已进入底板浇筑后阶段。"""
@@ -177,6 +236,9 @@ class ProjectContext:
             "post_slab": self.post_slab,
             "design_values": self.design_values,
             "danger_signals": self.danger_signals,
+            "scenario_id": self.scenario_id,
+            "conditions": self.conditions,
+            "reference_lengths": self.reference_lengths,
         }
 
 
@@ -240,6 +302,9 @@ class ResolvedLimit:
     cumulative_inclination: float | None = None
     rate_inclination_per_day: float | None = None
     requires_continuous_development: bool = False
+    # 比例限值所用参照长度：key + 缺失时的弃权码（基坑为 MISSING_H，隧道等为 MISSING_REF_LENGTH）
+    reference_length_key: str | None = None
+    missing_reference_code: str | None = None
     evidence: dict = field(default_factory=dict)
     origin: str = ORIGIN_DEFAULT
     origin_display: str = ""
@@ -261,6 +326,8 @@ class ResolvedLimit:
             "min_ratio_of_design": self.min_ratio_of_design,
             "cumulative_inclination": self.cumulative_inclination,
             "rate_inclination_per_day": self.rate_inclination_per_day,
+            "reference_length_key": self.reference_length_key,
+            "missing_reference_code": self.missing_reference_code,
             "evidence": self.evidence,
             "origin": self.origin,
             "origin_display": self.origin_display,
@@ -290,20 +357,38 @@ def resolve_limit(
         )
 
     rules = node["rules"]
+    # 条件维度：优先用规范库注册表注入的场景维度（隧道含 construction_method 等），
+    # 缺省回落改造前的 5 个基坑维度。
+    dims = tuple(
+        getattr(registry, "condition_dimensions", None)
+        or ("safety_level", "support_type", "pipeline_type", "road_type", "crack_state")
+    )
+    spec_dims = tuple(
+        getattr(registry, "specificity_dimensions", None)
+        or ("support_type", "pipeline_type", "road_type", "crack_state")
+    )
     candidates = []
     for rid, rule in rules.items():
-        if (
-            _match(rule.get("safety_level"), ctx.safety_level)
-            and _match(rule.get("support_type"), ctx.support_type)
-            and (ctx.pipeline_type is None or _match(rule.get("pipeline_type"), ctx.pipeline_type))
-            and (ctx.road_type is None or _match(rule.get("road_type"), ctx.road_type))
-            and (ctx.crack_state is None or _match(rule.get("crack_state"), ctx.crack_state))
-        ):
-            spec = sum(
-                1
-                for k in ("support_type", "pipeline_type", "road_type", "crack_state")
-                if rule.get(k) not in (None, "any", [])
-            )
+        ok = True
+        # requires_conditions：该规则**必须**由调用方给出这些维度才能适用。
+        # 用于区分"按管型/保护对象分档"的判据 —— 缺维度时若按通配处理，
+        # 会在燃气/雨污水/供水之间随机命中最严或最松的一组，属于猜测。
+        missing_req = [
+            k for k in (rule.get("requires_conditions") or [])
+            if ctx.condition_value(k) is None
+        ]
+        if missing_req:
+            continue
+        for k in dims:
+            value = ctx.condition_value(k)
+            if value is None:
+                # 与改造前语义一致：调用方未提供的维度不参与筛选（视为通配）
+                continue
+            if not _match(rule.get(k), value):
+                ok = False
+                break
+        if ok:
+            spec = sum(1 for k in spec_dims if rule.get(k) not in (None, "any", []))
             candidates.append((rid, rule, spec))
 
     if not candidates:
@@ -346,35 +431,61 @@ def resolve_limit(
     # 实测值已超上界 → 真实限值更小，超限结论仍成立，正常判定；
     # 未超上界 → 无法排除真实限值更小，判定侧弃权（MISSING_H），不判"正常"。
     abs_limit = _pick(rule.get("cumulative_mm"), registry.range_resolution)
-    pct_spec = rule.get("cumulative_pct_H")
-    declares_pct = _num(pct_spec) or isinstance(pct_spec, dict)
-    pct_value = _pick(pct_spec, registry.range_resolution) if declares_pct else None
-    has_h = _num(ctx.excavation_depth_m) and ctx.excavation_depth_m > 0
 
+    # --- 比例限值：参照长度可配置（基坑 = 设计深度 H；隧道 = 埋深/跨度/外径） ---
+    # 写法一（新）：cumulative_pct_ref = {"ref": "buried_depth_m", "pct": 0.2}
+    # 写法二（旧，保持不变）：cumulative_pct_H = 0.2，参照量固定为基坑设计深度 H
+    ref_spec = rule.get("cumulative_pct_ref")
+    if isinstance(ref_spec, dict):
+        ref_key: str | None = str(ref_spec.get("ref") or "") or None
+        declares_pct = True
+        pct_value = _pick(
+            ref_spec["pct"] if "pct" in ref_spec else ref_spec.get("value"),
+            registry.range_resolution,
+        )
+        missing_code = "MISSING_REF_LENGTH"
+    else:
+        ref_key = "excavation_depth_m"
+        pct_spec = rule.get("cumulative_pct_H")
+        declares_pct = _num(pct_spec) or isinstance(pct_spec, dict)
+        pct_value = _pick(pct_spec, registry.range_resolution) if declares_pct else None
+        missing_code = "MISSING_H"
+
+    if declares_pct and pct_value is not None:
+        lim.reference_length_key = ref_key
+        lim.missing_reference_code = missing_code
+
+    ref_value = ctx.ref_length(ref_key) if ref_key else None
+    has_ref = ref_value is not None
+    # pct[%] × 参照长度[m] × 10 = mm（与 %H 换算同口径）
     pct_limit = (
-        pct_value * ctx.excavation_depth_m * 10.0   # pct[%] × H[m] × 10 = mm
-        if (pct_value is not None and has_h)
+        pct_value * ref_value * 10.0
+        if (pct_value is not None and has_ref)
         else None
     )
-    h_missing = declares_pct and pct_value is not None and not has_h
-    if h_missing:
-        if "PCT_H_NOT_EVALUATED" not in lim.flags:
-            lim.flags.append("PCT_H_NOT_EVALUATED")
-        if "MISSING_H" not in lim.flags:
-            lim.flags.append("MISSING_H")
+    ref_missing = declares_pct and pct_value is not None and not has_ref
+    ref_label_full = registry.reference_length_label(ref_key)
+    ref_label = "H" if ref_key == "excavation_depth_m" else ref_label_full
+    if ref_missing:
+        for flag in (
+            "PCT_H_NOT_EVALUATED" if missing_code == "MISSING_H" else "PCT_REF_NOT_EVALUATED",
+            missing_code,
+        ):
+            if flag not in lim.flags:
+                lim.flags.append(flag)
 
     if abs_limit is not None and pct_limit is not None:
         lim.cumulative_mm = min(abs_limit, pct_limit)
         lim.cumulative_basis = (
-            f"min(绝对量 {abs_limit:g} mm, {pct_value:g}%×H={pct_limit:g} mm) = {lim.cumulative_mm:g} mm"
+            f"min(绝对量 {abs_limit:g} mm, {pct_value:g}%×{ref_label}={pct_limit:g} mm) = {lim.cumulative_mm:g} mm"
         )
-    elif h_missing and abs_limit is not None:
+    elif ref_missing and abs_limit is not None:
         lim.cumulative_mm = abs_limit
         lim.cumulative_upper_bound_only = True
         lim.cumulative_basis = (
-            f"⚠ 未提供基坑设计深度 H，无法换算 {pct_value:g}%×H；"
+            f"⚠ 未提供{ref_label_full}，无法换算 {pct_value:g}%×{ref_label}；"
             f"绝对量限值 {abs_limit:g} mm 仅作为**上界**"
-            f"（真实限值 = min(绝对量, {pct_value:g}%×H) ≤ {abs_limit:g} mm），"
+            f"（真实限值 = min(绝对量, {pct_value:g}%×{ref_label}) ≤ {abs_limit:g} mm），"
             f"实测值未超上界时不得判为正常"
         )
     elif abs_limit is not None:
@@ -382,11 +493,11 @@ def resolve_limit(
         lim.cumulative_basis = f"绝对量限值 {abs_limit:g} mm"
     elif pct_limit is not None:
         lim.cumulative_mm = pct_limit
-        lim.cumulative_basis = f"{pct_value:g}%×H = {pct_limit:g} mm"
-    elif h_missing:
+        lim.cumulative_basis = f"{pct_value:g}%×{ref_label} = {pct_limit:g} mm"
+    elif ref_missing:
         lim.cumulative_upper_bound_only = True
         lim.cumulative_basis = (
-            f"⚠ 未提供基坑设计深度 H，无法换算 {pct_value:g}%×H，"
+            f"⚠ 未提供{ref_label_full}，无法换算 {pct_value:g}%×{ref_label}，"
             f"且该规则未给出绝对量限值，累计值无法判定"
         )
 
@@ -408,10 +519,7 @@ def resolve_limit(
         lim.origin = ORIGIN_USER
     else:
         lim.origin = ORIGIN_DEFAULT
-    lim.origin_display = {
-        ORIGIN_DEFAULT: "默认规范库（基坑智守项目相关规范）",
-        ORIGIN_USER: "用户上传规范",
-    }[lim.origin]
+    lim.origin_display = registry.origin_display(lim.origin)
 
     user_src = next((s for s in registry.sources if s.origin == ORIGIN_USER), None)
     def_src = next((s for s in registry.sources if s.origin == ORIGIN_DEFAULT), None)
@@ -479,6 +587,12 @@ class RiskJudgment:
     abstain: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
     calc: dict = field(default_factory=dict)
+    # 规范原文口径的管理等级（如按 U/U0 分三级）；本系统五级分级不因此改变。
+    management_level: dict | None = None
+    # 收敛稳定性（是否满足规范给出的"可降低频率/停测"量化条件）
+    stability: dict | None = None
+    # 断面归属（由调用方的显式映射给出；缺失为 None，不做推断）
+    section_id: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -497,6 +611,9 @@ class RiskJudgment:
             "abstain_reasons": [ABSTAIN_REASONS.get(a, a) for a in self.abstain],
             "flags": self.flags,
             "calc": self.calc,
+            "management_level": self.management_level,
+            "stability": self.stability,
+            "section_id": self.section_id,
         }
 
 
@@ -594,7 +711,7 @@ def judge(
         j.risk_level = LEVEL_UNKNOWN
         j.effective_source = {
             "origin": ORIGIN_DEFAULT,
-            "origin_display": "默认规范库（基坑智守项目相关规范）",
+            "origin_display": registry.origin_display(ORIGIN_DEFAULT),
             "source_id": None,
             "source_label": None,
             "rule_id": None,
@@ -625,6 +742,16 @@ def judge(
     }
     j.flags.extend(f for f in lim.flags if f not in j.flags)
 
+    # 比例限值参照长度缺失时的弃权码与标记：
+    # 基坑沿用 MISSING_H（既有回归依赖该码），其他场景用 MISSING_REF_LENGTH。
+    miss_code = lim.missing_reference_code or "MISSING_H"
+    miss_flag = (
+        "H_MISSING_CUMULATIVE_ABSTAINED"
+        if miss_code == "MISSING_H"
+        else "REF_MISSING_CUMULATIVE_ABSTAINED"
+    )
+    ref_label_full = registry.reference_length_label(lim.reference_length_key)
+
     if lim.flags and lim.flags[0] in ("UNKNOWN_METRIC", "NO_APPLICABLE_RULE"):
         j.abstain.append(lim.flags[0])
         j.risk_level = LEVEL_UNKNOWN
@@ -645,20 +772,20 @@ def judge(
     if _num(calc.cumulative) and _num(lim.cumulative_mm) and lim.cumulative_mm:
         u = abs(calc.cumulative) / abs(lim.cumulative_mm)
         if lim.cumulative_upper_bound_only and u < 1.0:
-            if "MISSING_H" not in j.abstain:
-                j.abstain.append("MISSING_H")
-            if "H_MISSING_CUMULATIVE_ABSTAINED" not in j.flags:
-                j.flags.append("H_MISSING_CUMULATIVE_ABSTAINED")
+            if miss_code not in j.abstain:
+                j.abstain.append(miss_code)
+            if miss_flag not in j.flags:
+                j.flags.append(miss_flag)
             j.checks.append(
                 {
-                    "check": "累计值（缺 H，不可判定）",
+                    "check": "累计值（缺参照长度，不可判定）",
                     "value": round(calc.cumulative, 4),
                     "limit": round(lim.cumulative_mm, 4),
                     "limit_basis": lim.cumulative_basis,
                     "utilization": round(u, 4),
                     "limit_is_upper_bound": True,
                     "verdict": LEVEL_UNKNOWN,
-                    "note": "未提供基坑设计深度 H，累计值限值只能给出上界；实测值未超上界，"
+                    "note": f"未提供{ref_label_full}，累计值限值只能给出上界；实测值未超上界，"
                             "但无法排除真实限值更小，按安全原则不判定",
                 }
             )
@@ -675,16 +802,16 @@ def judge(
             if lim.cumulative_upper_bound_only:
                 # 已超上界 ⇒ 必然超真实限值，结论成立；标明这是保守判定
                 check["limit_is_upper_bound"] = True
-                check["note"] = "缺 H，实测值已超过绝对量上界，超限结论必然成立"
+                check["note"] = f"缺{ref_label_full}，实测值已超过绝对量上界，超限结论必然成立"
             j.checks.append(check)
             level = _higher(level, _grade(u))
     elif _num(lim.cumulative_mm):
         j.flags.append("CUMULATIVE_NOT_EVALUATED")
     elif lim.cumulative_upper_bound_only:
-        if "MISSING_H" not in j.abstain:
-            j.abstain.append("MISSING_H")
-        if "H_MISSING_CUMULATIVE_ABSTAINED" not in j.flags:
-            j.flags.append("H_MISSING_CUMULATIVE_ABSTAINED")
+        if miss_code not in j.abstain:
+            j.abstain.append(miss_code)
+        if miss_flag not in j.flags:
+            j.flags.append(miss_flag)
     elif not _num(lim.cumulative_mm) and "PCT_H_NOT_EVALUATED" not in j.flags:
         j.flags.append("NO_CUMULATIVE_LIMIT")
 
@@ -789,11 +916,92 @@ def judge(
 
     evaluated = bool(utils) or convergence_fired
     if not evaluated and not any(
-        reason in j.abstain for reason in ("MISSING_DESIGN_VALUE", "MISSING_H")
+        reason in j.abstain for reason in ("MISSING_DESIGN_VALUE", "MISSING_H", "MISSING_REF_LENGTH")
     ):
         j.abstain.append("NO_LIMIT")
 
     j.utilization = round(max(utils), 4) if utils else None
+
+    # --- 4b) 规范原文口径的附加结论（隧道等场景；判据库没有对应字段时跳过） ---
+    # 这两项都**不改变** risk_level：管理等级是规范的分档表述，稳定性是"能否降低频率/停测"
+    # 的量化条件，二者都是给工程师对照用的附加结论。
+    metric_meta = (registry.get_metric(calc.metric_key) or {}).get("metric") or {}
+
+    # 位移管理等级：规范多用「实测位移 U / 设计极限位移 U0」分档（如 JTG/T 3660-2020 表 18.6.3）。
+    # 该口径需要设计给出的极限位移（常用设计预留变形量），缺值时**不猜**，只披露缺什么。
+    ml_cfg = metric_meta.get("management_levels")
+    ml_levels = ml_cfg.get("levels") if isinstance(ml_cfg, dict) else ml_cfg
+    ml_ratio = j.utilization
+    ml_missing = ""
+    if isinstance(ml_cfg, dict) and ml_cfg.get("base") == "design_value":
+        dv = ctx.design_values.get(ml_cfg.get("design_value_key") or calc.metric_key)
+        if _num(dv) and abs(float(dv)) > 0 and _num(calc.cumulative):
+            ml_ratio = abs(float(calc.cumulative)) / abs(float(dv))
+        else:
+            ml_ratio = None
+            ml_missing = (
+                f"缺设计极限位移（{ml_cfg.get('design_value_key') or calc.metric_key}），"
+                "无法按规范 U/U0 分档"
+            )
+    ml = evaluate_management_level(ml_levels, ml_ratio)
+    if ml is not None:
+        if isinstance(ml_cfg, dict) and ml_cfg.get("base") == "design_value":
+            ml["base"] = "design_value"
+            ml["base_display"] = "实测位移 / 设计极限位移 U0"
+        else:
+            ml["base"] = "control_value"
+            ml["base_display"] = "实测值 / 生效控制值（U0 未知时的替代口径，需工程师确认）"
+        j.management_level = ml
+        j.checks.append(
+            {
+                "check": "位移管理等级（规范分档）",
+                "level": ml.get("code"),
+                "label": ml.get("label"),
+                "action": ml.get("action"),
+                "utilization": ml.get("utilization"),
+                "base": ml.get("base"),
+                "evidence": ml.get("evidence"),
+                "verdict": LEVEL_NORMAL if not ml.get("above_all_bands") else LEVEL_ALARM,
+                "note": "规范原文分档，与五级风险分级并列展示，不互相替代。",
+            }
+        )
+    elif ml_missing:
+        if "MGMT_LEVEL_NOT_EVALUATED" not in j.flags:
+            j.flags.append("MGMT_LEVEL_NOT_EVALUATED")
+        j.checks.append(
+            {
+                "check": "位移管理等级（规范分档）",
+                "verdict": LEVEL_UNKNOWN,
+                "note": ml_missing + "；请补充设计预留变形量/极限位移后复核。",
+            }
+        )
+
+    stab_cfg = metric_meta.get("stability_criterion")
+    stab = evaluate_stability(
+        stab_cfg,
+        history,
+        timestamp=calc.timestamp,
+        current_rate=calc.rate,
+    )
+    if stab.get("status") != STATUS_NO_CRITERION:
+        rate_state = evaluate_rate_state(stab_cfg, calc.rate)
+        if rate_state:
+            stab["rate_state"] = rate_state
+        j.stability = stab
+        j.checks.append(
+            {
+                "check": "收敛稳定性 / 可停测量化条件",
+                "status": stab.get("status"),
+                "status_display": stab.get("status_display"),
+                "threshold": stab.get("threshold"),
+                "consecutive_periods": stab.get("consecutive_periods"),
+                "observed_rates": stab.get("observed_rates"),
+                "rate_state": rate_state,
+                "evidence": stab.get("evidence"),
+                "verdict": LEVEL_UNKNOWN,
+                "note": "只回答是否满足规范给出的量化条件；是否降低频率或停测由工程师决定。",
+            }
+        )
 
     # --- 5) 危险报警条件（GB 50497-2019 第 8.0.9 条，强制性条文） ---
     hit_danger: list[dict] = []
@@ -813,9 +1021,12 @@ def judge(
             }
         )
 
-    # --- 5b) 缺 H 降级：累计值限值无法确定时，不得给出"正常"结论 ---
+    # --- 5b) 缺参照长度降级：累计值限值无法确定时，不得给出"正常"结论 ---
     # 其余校核（如速率）给出更高等级时保留该等级；只有落在"正常"才降为未知。
-    if "MISSING_H" in j.abstain and level == LEVEL_NORMAL:
+    if (
+        ("MISSING_H" in j.abstain or "MISSING_REF_LENGTH" in j.abstain)
+        and level == LEVEL_NORMAL
+    ):
         level = LEVEL_UNKNOWN
 
     # --- 6) 数据质量降级：阶段一标记的问题不得被判为"正常" ---
