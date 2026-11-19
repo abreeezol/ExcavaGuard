@@ -13,7 +13,7 @@ COPY rag/standard-status.json ./rag/standard-status.json
 COPY engineering-adapters ./engineering-adapters
 COPY source/adapter_runtime ./source/adapter_runtime
 COPY tools/knowledge ./tools/knowledge
-RUN npm run build
+RUN node tools/knowledge/check-index.mjs && npm run build
 
 # Install target-specific optional binaries without emulating npm itself.
 FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS runtime-deps

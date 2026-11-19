@@ -1,0 +1,44 @@
+{
+  "files": [
+    {
+      "path": "inputs/weekly_engine_request.json",
+      "size_bytes": 2105,
+      "sha256": "07f2b447d374bfb0e4c163bc047e54049dc8b5f126b197da1fc142b4cdbb46db"
+    },
+    {
+      "path": "inputs/weekly_simulated.csv",
+      "size_bytes": 654,
+      "sha256": "e7fef8287d28ca26f4fdd7348ad64141da24126687d1743600afcfb433453875"
+    },
+    {
+      "path": "reports/weekly/监测周报_2026-10-02_2026-10-08_草稿.xlsx",
+      "size_bytes": 119940,
+      "sha256": "c37ed25a47d17b450c892dea4d0e21ec65ef1588efc28caf57cd305d2bf5b2bd"
+    },
+    {
+      "path": "reports/weekly/监测周报_2026-10-02_2026-10-08_草稿_封面.md",
+      "size_bytes": 68179,
+      "sha256": "bd5c626548c11b68dcd05acaa74a61b02a7bd5f9e3c86b0ee94b1e0a766af37b"
+    },
+    {
+      "path": "reports/weekly/监测周报_2026-10-02_2026-10-08_草稿_附表及清单.md",
+      "size_bytes": 155249,
+      "sha256": "3c37068be0f9855dcdbc119bd4f19464d5fea978d2d249941e675471cfcc16ae"
+    },
+    {
+      "path": "snapshots/weekly_analysis.json",
+      "size_bytes": 5,
+      "sha256": "38e0b9de817f645c4bec37c0d4a3e58baecccb040f5718dc069a72c7385a0bed"
+    },
+    {
+      "path": "snapshots/weekly_engine_payload.json",
+      "size_bytes": 28540,
+      "sha256": "0980991e870cfa6690366c288db093126879294107abdec958b880fd351d7198"
+    },
+    {
+      "path": "snapshots/weekly_evidence.json",
+      "size_bytes": 153781,
+      "sha256": "61637552b896d21ded39faf781259edec518868f374efbd2fdce882e7be7c089"
+    }
+  ]
+}

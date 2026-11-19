@@ -20,7 +20,27 @@
 
 全部数据和控制值为模拟构造；“未知”场景属于预期弃权，不表示漏分析或安全。当前样例目录中的历史报告不代表实际工程专业验收。
 
-本次合并的检查结果和已知限制见[上游同步记录](方案与迭代note/43_隧道改动与测试数据上游同步.md)。真实模型反馈复验此次被事实绑定校验拦截，未完成交付；历史成功样例不代表每次模型调用均通过。
+此前同步时的失败记录保留在[43号记录](方案与迭代note/43_隧道改动与测试数据上游同步.md)。本轮已修复索引发布、反馈修订上下文、占位符格式及输出契约恢复，真实模型“退回—修订—双层审查—下载”复验通过，详见[45号记录](方案与迭代note/45_索引发布与反馈修订稳定性修复.md)及[修订后报告](final_test/tunnel-7day-10min/reports/review-2026-11-19/after/隧道变形报告.xlsx)。原有事实校验、独立审计和预算上限保留，不保证外部服务每次成功。
+
+## 基坑与隧道测试入口
+
+两类工程共用工作台、事实准备、三Agent、报告审计与人工复核流程，通过`foundation-pit`和`tunnel-monitoring`适配器选择各自参数、判据、规范库与报表处理器。
+
+| 工程 | 推荐测试数据 | 范围 |
+|---|---|---|
+| 基坑 | [当前周报样例](final_test/pit-weekly/README.md) | 8条模拟观测，7天周报，当前字段与模板 |
+| 基坑 | [27场景数据](确定性计算层/data_simulated/README.md) | 57测点、3420条，配套条件与逐场景预期 |
+| 隧道 | [七天十分钟测试包](final_test/tunnel-7day-10min/README.md) | 4测项、24通道、24192条，多sheet/四文件/CSV |
+
+安装依赖后，在仓库根目录运行：
+
+```bash
+npm run test:pit-data
+npm run test:tunnel-data
+npm run test:data           # 两类一起检查
+```
+
+入口隔离账号与存储，自动核对发布输入并执行上传、计算、报告和文件审计；汇总在`var/acceptance/test-data/`。基坑样例可离线复现，隧道报告测试自动校验仓库随附的SQLite索引。上述命令不调用真实模型；LLM、远端RAG、云存储与工程师专业签认另行验证。架构核查和详细结果见[44号记录](方案与迭代note/44_基坑隧道架构与测试入口核查.md)。
 
 ## 本轮整体优化
 
@@ -213,19 +233,30 @@ node --env-file-if-exists=.env.local tools/access/manage.mjs init --username adm
 
 ### 隧道知识库部署
 
-生成的隧道SQLite索引不随Git提交。新克隆部署应离线构建或复制经过清单校验的索引；仅拉取代码不保证隧道AI检索已就绪。本地打包会携带已生成的索引。当前索引位置为`engineering-adapters/tunnel-monitoring/knowledge/knowledge.sqlite3`，以专业`manifest.json`的`retrieval.local_index`配置为准。
+隧道运行索引现已随仓库版本管理，普通克隆无需OCR或额外复制索引。当前文件位于`engineering-adapters/tunnel-monitoring/knowledge/knowledge.sqlite3`，以专业`manifest.json`的`retrieval.local_index`配置为准；清单固定SHA256，在线检索只读打开。
 
+安装依赖后先验证发布资源：
+
+```bash
+npm run tunnel:check       # 纯Node验证SQLite文件头及SHA256
+npm run tunnel:verify      # Python逐本候选召回，不要求原始PDF
+```
+
+Docker构建自动执行索引校验，缺失或版本不一致即停止。需要更换规范库时才进行离线重建，并将新索引、清单和目录一起提交。
 持有目录内原始规范PDF时，可在Python虚拟环境中执行：
 
 ```bash
 python -m pip install -r tools/knowledge/requirements-ocr.txt
 python tools/knowledge/build_tunnel.py --workers 8
-npm run tunnel:verify
+npm run tunnel:verify -- --check-sources
 ```
 
 构建读取工作区的`隧道施工相关规范/`及受控源清单，原件保持只读，按文件哈希缓存逐页结果；OCR只在离线构建时运行。资源位置、配置校验与专业边界见[隧道专业配置说明](engineering-adapters/tunnel-monitoring/README.md)。基坑本地BGE＋Chroma服务的模型依赖、Git LFS资产和独立Demo见[source/README.md](source/README.md)，它不是统一工作台的替代入口。
 
 ## 验证状态
+
+2026-11-19最终修复复验：全量325项通过、11项按配置跳过，lint、TypeScript及生产构建通过；真实模型工程师退回修订另行显式执行并通过，4项意见全部回应、3456条观测不变、16本规范均有覆盖记录。索引在不含原PDF的独立发布目录完成实际查询及缺失/篡改拦截验证。详细范围和限制见[45号记录](方案与迭代note/45_索引发布与反馈修订稳定性修复.md)。
+
 
 以下为截至2026-11-04的验收记录，不是每次启动自动执行的结果，也不代表真实工程效果评价。
 

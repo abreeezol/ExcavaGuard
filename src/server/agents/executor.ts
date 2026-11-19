@@ -1,3 +1,4 @@
+import { normalizeNarrativeFactPaths } from "@/server/agents/report-model";
 import { canonicalDigest as contentHash, prepareAgentPayload, verifyEngineSnapshot } from '@/server/preparation/fact-integrity';
 import {validateInvestigations,executeInvestigations} from "@/server/agents/investigations";
 import { adapterIdFromPayload, assertAdapterSnapshot } from "@/server/engineering-adapters/registry";
@@ -340,6 +341,16 @@ export async function executeAgentRun(
       throw safe;
     }
   };
+  // Explicit repair of provider output shape; every attempt consumes the existing call/time budget.
+  const modelWithSchemaRepair = async (role: "supervisor" | "report-delivery", context: unknown, steps: number) => {
+    try { return await modelCall(role, context, steps); }
+    catch (error) {
+      if (!(error instanceof ReportModelError) || !["LLM_OUTPUT_SCHEMA_INVALID", "LLM_INVALID_JSON"].includes(error.code)) throw error;
+      return modelCall(role, { ...(context as Record<string, unknown>),
+        output_contract_issues: [{ code: error.code, fields: error.fields,
+          instruction: "上次输出未通过JSON或字段类型校验；严格按角色契约重新输出完整JSON，保留冻结事实与已有修订意见。" }] }, steps);
+    }
+  };
   if (!state.context_snapshot && frozenContext !== undefined) {
     state = agentRunStateSchema.parse({ ...state, context_snapshot: freeze("excavaguard.supporting_context/v1", frozenContext) });
     const documents=(frozenContext as {documents?:Array<{kind:string}>} | null)?.documents??[];
@@ -367,7 +378,7 @@ export async function executeAgentRun(
         add("project.supporting_context",context);
       }
       if (reportMode === "ai" && !state.plan_snapshot) {
-        const response = await modelCall("supervisor", {...modelContext,engineer_feedback:state.revision_feedback?.payload}, 1);
+        const response = await modelWithSchemaRepair("supervisor", {...modelContext,engineer_feedback:state.revision_feedback?.payload}, 1);
         const proposedPlan = reportPlanSchema.parse(response.object);
         const plan = { ...proposedPlan, evidence_topics: modelContext.evidence_topics };
         validateInvestigations(plan,modelContext.facts,modelContext.item_count,modelContext.evidence_topics);
@@ -510,15 +521,22 @@ export async function executeAgentRun(
             let response: ReportModelResponse | null = null;
             let narrative = null;
             let previousIssues: unknown[] = state.audit_result?.issues ?? [];
+            let previousNarrative: unknown = (state.analysis_snapshot?.artifact?.payload as { narrative?: unknown } | undefined)?.narrative ?? (state.revision_feedback?.payload as RevisionFeedback | undefined)?.prior_narrative;
+            let factPathRepairs: Array<{ original: string; canonical: string }> = [];
             for (let attempt = 0; attempt < 2; attempt++) {
-              response = await modelCall("report-delivery", {
+              response = await modelWithSchemaRepair("report-delivery", {
                 ...modelContext, plan: state.plan_snapshot?.payload,
                 evidence: state.evidence_snapshot?.artifact?.payload,
                 previous_issues: previousIssues,
-                engineer_feedback: state.revision_feedback?.payload,
+                previous_narrative: previousNarrative,
+                engineer_feedback: state.revision_feedback?.payload ?? null,
+                feedback_contract: { required_ids: ((state.revision_feedback?.payload as RevisionFeedback | undefined)?.items ?? []).map(item => item.feedback_id),
+                  instruction: "仅逐项回应required_ids；为空时feedback_responses省略或为空数组。previous_issues是审计修订问题，不是工程师退回意见。" },
                 supporting_context: state.context_snapshot?.payload,
               }, steps);
-              narrative = reportNarrativeSchema.parse(response.object);
+              const normalized = normalizeNarrativeFactPaths(reportNarrativeSchema.parse(response.object), modelContext.facts);
+              narrative = normalized.narrative;
+              factPathRepairs = normalized.repairs;
               try {
                 validateFeedbackResponses(narrative, state.revision_feedback);
                 validateNarrativeGrounding(narrative, modelContext.facts, state.evidence_snapshot?.evidence_ids ?? [], modelContext.forms);
@@ -527,7 +545,8 @@ export async function executeAgentRun(
                 break;
               } catch (error) {
                 if (attempt === 1) throw error;
-                previousIssues = [{
+                previousNarrative = narrative;
+                previousIssues = [...(state.audit_result?.issues ?? []), {
                   code: "UNGROUNDED_FACT",
                   path: "report_narrative",
                   message: error instanceof Error ? error.message : "正文存在未绑定事实。",
@@ -535,7 +554,7 @@ export async function executeAgentRun(
               }
             }
             if (!response || !narrative) throw new Error("LLM_REQUEST_FAILED：模型未生成可审计正文。");
-            const payload = { schema: "excavaguard.report_narrative/v1", narrative, draft_version: version, model: response.model,
+            const payload = { schema: "excavaguard.report_narrative/v1", narrative, draft_version: version, model: response.model, fact_path_repairs: factPathRepairs,
               engineer_feedback: state.revision_feedback?.payload, supporting_context: state.context_snapshot?.payload };
             state = agentRunStateSchema.parse({
               ...state, analysis_snapshot: {

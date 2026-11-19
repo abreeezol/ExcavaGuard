@@ -14,7 +14,7 @@ import { GET as downloadAPI } from '@/app/api/report-artifacts/[draftId]/[fileNa
 
 const enabled=process.env.EXCAVAGUARD_TEST_ENGINEER_FEEDBACK==='1';
 const base=resolve('final_test/tunnel-7day-10min/inputs');
-const output=resolve('var/acceptance/tunnel-engineer-feedback');
+const output=resolve('var/acceptance/tunnel-engineer-feedback',new Date().toISOString().replace(/[:.]/g,'-'));
 let root:string;const artifacts=new Set<string>();
 const hash=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
 const request=(url:string,body:unknown)=>new Request('http://localhost'+url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

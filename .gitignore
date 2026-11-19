@@ -46,5 +46,8 @@ var/
 # === 规范知识库：经权利人/作者授权决策，已纳入版本管理随仓库公开 ===
 # data/ocr_text/、data/chunks.jsonl、data/chroma_db/、data/docs/ 现已纳入跟踪
 
-# Generated professional knowledge indexes; build locally before packaging.
+# Other generated professional knowledge indexes remain local.
 engineering-adapters/*/knowledge/*.sqlite3
+
+# Versioned, manifest-verified tunnel runtime index; required by clean deployments.
+!engineering-adapters/tunnel-monitoring/knowledge/knowledge.sqlite3

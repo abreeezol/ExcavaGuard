@@ -1,0 +1,85 @@
+{
+  "records": [
+    {
+      "point_id": "SIMULATED-P-01",
+      "metric_key": "wall_top_horizontal_displacement",
+      "timestamp": "2026-10-01",
+      "value": 0,
+      "unit": "mm",
+      "data_origin": "simulated"
+    },
+    {
+      "point_id": "SIMULATED-P-01",
+      "metric_key": "wall_top_horizontal_displacement",
+      "timestamp": "2026-10-02",
+      "value": 5,
+      "unit": "mm",
+      "data_origin": "simulated"
+    },
+    {
+      "point_id": "SIMULATED-P-01",
+      "metric_key": "wall_top_horizontal_displacement",
+      "timestamp": "2026-10-03",
+      "value": 12,
+      "unit": "mm",
+      "data_origin": "simulated"
+    },
+    {
+      "point_id": "SIMULATED-P-01",
+      "metric_key": "wall_top_horizontal_displacement",
+      "timestamp": "2026-10-04",
+      "value": 22,
+      "unit": "mm",
+      "data_origin": "simulated"
+    },
+    {
+      "point_id": "SIMULATED-P-01",
+      "metric_key": "wall_top_horizontal_displacement",
+      "timestamp": "2026-10-05",
+      "value": 35,
+      "unit": "mm",
+      "data_origin": "simulated"
+    },
+    {
+      "point_id": "SIMULATED-P-01",
+      "metric_key": "wall_top_horizontal_displacement",
+      "timestamp": "2026-10-06",
+      "value": 52,
+      "unit": "mm",
+      "data_origin": "simulated"
+    },
+    {
+      "point_id": "SIMULATED-P-01",
+      "metric_key": "wall_top_horizontal_displacement",
+      "timestamp": "2026-10-07",
+      "value": 60,
+      "unit": "mm",
+      "data_origin": "simulated"
+    },
+    {
+      "point_id": "SIMULATED-P-01",
+      "metric_key": "wall_top_horizontal_displacement",
+      "timestamp": "2026-10-08",
+      "value": 62,
+      "unit": "mm",
+      "data_origin": "simulated"
+    }
+  ],
+  "context": {
+    "safety_level": "一级",
+    "support_type": "地下连续墙",
+    "excavation_depth_m": 20
+  },
+  "options": {
+    "with_payload": true,
+    "report_date": "2026-10-08",
+    "report_period": {
+      "type": "weekly",
+      "start_date": "2026-10-02",
+      "end_date": "2026-10-08"
+    },
+    "project": {
+      "name": "完全人工合成测试_不含真实工程数据"
+    }
+  }
+}

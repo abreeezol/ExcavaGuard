@@ -1,4 +1,5 @@
 """Verify the published synthetic weekly sample offline; never calls an external model."""
+import argparse
 import hashlib
 import csv
 import json
@@ -11,7 +12,7 @@ from uuid import uuid4
 from openpyxl import load_workbook
 
 ROOT = Path(__file__).resolve().parents[2]
-SAMPLE = ROOT / "final_test/latest"
+SAMPLE = ROOT / "final_test/pit-weekly"
 
 
 def read(path):
@@ -39,6 +40,10 @@ def workbook_values(path):
 
 
 def main():
+    global SAMPLE
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--sample-dir", type=Path, default=SAMPLE)
+    SAMPLE = parser.parse_args().sample_dir.resolve()
     for entry in read(SAMPLE / "validation/files.sha256.json")["files"]:
         path = (SAMPLE / entry["path"]).resolve()
         assert path.is_relative_to(SAMPLE.resolve())
@@ -50,6 +55,16 @@ def main():
         rows = [{**row, "value": float(row["value"])} for row in csv.DictReader(stream)]
     assert rows == request["records"], "CSV and JSON inputs differ"
     payload = call("evaluate-thresholds", "run_judgement.py", request)
+    period = payload["period"]
+    assert period["observation_count"] == 7 and period["calendar_days"] == 7
+    assert [row["current"] for row in period["daily_items"]] == [5, 12, 22, 35, 52, 60, 62]
+    assert [row["cumulative"] for row in period["daily_items"]] == [5, 12, 22, 35, 52, 60, 62]
+    assert [row["rate"] for row in period["daily_items"]] == [5, 7, 10, 13, 17, 8, 2]
+    assert all(row["unit"] == "mm" for row in period["daily_items"])
+    assert payload["project"]["excavation_depth_m"] == 20
+    assert payload["items"][0]["current"] == 62
+    assert payload["summary"]["overall_risk_level"] == "危险报警"
+
     # Source-file locations vary by checkout; publish repository-relative metadata.
     for source in payload.get("standards_sources", []):
         path = source.get("path")

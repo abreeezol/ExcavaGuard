@@ -38,6 +38,6 @@ export function validateFeedbackResponses(narrative: ReportNarrative, feedback?:
   const expected = ((feedback?.payload as RevisionFeedback | undefined)?.items ?? []).map(item => item.feedback_id);
   const actual = (narrative.feedback_responses ?? []).map(item => item.feedback_id);
   if (new Set(actual).size !== actual.length || JSON.stringify([...expected].sort()) !== JSON.stringify([...actual].sort())) {
-    throw new Error("FEEDBACK_RESPONSE_REQUIRED：必须逐项回应本次冻结的工程师意见，不得遗漏、重复或添加虚构意见。");
+    throw new Error(`FEEDBACK_RESPONSE_REQUIRED：本次允许且必须回应的ID为${JSON.stringify(expected.slice(0,10))}，收到${JSON.stringify(actual.slice(0,10))}；无工程师意见时须省略或返回空数组，previous_issues不属于工程师意见。`);
   }
 }

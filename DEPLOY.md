@@ -529,3 +529,10 @@ TypeScript 7 尚不被当前 `eslint-config-next` 的解析器支持，因此固
 ---
 
 **免责声明**：本系统只输出**供工程师复核的草稿**，不自动发布预警，也不替代工程师审核或正式签发报告。
+
+
+### 隧道规范资源（2026-11-19）
+
+仓库随附`engineering-adapters/tunnel-monitoring/knowledge/knowledge.sqlite3`及对应版本清单，普通部署无需原始PDF或OCR。安装Node/Python依赖后，运行`npm run tunnel:check`核对文件SHA256，运行`npm run tunnel:verify`完成16本逐本候选召回；原PDF核验仅在持有原件时显式加`-- --check-sources`。
+
+Docker构建在应用编译前校验索引，运行时只读查询；不得把索引放在用户上传目录。更新知识库时须一并更新索引、清单及目录配置，不能只替换数据库。AI编报仍需有效模型配置；基坑远端RAG仍按原部署说明设置。

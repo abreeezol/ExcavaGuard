@@ -2,7 +2,9 @@
 
 > **隧道最新测试包（2026-11-19）：** [七天十分钟多sheet/多文件数据、使用说明与精选报告](tunnel-7day-10min/README.md)。
 
-> **基坑样例入口（2026-10-27）：** [合成测试数据与可读周报展示](latest/README.md)。新样例集中在 `latest/inputs`、`latest/snapshots`、`latest/reports/weekly` 和 `latest/validation`；下方原有文件保留作为历史输入与格式参考。
+> **基坑当前测试包（2026-11-19）：** [当前字段、模板周报及测试说明](pit-weekly/README.md)。统一运行`npm run test:data`，或分别运行`test:pit-data`、`test:tunnel-data`。
+
+> **基坑历史样例（2026-10-27）：** [合成测试数据与可读周报展示](latest/README.md)。新样例集中在 `latest/inputs`、`latest/snapshots`、`latest/reports/weekly` 和 `latest/validation`；下方原有文件保留作为历史输入与格式参考。
 
 ## 当前输入的实测结构
 

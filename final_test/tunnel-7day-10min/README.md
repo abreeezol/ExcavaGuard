@@ -10,7 +10,11 @@
 - [真实模型日报展示](reports/daily/隧道变形报告.xlsx) / [真实模型周报展示](reports/weekly/隧道变形报告.xlsx)
 - [模拟工程师意见](validation/模拟工程师意见.md)、[修订前日报](reports/review/before/隧道变形报告.xlsx)、[修订后日报](reports/review/after/隧道变形报告.xlsx)、[前后变化摘要](validation/修订对照.md)
 
-`reports/`是2026-11-18实测保留的精选报告；它们证明当时的模拟链路结果，不代表每次启动重新生成或工程师专业签认。当前代码的重跑结果统一写入`var/acceptance/`，不会覆盖这些发布样例。
+`reports/daily`、`weekly`和`review`是2026-11-18实测保留的精选报告；它们证明当时的模拟链路结果，不代表每次启动重新生成或工程师专业签认。当前代码的重跑结果统一写入`var/acceptance/`，不会覆盖这些发布样例。
+
+## 本轮修复复验（2026-11-19）
+
+[退回前日报](reports/review-2026-11-19/before/隧道变形报告.xlsx)、[修订后日报](reports/review-2026-11-19/after/隧道变形报告.xlsx)及[实测摘要](validation/修复复验_2026-11-19.json)来自本轮真实模型与本地RAG调用。4项模拟工程师意见全部回应，3456条冻结观测和原历史报告不变，双层审查及三件套下载通过。它是软件验收，不是专业签认，也不保证每次模型调用均成功。
 
 ## 数据结构和场景
 
@@ -60,7 +64,7 @@ npm run test:tunnel-data
 
 `check_tunnel_test_data.py`核对所有输入SHA256、24通道、1008时刻、10分钟间隔、多sheet/四文件/CSV等价和模拟标记，不调用模型或规范服务。
 
-`test:tunnel-data`执行实际上传及分析API、七天日报、模板周报、全规范核查和异常拦截。报告测试要求本地隧道索引已按[根README](../../README.md#隧道知识库部署)准备；克隆代码不会自动提供`engineering-adapters/tunnel-monitoring/knowledge/knowledge.sqlite3`索引。索引缺失必须先构建，不能把失败当成已验收。
+`test:tunnel-data`执行实际上传及分析API、七天日报、模板周报、全规范核查和异常拦截。报告测试自动校验仓库随附的`engineering-adapters/tunnel-monitoring/knowledge/knowledge.sqlite3`索引，普通克隆不需要原始PDF或OCR；部署与更新见[根README](../../README.md#隧道知识库部署)。索引缺失或SHA256不一致时明确失败，不能静默跳过。
 
 需要显式调用真实模型时，先在本地`.env.local`配置`LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`并准备规范索引，再运行：
 
@@ -69,7 +73,7 @@ npm run test:tunnel-ai
 npm run test:tunnel-feedback
 ```
 
-第一条测试真实模型日报和周报，第二条执行模拟工程师退回、关联重编、双层审查和三件套下载。它们会调用配置的模型服务。测试使用临时工程，运行结果分别保存在`var/acceptance/tunnel-7day-10min/`和`var/acceptance/tunnel-engineer-feedback/`，不提交私有状态或逐条大体积转储。
+第一条测试真实模型日报和周报，第二条执行模拟工程师退回、关联重编、双层审查和三件套下载。它们会调用配置的模型服务。测试使用临时工程，反馈测试每次建立独立时间戳目录，保留失败与成功历史。运行结果分别保存在`var/acceptance/tunnel-7day-10min/`和`var/acceptance/tunnel-engineer-feedback/`，不提交私有状态或逐条大体积转储。
 
 重新生成全部输入（会重写本目录`inputs/`中的模拟文件及SHA清单）：
 

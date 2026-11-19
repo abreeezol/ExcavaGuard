@@ -36,6 +36,7 @@
 !tools/access/manage.mjs
 !tools/knowledge/
 !tools/knowledge/clause_labels.py
+!tools/knowledge/check-index.mjs
 !tools/knowledge/build_tunnel.py
 !tools/knowledge/requirements-ocr.txt
 !tools/knowledge/tunnel-sources.json

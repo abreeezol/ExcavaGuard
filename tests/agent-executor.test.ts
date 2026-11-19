@@ -8,7 +8,7 @@ import type {
   SupportingSnapshot,
 } from "@/contracts/agent-runtime";
 import { executeAgentRun } from "@/server/agents/executor";
-import { buildReportModelContext, validateNarrativeGrounding } from "@/server/agents/report-model";
+import { buildReportModelContext, validateNarrativeGrounding, ReportModelError } from "@/server/agents/report-model";
 import type { ReportNarrative } from "@/contracts/ai-report";
 import type { ReportModelRequest, ReportModelResponse } from "@/server/agents/report-model";
 import type { StandardEvidenceSkillResult } from "@/server/skills/retrieve-standard-evidence/runner";
@@ -415,6 +415,65 @@ describe("实际模型接口编排与失败保护（模拟响应）", () => {
     expect(result.terminalAction.reason_code).toBe("REVISION_LIMIT_REACHED");
   });
 
+  it("事实重试保留上一稿与语义问题，而非丢弃修订上下文", async () => {
+    const dependencies = aiDependencies();
+    const model = dependencies.model;
+    let writes = 0; let audits = 0;
+    dependencies.model = async request => {
+      const response = await model(request);
+      if (request.role === "audit" && ++audits === 1) response.object = { issues: [{ code: "UNSUPPORTED_CLAIM", responsibility: "report-delivery", path: "analysis.0", message: "修正既有概括" }] };
+      if (request.role === "report-delivery" && ++writes === 2) response.object = narrativeFor("数值为999。");
+      if (request.role === "report-delivery" && writes === 3) {
+        const context = request.context as { previous_narrative: ReportNarrative; previous_issues: Array<{ code: string }> };
+        expect(context.previous_narrative.analysis[0].text).toBe("数值为999。");
+        expect(context.previous_issues.map(issue => issue.code)).toEqual(["UNSUPPORTED_CLAIM", "UNGROUNDED_FACT"]);
+      }
+      return response;
+    };
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
+    expect(writes).toBe(3);
+    expect(result.state.audit_result?.valid).toBe(true);
+  });
+
+  it.each(["supervisor", "report-delivery"] as const)("%s格式错误进行显式有界修复，失败记录与预算不丢失", async role => {
+    const dependencies = aiDependencies(); const model = dependencies.model;
+    let attempts = 0;
+    dependencies.model = async request => {
+      if (request.role === role && ++attempts === 1) {
+        dependencies.calls.push(request);
+        throw new ReportModelError("LLM_OUTPUT_SCHEMA_INVALID", ["investigations"]);
+      }
+      return model(request);
+    };
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
+    expect(attempts).toBe(2);
+    expect(result.state.limits.model_calls_used).toBe(4);
+    expect(result.state.trace.some(event => event.capability === `llm-${role}` && event.status === "failed")).toBe(true);
+    expect(result.state.audit_result?.valid).toBe(true);
+    const repair = dependencies.calls.filter(call => call.role === role)[1];
+    expect((repair.context as { output_contract_issues: unknown[] }).output_contract_issues).toHaveLength(1);
+  });
+
+  it("持续的规划格式错误只修复一次并保留失败", async () => {
+    const dependencies = aiDependencies(); let attempts = 0;
+    dependencies.model = async () => { attempts++; throw new ReportModelError("LLM_OUTPUT_SCHEMA_INVALID", ["investigations"]); };
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
+    expect(attempts).toBe(2);
+    expect(result.state.limits.model_calls_used).toBe(2);
+    expect(result.state.audit_result?.valid).not.toBe(true);
+    expect(result.terminalAction.reason_code).toBe("CAPABILITY_UNAVAILABLE");
+  });
+
+  it("无工程师意见时显式传空反馈契约，审计问题不生成工程师回应", async () => {
+    const dependencies = aiDependencies();
+    const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW }, dependencies);
+    const writer = dependencies.calls.find(call => call.role === "report-delivery")!;
+    const context = writer.context as { engineer_feedback: unknown; feedback_contract: { required_ids: string[] } };
+    expect(context.engineer_feedback).toBeNull();
+    expect(context.feedback_contract.required_ids).toEqual([]);
+    expect(result.state.audit_result?.valid).toBe(true);
+  });
+
   it("上游语义问题交工程师，不让报告 Agent 修改源事实", async () => {
     const dependencies = aiDependencies();
     const model = dependencies.model;
@@ -443,6 +502,8 @@ describe("实际模型接口编排与失败保护（模拟响应）", () => {
     };
     const result = await executeAgentRun({ enginePayload: AI_INPUT, reportMode: "ai", createdAt: NOW, revisionFeedback: feedback }, dependencies);
     expect(result.state.revision_feedback).toEqual(feedback);
+    const writer = dependencies.calls.find(call => call.role === "report-delivery")!;
+    expect((writer.context as { feedback_contract: { required_ids: string[] } }).feedback_contract.required_ids).toEqual(["review"]);
     for (const call of dependencies.calls.filter(call => call.role !== "supervisor")) {
       expect((call.context as { engineer_feedback: unknown }).engineer_feedback).toEqual(feedback.payload);
     }

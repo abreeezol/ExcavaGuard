@@ -22,7 +22,7 @@ npm run adapter:evaluate -- tunnel-monitoring
 npm run adapter:release -- tunnel-monitoring
 ```
 
-构建脚本严格检查目录与`tunnel-sources.json`清单一致，源PDF保持只读。缓存按源文件SHA/页码保存，异常中止不会覆盖已发布库。规范候选使用中文二元词与BM25风格排序，**不是模型微调，也不是向量模型训练**。新部署需构建或复制校验后的SQLite索引；OCR仅离线运行，在线检索只需标准库SQLite，不引入Torch。
+构建脚本严格检查目录与`tunnel-sources.json`清单一致，源PDF保持只读。缓存按源文件SHA/页码保存，异常中止不会覆盖已发布库。规范候选使用中文二元词与BM25风格排序，**不是模型微调，也不是向量模型训练**。已校验SQLite索引随Git发布，新部署运行`npm run tunnel:check`及`npm run tunnel:verify`即可核对，无需原始PDF；离线原件核验使用`npm run tunnel:verify -- --check-sources`；OCR仅离线运行，在线检索只需标准库SQLite，不引入Torch。
 
 隧道只有一个在用业务入口。已有隧道工程接入同一处理实现，参数与资料兼容保留；缺少的必要分类条件首次确认后复用。历史资源仅供固化报告与测试兼容，不展示为另一项选择。详见[30号记录](../../方案与迭代note/30_工程类型统一入口与隧道参数路由.md)。
 
