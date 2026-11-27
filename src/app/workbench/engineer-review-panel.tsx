@@ -59,7 +59,7 @@ export function EngineerReviewPanel({
   )));
   const [activeRiskPosition, setActiveRiskPosition] = useState(0);
   const state = record.result?.agent_run?.state;
-  const canReview = canReviewRole &&
+  const reviewReady =
     record.execution_status === "completed" &&
     state?.run.status === "awaiting_human_review" &&
     isAuditComplete(state.audit_result, state.report_mode) &&
@@ -160,7 +160,28 @@ export function EngineerReviewPanel({
     }));
   }
 
-  if (!canReview) return null;
+  if (!canReviewRole) return null;
+
+  if (!reviewReady) {
+    let unavailableReason = "当前报告尚未进入待工程师复核状态。";
+    if (record.review) {
+      unavailableReason = "本次工程师复核已提交，已归档的评价和决定可在报告交付记录中查看。";
+    } else if (record.execution_status !== "completed" || !state) {
+      unavailableReason = "当前运行尚未完成报告交付；请先修复失败项并基于此报告重新分析。";
+    } else if (!state.report_draft) {
+      unavailableReason = "当前运行尚未形成报告草稿；请基于此报告重新分析后再复核。";
+    } else if (!isAuditComplete(state.audit_result, state.report_mode)) {
+      unavailableReason = "报告审查尚未通过，暂不能提交工程师复核；请先完成修订或重新分析。";
+    }
+
+    return <section className="wb-card wb-engineer-review" aria-label="工程师复核">
+      <div className="wb-card-head">
+        <span className="wb-step">审</span>
+        <h2>工程师复核</h2>
+      </div>
+      <p className="wb-hint">{unavailableReason}</p>
+    </section>;
+  }
 
   return <section className="wb-card wb-engineer-review" aria-label="工程师复核">
     <div className="wb-card-head">

@@ -517,6 +517,34 @@
           ],
           "description": "测点类型；未注入时为 null。"
         },
+        "section_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "测点所属断面；仅接受调用方显式映射，不从点号推断。"
+        },
+        "mileage": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "测点里程；来自调用方测点台账，缺失时为 null。"
+        },
+        "x": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "测点平面 X 坐标；来自调用方测点台账，系统不计算。"
+        },
+        "y": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "测点平面 Y 坐标；来自调用方测点台账，系统不计算。"
+        },
         "metric_key": {
           "type": "string",
           "description": "监测项键名。"
@@ -644,6 +672,22 @@
             "type": "object",
             "additionalProperties": true
           }
+        },
+        "management_level": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true,
+          "description": "规范原文口径的管理等级附加结论；与系统五级风险并列，不互相替代。"
+        },
+        "stability": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": true,
+          "description": "规范给出的收敛稳定性或可降低频率条件；是否停测仍由工程师决定。"
         },
         "effective_standard": {
           "type": "object",
