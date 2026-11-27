@@ -116,6 +116,19 @@ type Payload = {
   note?: string;
 };
 
+type ReportWindow = {
+  id: string;
+  type: ReportKind;
+  start_date: string;
+  end_date: string;
+  label: string;
+  observed_days: number;
+  calendar_days: number;
+  missing_days: string[];
+};
+
+type RangeSource = "none" | "recommended" | "manual" | "restored";
+
 type RunResponse = {
   record: PersistedRun;
   run_id?: string;
@@ -203,8 +216,6 @@ export function ProjectWorkbench({
   onStepChange,
   onDefaultStep,
   initialRunId,
-  initialReportRange,
-  onInitialReportRangeConsumed,
   sessionPending,
 }: {
   session: AccessStatus & { project_id: string }; onBusyChange: (busy: boolean) => void;
@@ -213,8 +224,6 @@ export function ProjectWorkbench({
   onStepChange: (step: WorkbenchStep, runId?: string | null) => void;
   onDefaultStep: (step: WorkbenchStep, runId?: string) => void;
   initialRunId: string | null;
-  initialReportRange?: ReportRange | null;
-  onInitialReportRangeConsumed?: () => void;
   sessionPending: boolean;
 }) {
   const project = session.projects?.find(p => p.id === session.project_id);
@@ -242,14 +251,13 @@ export function ProjectWorkbench({
   const operation = useRef(false);
   const dirty = useRef(false);
   const initialized = useRef(false);
-  const rangePrompted = useRef(Boolean(initialReportRange));
-  const confirmedRange = useRef(Boolean(initialReportRange));
+  const rangeSource = useRef<RangeSource>("none");
   const requestController = useRef<AbortController | null>(null);
   const applicabilityDetails = useRef<HTMLDetailsElement>(null);
   const [scene, setScene] = useState<{ engineering_type?:{id:string;name:string}; monitoring_metrics?:MonitoringMetric[]; adapter: { id: string; name: string; version: string; supported_reports: string[]; core_fields: Array<{ key: string; label: string; required: boolean; choices?: string[]; choice_labels?:Record<string,string>; input_type?: string }> }; parameters: Record<string, unknown> | null; revision: number } | null>(null);
   const [detectedMetrics, setDetectedMetrics] = useState<MonitoringMetric[]>([]);
   const [parameters, setParameters] = useState<Record<string, unknown>>({});
-  const [windows, setWindows] = useState<Array<{id:string;type:ReportKind;start_date:string;end_date:string;label:string;missing_days:string[]}>>([]);
+  const [windows, setWindows] = useState<ReportWindow[]>([]);
   const [windowId, setWindowId] = useState("");
   const [windowMessage, setWindowMessage] = useState("");
   const isPit = scene?.engineering_type?.id === "foundation_pit";
@@ -268,11 +276,11 @@ export function ProjectWorkbench({
     });
   }
   const [projectName, setProjectName] = useState(project?.name ?? "");
-  const [reportDate, setReportDate] = useState(initialReportRange?.date ?? "");
-  const [reportKind, setReportKind] = useState<ReportKind>(initialReportRange?.kind ?? "daily");
-  const [periodStart, setPeriodStart] = useState(initialReportRange?.start ?? "");
-  const [periodEnd, setPeriodEnd] = useState(initialReportRange?.end ?? "");
-  const [rangeConfirmed, setRangeConfirmed] = useState(Boolean(initialReportRange));
+  const [reportDate, setReportDate] = useState("");
+  const [reportKind, setReportKind] = useState<ReportKind>("daily");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  const [rangeConfirmed, setRangeConfirmed] = useState(false);
   const [rangeDialogOpen, setRangeDialogOpen] = useState(false);
   const [resultInfoOpen, setResultInfoOpen] = useState(true);
   const range: ReportRange = { kind: reportKind, date: reportDate, start: periodStart, end: periodEnd };
@@ -281,14 +289,25 @@ export function ProjectWorkbench({
     dirty.current = value;
     onDirtyChange(value);
   }, [onDirtyChange]);
-  const confirmRange = useCallback((selected: ReportRange) => {
+  const confirmRange = useCallback((
+    selected: ReportRange,
+    source: Exclude<RangeSource, "none"> = "manual",
+  ) => {
     setReportKind(selected.kind);
     setReportDate(selected.date);
     setPeriodStart(selected.start);
     setPeriodEnd(selected.end);
     setRangeConfirmed(true);
-    confirmedRange.current = true;
-    rangePrompted.current = true;
+    rangeSource.current = source;
+  }, []);
+  const clearRecommendedRange = useCallback(() => {
+    if (rangeSource.current !== "recommended") return;
+    setReportDate("");
+    setPeriodStart("");
+    setPeriodEnd("");
+    setReportKind("daily");
+    setRangeConfirmed(false);
+    rangeSource.current = "none";
   }, []);
 
   const [monitoring, setMonitoring] = useState<{ file: StoredFile; read_report: ReadReport | null } | null>(null);
@@ -317,9 +336,6 @@ export function ProjectWorkbench({
     return () => query.removeEventListener("change", update);
   }, []);
   useEffect(() => {
-    if (initialReportRange) onInitialReportRangeConsumed?.();
-  }, [initialReportRange, onInitialReportRangeConsumed]);
-  useEffect(() => {
     const controller = new AbortController();
     requestController.current = controller;
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -333,16 +349,10 @@ export function ProjectWorkbench({
     };
   }, [onDirtyChange]);
   useEffect(() => {
-    if (step === "conditions" && isPit && !supportType && applicabilityDetails.current) {
+    if (step === "prepare" && isPit && !supportType && applicabilityDetails.current) {
       applicabilityDetails.current.open = true;
     }
   }, [step, isPit, supportType]);
-  useEffect(() => {
-    if (step === "conditions" && !rangeConfirmed && !rangePrompted.current && canWrite) {
-      rangePrompted.current = true;
-      setRangeDialogOpen(true);
-    }
-  }, [step, rangeConfirmed, canWrite]);
   useEffect(() => {
     let cancelled = false;
     void apiFetch("/api/projects/current/engineering").then(async response => {
@@ -360,10 +370,22 @@ export function ProjectWorkbench({
     if (!monitoring || !canWrite) return;
     let cancelled=false;
     const timer=setTimeout(()=>{void apiFetch("/api/report-windows",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({file_ids:[monitoring.file.file_id,...additionalFileIds]})}).then(async response=>{const body=await response.json();if(!response.ok)throw new Error(body.error?.message??"周期识别失败");return body;}).then(body=>{
-      if(cancelled)return;setWindows(body.windows);setDetectedMetrics(body.detected_metrics??[]);setWindowMessage(body.notice);const first=body.windows[0];if(first&&!parentRunId&&!confirmedRange.current){setWindowId(first.id);confirmRange({kind:first.type,date:first.end_date,start:first.start_date,end:first.end_date});}
-    }).catch(error=>{if(!cancelled){setWindows([]);setDetectedMetrics([]);setWindowId("");setWindowMessage(error.message);}});},200);
+      if(cancelled)return;
+      const nextWindows = Array.isArray(body.windows) ? body.windows as ReportWindow[] : [];
+      setWindows(nextWindows);
+      setDetectedMetrics(Array.isArray(body.detected_metrics) ? body.detected_metrics : []);
+      setWindowMessage(typeof body.notice === "string" ? body.notice : "");
+      const firstComplete=nextWindows.find(item=>item.missing_days.length===0);
+      if(firstComplete&&!parentRunId&&(rangeSource.current==="none"||rangeSource.current==="recommended")){
+        setWindowId(firstComplete.id);
+        confirmRange({kind:firstComplete.type,date:firstComplete.end_date,start:firstComplete.start_date,end:firstComplete.end_date},"recommended");
+      } else if(!firstComplete) {
+        setWindowId("");
+        clearRecommendedRange();
+      }
+    }).catch(error=>{if(!cancelled){setWindows([]);setDetectedMetrics([]);setWindowId("");setWindowMessage(error instanceof Error ? error.message : "周期识别失败");clearRecommendedRange();}});},200);
     return()=>{cancelled=true;clearTimeout(timer);};
-  },[apiFetch,monitoring,additionalFileIds,parentRunId,canWrite,confirmRange]);
+  },[apiFetch,monitoring,additionalFileIds,parentRunId,canWrite,confirmRange,clearRecommendedRange]);
   useEffect(() => { onBusyChange(busy !== null); }, [busy, onBusyChange]);
   useEffect(() => {
     if (initialized.current) return;
@@ -401,7 +423,7 @@ export function ProjectWorkbench({
           }
           if (!cancelled) {
             initialized.current = true;
-            if (!restored) onDefaultStep("conditions");
+            if (!restored) onDefaultStep("prepare");
           }
         }
       } catch (caught) {
@@ -556,9 +578,8 @@ export function ProjectWorkbench({
     setPeriodStart(input.report_period?.start_date ?? input.report_date);
     setPeriodEnd(input.report_period?.end_date ?? input.report_date);
     setRangeConfirmed(true);
-    confirmedRange.current = true;
+    rangeSource.current = "restored";
     setWindowId("");
-    rangePrompted.current = true;
     const revising = record.review?.decision === "needs_changes" || (!record.review && Boolean(record.revision_feedback));
     setGenerateReport(revising || (input.options?.generate_report ?? true));
     setReportMode(revising ? "ai" : (input.options?.report_mode ?? "ai"));
@@ -568,10 +589,10 @@ export function ProjectWorkbench({
     setRerunInput({ ...input, project_standard_ids: input.project_standard_ids ??
       record.result?.project_standards?.map(document => document.document_id) ?? [] });
     setParentRunId(record.run_id);
-    onStepChange("conditions");
+    onStepChange("prepare");
     setNotice(`${revising ? "已载入原输入并开启AI报告；运行后将逐项回应退回意见，未解决事项交由人工确认。"
       : `已加载 ${record.run_id.slice(0, 8)} 的工程条件及规范引用，后续分析将创建关联运行。`}${missingFiles
-      ? "原监测文件或部分汇总文件已不可用，请在数据与规范中重新选择或上传所需文件。" : "请核对输入后运行分析。"}`);
+      ? "原监测文件或部分汇总文件已不可用，请在分析准备中重新选择或上传所需文件。" : "请核对输入后运行分析。"}`);
   }
 
   async function review(
@@ -643,20 +664,20 @@ export function ProjectWorkbench({
   }
 
   const analysisPrerequisites: Array<{ id: string; message: string; step: WorkbenchStep }> = [];
-  if (!scene) analysisPrerequisites.push({ id: "scene", message: "加载工程类型与参数配置", step: "conditions" });
-  if (!rangeConfirmed) analysisPrerequisites.push({ id: "range", message: "选择并确认报告范围", step: "conditions" });
-  else if (scene && !scene.adapter.supported_reports.includes(reportKind)) analysisPrerequisites.push({ id: "range", message: "选择当前工程类型支持的报告范围", step: "conditions" });
+  if (!scene) analysisPrerequisites.push({ id: "scene", message: "加载工程类型与参数配置", step: "prepare" });
+  if (!rangeConfirmed) analysisPrerequisites.push({ id: "range", message: "选择并确认报告范围", step: "prepare" });
+  else if (scene && !scene.adapter.supported_reports.includes(reportKind)) analysisPrerequisites.push({ id: "range", message: "选择当前工程类型支持的报告范围", step: "prepare" });
   for (const field of scene?.adapter.core_fields ?? []) {
     const value = parameters[field.key];
     if (field.required && (value == null || (typeof value === "string" && !value.trim()))) {
       analysisPrerequisites.push({ id: field.key, message: isPit && field.key === "support_type"
-        ? "确认实际支护信息（判据适用条件）" : `确认${field.label}`, step: "conditions" });
+        ? "确认实际支护信息（判据适用条件）" : `确认${field.label}`, step: "prepare" });
     }
   }
-  if (!depthValid) analysisPrerequisites.push({ id: "depth", message: "修正设计深度 H：大于0且不超过200m，或留空表示未提供", step: "conditions" });
-  if (!monitoring) analysisPrerequisites.push({ id: "monitoring", message: "选择或上传监测文件", step: "data" });
+  if (!depthValid) analysisPrerequisites.push({ id: "depth", message: "修正设计深度 H：大于0且不超过200m，或留空表示未提供", step: "prepare" });
+  if (!monitoring) analysisPrerequisites.push({ id: "monitoring", message: "选择或上传监测文件", step: "prepare" });
   else if (monitoring.read_report?.ok === false) {
-    analysisPrerequisites.push({ id: "monitoring", message: "修正监测文件的必填列并重新上传", step: "data" });
+    analysisPrerequisites.push({ id: "monitoring", message: "修正监测文件的必填列并重新上传", step: "prepare" });
   }
 
   function completePrerequisite(item: typeof analysisPrerequisites[number]) {
@@ -674,7 +695,7 @@ export function ProjectWorkbench({
     return !dirty.current || window.confirm("当前报告有未保存的评价或总评，继续会替换这些内容。确认继续？");
   }
 
-  function startNewReport() {
+  function resetNewReport(nextStep: WorkbenchStep) {
     if (operation.current || !canWrite) return;
     setMonitoring(null);
     setAdditionalFileIds([]);
@@ -693,10 +714,17 @@ export function ProjectWorkbench({
     setPeriodEnd("");
     setReportKind("daily");
     setRangeConfirmed(false);
-    confirmedRange.current = false;
-    rangePrompted.current = false;
+    rangeSource.current = "none";
     reset();
-    onStepChange("conditions");
+    onStepChange(nextStep);
+  }
+
+  function startNewReport() {
+    resetNewReport("prepare");
+  }
+
+  function startNewProject() {
+    resetNewReport("start");
   }
 
   async function uploadMonitoring(file: File) {
@@ -755,7 +783,7 @@ export function ProjectWorkbench({
     if (operation.current) return;
     reset();
     if (!canWrite || !isPit || !parameters.safety_level || !supportType || !depthValid) {
-      setError("请先在工程条件中确认判据适用条件，并检查设计深度。");
+      setError("请先在分析准备中确认判据适用条件，并检查设计深度。");
       return;
     }
     const text = standardText.trim();
@@ -888,6 +916,7 @@ export function ProjectWorkbench({
     (!historyDate || run.report_date === historyDate) &&
     (!onlyPending || (!run.error && !run.decision && run.agent_status === "awaiting_human_review" && run.execution_status === "completed")),
   );
+  const selectedWindow = windows.find(item => item.id === windowId);
 
   return (
     <>
@@ -899,7 +928,7 @@ export function ProjectWorkbench({
         }} />}
       <div hidden={step === "start"}>
       {step === "results" && canWrite && <div className="wb-actions wb-stage-actions">
-        <button className="wb-btn wb-btn-primary" disabled={busy !== null} onClick={startNewReport}>新建报告</button>
+        <button className="wb-btn wb-btn-primary" disabled={busy !== null} onClick={startNewProject}>新建工程</button>
       </div>}
       {historyError && <div role="alert" className="wb-alert wb-alert-error">
         <div>工程资料或历史加载失败：{historyError}
@@ -1002,10 +1031,10 @@ export function ProjectWorkbench({
         </div>
         <div className="wb-col wb-stage-input">
           <fieldset className="wb-inputs" disabled={busy !== null || sessionPending || !canWrite}>
-          <section className="wb-card" hidden={step !== "conditions"}>
+          <section className="wb-card" hidden={step !== "prepare"}>
             <div className="wb-card-head">
               <span className="wb-step">2</span>
-              <h2>工程条件</h2>
+              <h2>工程信息与条件</h2>
             </div>
             <p className="wb-hint">{scene?.engineering_type?.name ?? "正在加载工程条件…"}。请确认真实核心参数；保存后日常报告自动复用，变更需重新确认。</p>
             {isPit && <p className="wb-hint"><strong>留空 H 不会放宽判据</strong> ——
@@ -1048,20 +1077,13 @@ export function ProjectWorkbench({
               >
                 确认并保存工程配置
               </button>}
-            <div className="wb-range-summary">
-              <div><h3>报告范围</h3><p>{rangeSummary}</p></div>
-              <button className="wb-btn" type="button" onClick={() => setRangeDialogOpen(true)}>{rangeConfirmed ? "修改范围" : "选择范围"}</button>
-            </div>
             {!depthValid && <p className="wb-hint">基坑设计深度需大于0且不超过200m，或留空表示未提供。</p>}
-            <div className="wb-actions">
-              <button className="wb-btn wb-btn-primary" type="button" onClick={() => onStepChange("data")}>下一步：数据与规范</button>
-            </div>
           </section>
 
-          <div className="wb-col" hidden={step !== "data"}>
+          <div className="wb-col" hidden={step !== "prepare"}>
           <section className="wb-card">
             <div className="wb-card-head">
-              <span className="wb-step">3</span>
+              <span className="wb-step">2</span>
               <h2>监测数据</h2>
             </div>
             <p className="wb-hint">
@@ -1078,7 +1100,15 @@ export function ProjectWorkbench({
             <Field label="选择本工程已上传的监测数据">
               <select value={monitoring?.file.file_id ?? ""} onChange={event => {
                 const file = files.find(f => f.file_id === event.target.value);
-                setMonitoring(file ? { file, read_report: null } : null); setAdditionalFileIds([]);
+                setMonitoring(file ? { file, read_report: null } : null);
+                setAdditionalFileIds([]);
+                if (!file) {
+                  setWindows([]);
+                  setDetectedMetrics([]);
+                  setWindowId("");
+                  setWindowMessage("");
+                  clearRecommendedRange();
+                }
               }}>
                 <option value="">请选择，或上传新文件</option>
                 {files.map(file => <option key={file.file_id} value={file.file_id}>{file.original_name} · {file.uploaded_by?.name ?? "历史上传"} · {file.created_at.slice(0, 10)}</option>)}
@@ -1157,19 +1187,6 @@ export function ProjectWorkbench({
             )}
           </section>
 
-          <section className="wb-card">
-            <h2>按数据选择报告周期</h2>
-            <Field label="推荐报告周期"><select value={windowId} onChange={event => {
-              const selected = windows.find(item => item.id === event.target.value);
-              if (selected) {
-                setWindowId(selected.id);
-                confirmRange({ kind: selected.type, date: selected.end_date, start: selected.start_date, end: selected.end_date });
-              }
-            }}><option value="">上传数据后推荐，或使用已确认范围</option>
-              {windows.map(item => <option key={item.id} value={item.id}>{item.label}{item.missing_days.length ? ` · 缺${item.missing_days.length}日` : ""}</option>)}
-            </select></Field>
-            <p className="wb-hint">{windowMessage}</p><p>{rangeSummary}</p>
-          </section>
             {scene?.engineering_type?.id === "tunnel" && monitoring && <section
               className="wb-card"
               aria-label="监测参数设置"
@@ -1194,6 +1211,34 @@ export function ProjectWorkbench({
                 确认并保存监测参数
               </button>}
             </section>}
+          {monitoring && <section className="wb-card">
+            <div className="wb-card-head">
+              <span className="wb-step">2</span>
+              <h2>报告范围</h2>
+            </div>
+            <p className="wb-hint">上传文件后自动选择首个无缺测的可用范围；也可选择其他推荐或手动修改。</p>
+            <Field label="推荐报告周期"><select value={windowId} onChange={event => {
+              const selected = windows.find(item => item.id === event.target.value);
+              if (selected) {
+                setWindowId(selected.id);
+                confirmRange({ kind: selected.type, date: selected.end_date, start: selected.start_date, end: selected.end_date });
+              }
+            }}><option value="">上传数据后推荐，或使用已确认范围</option>
+              {windows.map(item => <option key={item.id} value={item.id}>{item.label}{item.missing_days.length ? ` · 缺${item.missing_days.length}日` : " · 完整覆盖"}</option>)}
+            </select></Field>
+            {selectedWindow && <p className="wb-hint">
+              覆盖 {selectedWindow.start_date} 至 {selectedWindow.end_date}；
+              {selectedWindow.observed_days}/{selectedWindow.calendar_days} 个日历日有观测；
+              {selectedWindow.missing_days.length
+                ? `缺测 ${selectedWindow.missing_days.join("、")}`
+                : "范围内无整日缺测"}。
+            </p>}
+            <p className="wb-hint">{windowMessage}</p>
+            <div className="wb-range-summary">
+              <div><h3>当前范围</h3><p>{rangeSummary}</p></div>
+              <button className="wb-btn" type="button" onClick={() => setRangeDialogOpen(true)}>{rangeConfirmed ? "修改范围" : "选择范围"}</button>
+            </div>
+          </section>}
           <section className="wb-card wb-optional-tools">
             <div className="wb-card-head"><h2>可选资料</h2></div>
             <Field label="选择要配置的可选资料">
@@ -1232,7 +1277,7 @@ export function ProjectWorkbench({
           />}
           {isPit && openedOptionalTools.includes("thresholds") && <section className="wb-card" hidden={optionalTool !== "thresholds"}>
             <div className="wb-card-head">
-              <span className="wb-step">3</span>
+              <span className="wb-step">2</span>
               <h2>用户规范 JSON（数值阈值，可选）</h2>
             </div>
             <p className="wb-hint">
@@ -1324,14 +1369,13 @@ export function ProjectWorkbench({
             )}
           </section>}
           <div className="wb-actions">
-            <button className="wb-btn" type="button" onClick={() => onStepChange("conditions")}>上一步：工程条件</button>
-            <button className="wb-btn wb-btn-primary" type="button" onClick={() => onStepChange("results")}>下一步：分析与复核</button>
+            <button className="wb-btn wb-btn-primary" type="button" onClick={() => onStepChange("results")}>进入分析与复核</button>
           </div>
           </div>
 
           <section className="wb-card" hidden={step !== "results" || !canWrite || (Boolean(result) && !monitoring)}>
             <div className="wb-card-head">
-              <span className="wb-step">4</span>
+              <span className="wb-step">3</span>
               <h2>运行分析</h2>
             </div>
             <p className="wb-hint">
@@ -1341,7 +1385,7 @@ export function ProjectWorkbench({
             <div className="wb-meta">
               <span className="wb-chip">新任务：{rangeSummary}</span>
               <span className="wb-chip">{monitoring ? `监测文件 ${1 + additionalFileIds.length} 份` : "尚未选择监测文件"}</span>
-              <span className="wb-chip">{analysisPrerequisites.some(item => item.step === "conditions" && item.id !== "range") ? "适用条件待确认" : "适用条件已确认"}</span>
+              <span className="wb-chip">{analysisPrerequisites.some(item => item.id !== "range" && item.id !== "monitoring") ? "适用条件待确认" : "适用条件已确认"}</span>
               {parentRunId && <span className="wb-chip">关联原运行 {parentRunId.slice(0, 8)}</span>}
             </div>
             {analysisPrerequisites.length > 0 && <div id="wb-analysis-prerequisites" className="wb-alert wb-alert-warn" role="status">
@@ -1351,7 +1395,7 @@ export function ProjectWorkbench({
                   {analysisPrerequisites.map(item => <li key={item.id}>
                     {item.message}
                     <button type="button" className="wb-btn wb-btn-sm" onClick={() => completePrerequisite(item)}>
-                      {item.step === "conditions" ? "返回第二步补充" : "返回第三步补充"}
+                      返回分析准备
                     </button>
                   </li>)}
                 </ul>

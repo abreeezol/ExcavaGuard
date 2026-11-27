@@ -86,7 +86,6 @@ let monitoringFiles = [file];
 let engineeringType = "foundation_pit";
 let sceneParameters = null;
 let supportedReports = null;
-let failNextQuickRun = false;
 const manifests = {
   foundation_pit: JSON.parse(readFileSync(new URL("../engineering-adapters/foundation-pit/manifest.json", import.meta.url))),
   tunnel: JSON.parse(readFileSync(new URL("../engineering-adapters/tunnel-monitoring/manifest.json", import.meta.url))),
@@ -146,7 +145,7 @@ await page.route("**/api/**", async route => {
   }
   if (path === "/api/report-windows") return json({ detected_metrics: [{ key: "surface_settlement", name: "地表沉降", supported: true }],
     available_dates: ["2026-11-03"],
-    windows: [{ id: "daily-window", type: "daily", start_date: "2026-11-03", end_date: "2026-11-03", label: "日报 · 2026-11-03", missing_days: [] }],
+    windows: [{ id: "daily-window", type: "daily", start_date: "2026-11-03", end_date: "2026-11-03", label: "日报 · 2026-11-03", observed_days: 1, calendar_days: 1, missing_days: [] }],
     notice: "合成数据周期建议，不代表完整覆盖。" });
   if (path === "/api/project-context") return json({ documents: [] });
   if (path === "/api/professional-review") return json({
@@ -159,7 +158,7 @@ await page.route("**/api/**", async route => {
       ...file,
       file_id: randomUUID(),
       project_id: activeProject,
-      original_name: "快速链路监测.csv",
+      original_name: "新上传监测.csv",
       created_at: new Date().toISOString(),
     };
     monitoringFiles = [uploaded, ...monitoringFiles];
@@ -185,12 +184,6 @@ await page.route("**/api/**", async route => {
     })) });
   }
   if (path === "/api/runs" && request.method() === "POST") {
-    if (failNextQuickRun) {
-      failNextQuickRun = false;
-      return route.fulfill({ status: 503, json: {
-        error: { message: "合成快速运行故障" },
-      } });
-    }
     const record = fixture("2026-11-06T00:00:00.000Z", "当前工程名", activeProject);
     record.request = request.postDataJSON();
     records = [record, ...records];
@@ -212,7 +205,8 @@ try {
   await page.goto(`${origin}/workbench`);
   await page.getByLabel("账号", { exact: true }).waitFor();
   assert.equal(await nav("2 ·").isDisabled(), true);
-  checks.push("未登录显示登录表单并禁止后续步骤");
+  assert.equal(await nav("3 ·").isDisabled(), true);
+  checks.push("未登录显示登录表单并禁止后续步骤，导航收敛为三步");
   authenticated = true;
   await page.goto(`${origin}/workbench`);
   await resultInfo.waitFor();
@@ -254,9 +248,7 @@ try {
   await page.locator(".wb-evaluation-comment").fill("现场资料补齐后判定为危险报警");
   await riskNavigator.selectOption("0");
   await nav("2 ·").click();
-  await page.getByRole("dialog").waitFor();
-  await page.keyboard.press("Escape");
-  await nav("4 ·").click();
+  await nav("3 ·").click();
   assert.equal(await reason.inputValue(), "未保存的复核总评");
   assert.equal(await page.locator(".wb-evaluation-comment").inputValue(), "未保存的风险评价");
   assert.equal(await finalRiskLevel.inputValue(), "正常");
@@ -281,6 +273,11 @@ try {
   await nav("2 ·").click();
   checks.push("步骤往返保留总评；取消历史和工程切换保留原运行");
 
+  await page.getByLabel(/选择本工程已上传的监测数据/).selectOption(fileId);
+  await page.clock.runFor(300);
+  await page.getByRole("option", { name: "日报 · 2026-11-03 · 完整覆盖", exact: true }).waitFor({ state: "attached" });
+  await hasText(summary, /日报 · 2026-11-03/);
+  await hasText(page.locator(".wb-range-summary").locator(".."), /1\/1 个日历日有观测/);
   await openRange();
   await page.getByRole("button", { name: "周报 连续 7 天", exact: true }).click();
   await page.getByLabel("周报结束日（含当日及之前6日）", { exact: true }).fill("2027-01-03");
@@ -298,16 +295,10 @@ try {
   await page.getByLabel(/设计开挖深度/).fill("19");
   assert.equal(await page.getByLabel(/实际支护信息/).isVisible(), true);
   await hasText(page.locator(".wb-accordion summary").filter({ hasText: "判据适用条件" }), /必填/);
-  checks.push("第二步未确认支护时自动展开必填项，工程名称与支护类型明确区分");
+  checks.push("分析准备中未确认支护时自动展开必填项，工程名称与支护类型明确区分");
   await page.getByLabel(/实际支护信息/).selectOption("灌注桩");
-  await nav("3 ·").click();
-  await page.getByLabel(/选择本工程已上传的监测数据/).selectOption(fileId);
-  await page.clock.runFor(300);
-  await page.getByRole("option", { name: "日报 · 2026-11-03", exact: true }).waitFor({ state: "attached" });
-  await nav("2 ·").click();
   await hasText(summary, /周报 · 2026-12-28 至 2027-01-03/);
-  checks.push("数据推荐周期不覆盖已手动确认的报告范围");
-  await nav("3 ·").click();
+  checks.push("上传后自动选择首个完整范围，人工修改后保留确认结果");
   const optionalTool = page.getByLabel(/选择要配置的可选资料/);
   assert.equal(await page.getByRole("region", { name: "案例、工况与巡视资料" }).count(), 0);
   await optionalTool.selectOption("context");
@@ -339,18 +330,18 @@ try {
   await optionalTool.selectOption("thresholds");
   await page.getByRole("heading", { name: "用户规范 JSON（数值阈值，可选）", exact: true }).waitFor();
   checks.push("三个可选资料工具由单一下拉菜单按需展开，窄屏无溢出且切换后保留未提交输入");
-  await nav("4 ·").click();
+  await nav("3 ·").click();
   await nav("2 ·").click();
   await page.getByLabel(/实际支护信息/).selectOption("");
   await page.getByText("判据适用条件（必填） · 待确认支护信息", { exact: true }).click();
-  await nav("4 ·").click();
+  await nav("3 ·").click();
   assert.equal(await page.getByRole("button", { name: "运行分析", exact: true }).isDisabled(), true);
   const missingSupport = page.locator("#wb-analysis-prerequisites li").filter({ hasText: "确认实际支护信息" });
-  await missingSupport.getByRole("button", { name: "返回第二步补充", exact: true }).click();
+  await missingSupport.getByRole("button", { name: "返回分析准备", exact: true }).click();
   assert.equal(await page.getByLabel(/实际支护信息/).isVisible(), true);
   assert.equal(await page.getByLabel(/安全等级/).inputValue(), "二级");
   await page.getByLabel(/实际支护信息/).selectOption("灌注桩");
-  await nav("4 ·").click();
+  await nav("3 ·").click();
   assert.equal(await page.getByRole("button", { name: "运行分析", exact: true }).isEnabled(), true);
   assert.equal(await page.locator("#wb-analysis-prerequisites").count(), 0);
   checks.push("缺少支护信息明确说明禁用原因，一键补充后启用分析且保留已有输入");
@@ -362,7 +353,7 @@ try {
   await page.getByRole("button", { name: "基于此报告重新分析", exact: true }).click();
   await summary.waitFor();
   await hasText(summary, /日报 · 2026-11-03/);
-  await nav("4 ·").click();
+  await nav("3 ·").click();
   page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "运行分析", exact: true }).click();
   await page.getByRole("button", { name: "运行分析", exact: true }).waitFor({ state: "visible" });
@@ -378,7 +369,7 @@ try {
   await page.getByRole("button", { name: "月报 完整自然月", exact: true }).click();
   await page.getByLabel("报告月份", { exact: true }).fill("2028-02");
   await page.getByRole("button", { name: "确认范围", exact: true }).click();
-  await nav("4 ·").click();
+  await nav("3 ·").click();
   await page.getByRole("button", { name: "运行分析", exact: true }).click();
   await page.waitForFunction(() => !document.querySelector(".wb-spin"));
   assert.equal(writes.length, 2);
@@ -421,12 +412,11 @@ try {
   checks.push("明确无权运行链接不回退加载其他成果");
   records = [failed];
   await page.goto(`${origin}/workbench`);
-  await page.getByRole("dialog").waitFor();
-  await page.keyboard.press("Escape");
-  await hasText(summary, /尚未选择/);
+  await page.getByRole("heading", { name: "分析准备", exact: true }).waitFor();
+  assert.equal(await page.getByRole("heading", { name: "报告范围", exact: true }).count(), 0);
   assert.equal(await page.getByLabel(/安全等级/).inputValue(), "");
   assert.equal(await page.getByLabel(/设计开挖深度/).inputValue(), "");
-  checks.push("仅失败历史进入新任务，取消首次范围不填入演示条件");
+  checks.push("仅失败历史进入分析准备，上传前不要求报告范围或填入演示条件");
   historyFailure = true;
   await page.goto(`${origin}/workbench?step=results`);
   await page.getByRole("alert").filter({ hasText: "合成网络故障" }).waitFor();
@@ -438,10 +428,8 @@ try {
   monitoringFiles = [];
   await page.getByRole("button", { name: "基于此报告重新分析", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "原监测文件或部分汇总文件已不可用" }).waitFor();
-  await hasText(summary, /日报 · 2026-11-03/);
-  await nav("3 ·").click();
   assert.equal(await page.getByLabel(/选择本工程已上传的监测数据/).inputValue(), "");
-  await nav("4 ·").click();
+  await nav("3 ·").click();
   assert.equal(await page.getByRole("button", { name: "运行分析", exact: true }).isVisible(), false);
   assert.equal(writes.length, 2);
   checks.push("历史文件失效仍恢复原条件与关联关系，重新选择文件后才能分析");
@@ -449,7 +437,7 @@ try {
   role = "viewer";
   await page.goto(`${origin}/workbench`);
   await resultInfo.waitFor();
-  assert.equal(await page.getByRole("button", { name: "新建报告", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "新建工程", exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "基于此报告重新分析", exact: true }).count(), 0);
   assert.equal(await reason.count(), 0);
   role = "admin";
@@ -457,20 +445,21 @@ try {
   supportedReports = ["daily"];
   records = [];
   await page.goto(`${origin}/workbench`);
-  await page.getByRole("dialog").waitFor();
   await page.getByLabel(/工程类别/).waitFor({ state: "attached" });
-  assert.equal(await page.getByRole("button", { name: "月报 完整自然月", exact: true }).isDisabled(), true);
-  await page.keyboard.press("Escape");
   await page.getByLabel(/工程类别/).selectOption("rail");
   await page.getByLabel(/施工工法/).selectOption("mining");
   await page.getByLabel(/工程阶段/).selectOption("construction");
   await page.getByLabel(/特殊地质条件/).selectOption("none");
   assert.equal(await page.getByText(/判据适用条件（必填）/).count(), 0);
-  await nav("3 ·").click();
   assert.equal(await page.getByLabel(/选择要配置的可选资料/).getByRole("option", { name: "用户规范 JSON（数值阈值，可选）" }).count(), 0);
   await page.getByLabel(/选择本工程已上传的监测数据/).selectOption(fileId);
   await page.clock.runFor(300);
-  await page.getByRole("option", { name: "日报 · 2026-11-03", exact: true }).waitFor({ state: "attached" });
+  await page.getByRole("option", { name: "日报 · 2026-11-03 · 完整覆盖", exact: true }).waitFor({ state: "attached" });
+  await hasText(summary, /日报 · 2026-11-03/);
+  await hasText(page.locator(".wb-range-summary").locator(".."), /1\/1 个日历日有观测/);
+  await openRange();
+  assert.equal(await page.getByRole("button", { name: "月报 完整自然月", exact: true }).isDisabled(), true);
+  await page.getByRole("button", { name: "取消", exact: true }).click();
   await page.getByRole("region", { name: "监测参数确认" }).waitFor();
   await page.getByLabel(/数据含义/).selectOption("cumulative_settlement");
   await page.getByLabel("控制值依据", { exact: true }).fill("合成批准方案");
@@ -480,10 +469,10 @@ try {
   await page.getByRole("status").filter({ hasText: "监测参数已确认保存" }).waitFor();
   assert.equal(writes.at(-1).path, "/api/projects/current/engineering");
   assert.equal(writes.at(-1).body.expected_revision, 0);
-  await nav("4 ·").click();
+  await nav("3 ·").click();
   assert.equal(await page.getByRole("button", { name: "运行分析", exact: true }).isEnabled(), true);
   assert.equal(await page.locator("#wb-analysis-prerequisites").count(), 0);
-  checks.push("隧道上传后在第三步原地填写并保存监测参数，隐藏基坑支护与JSON阈值");
+  checks.push("隧道上传后在分析准备中原地填写参数，自动选择完整范围并隐藏基坑专属输入");
   await page.getByRole("button", { name: "运行分析", exact: true }).click();
   await resultInfo.waitFor();
   assert.equal(writes.at(-1).body.context.construction_method, "mining");
@@ -492,15 +481,16 @@ try {
   await hasText(resultInfo, /矿山法／钻爆法/);
   assert.doesNotMatch(await resultInfo.textContent(), /安全等级|设计开挖深度/);
   checks.push("推荐日期、隧道测项控制值与保存配置完整传入请求，历史快照按工程字段展示");
-  await page.getByRole("button", { name: "新建报告", exact: true }).click();
-  await page.getByRole("dialog").waitFor();
-  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "新建工程", exact: true }).click();
+  await page.getByRole("heading", { name: "工作台启动", exact: true }).waitFor();
+  assert.match(page.url(), /step=start/);
+  await page.getByRole("button", { name: "开始新报告", exact: true }).click();
+  await page.getByRole("heading", { name: "分析准备", exact: true }).waitFor();
   assert.equal(await page.getByLabel(/施工工法/).inputValue(), "mining");
-  await nav("3 ·").click();
   await page.getByLabel(/选择本工程已上传的监测数据/).selectOption(fileId);
   await page.clock.runFor(300);
   assert.equal(await page.getByLabel("控制值依据", { exact: true }).inputValue(), "合成批准方案");
-  checks.push("新建报告复用管理员已确认工程参数与控制值");
+  checks.push("第三步新建工程先返回第一步，再开始报告并复用管理员已确认参数");
 
   canCreateProject = true;
   role = "admin";
@@ -511,13 +501,16 @@ try {
   records = [];
   const writesBeforeProject = writes.length;
   await page.goto(`${origin}/workbench?step=start`);
-  await page.getByText("保留原有快速创建", { exact: true }).waitFor();
+  assert.equal(await page.getByText("保留原有快速创建", { exact: true }).count(), 0);
   await page.getByLabel("选择获授权工程", { exact: true }).selectOption("__new_project__");
-  await page.getByRole("dialog", { name: "基本信息" }).waitFor();
-  await page.getByRole("button", { name: "取消", exact: true }).click();
-  assert.equal(writes.filter(write => write.path === "/api/projects").length, 0);
+  const projectDialog = page.getByRole("dialog", { name: "新建工程" });
+  await projectDialog.waitFor();
+  assert.equal(await projectDialog.getByRole("heading", { name: "报告范围", exact: true }).count(), 0);
+  assert.equal(await projectDialog.getByLabel("上传监测数据文件", { exact: true }).count(), 0);
+  assert.equal(await projectDialog.getByRole("button", { name: "运行分析", exact: true }).count(), 0);
+  await projectDialog.getByRole("button", { name: "取消", exact: true }).click();
+  assert.equal(writes.slice(writesBeforeProject).filter(write => write.path === "/api/projects").length, 0);
   await page.getByRole("button", { name: "新建工程", exact: true }).click();
-  const projectDialog = page.getByRole("dialog");
   await projectDialog.waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   const projectDialogMobile = await page.evaluate(() => ({
@@ -532,84 +525,27 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   await projectDialog.getByLabel(/工程类型/).selectOption("foundation_pit");
   await projectDialog.getByLabel(/工程名称/).fill("合成引导工程");
-  await page.getByRole("button", { name: "下一步", exact: true }).click();
-  await projectDialog.getByLabel(/安全等级/).selectOption("二级");
-  await projectDialog.getByLabel(/支护形式/).selectOption("灌注桩");
-  await page.getByRole("button", { name: "下一步", exact: true }).click();
-  await page.getByRole("button", { name: "周报 连续 7 天", exact: true }).click();
-  await page.getByLabel("周报结束日（含当日及之前6日）", { exact: true }).fill("2027-01-03");
-  await hasText(page.locator(".wb-range-preview"), /2026-12-28 至 2027-01-03/);
-  await page.getByRole("button", { name: "创建后进入详细流程", exact: true }).click();
-  await page.getByRole("heading", { name: "数据与规范", exact: true }).waitFor();
-  assert.match(page.url(), /step=data/);
+  await projectDialog.getByRole("button", { name: "创建工程", exact: true }).click();
+  await page.getByRole("heading", { name: "分析准备", exact: true }).waitFor();
+  assert.match(page.url(), /step=prepare/);
   const projectWrites = writes.slice(writesBeforeProject);
   assert.deepEqual(projectWrites.filter(write => write.path === "/api/projects").at(-1).body, {
     name: "合成引导工程",
     engineering_type: "foundation_pit",
-    parameters: { safety_level: "二级", support_type: "灌注桩", excavation_depth_m: null },
   });
   assert.equal(projectWrites.filter(write => write.path === "/api/projects/select").length, 1);
-  await nav("2 ·").click();
-  await hasText(summary, /周报 · 2026-12-28 至 2027-01-03/);
-  assert.equal(await page.getByLabel(/安全等级/).inputValue(), "二级");
-  assert.equal(await page.getByLabel(/实际支护信息/).inputValue(), "灌注桩");
-  checks.push("新建工程向导保留创建后进入详细流程，原子保存条件并直达数据页");
+  assert.equal(projectWrites.filter(write => ["/api/monitoring-files", "/api/runs", "/api/projects/current/engineering"].includes(write.path)).length, 0);
+  assert.equal(await page.getByLabel(/安全等级/).inputValue(), "");
+  assert.equal(await page.getByRole("heading", { name: "报告范围", exact: true }).count(), 0);
+  checks.push("新建工程弹窗只收工程类型和名称，创建后直达分析准备且不提前上传或运行");
 
-  const quickWritesStart = writes.length;
-  await nav("1 ·").click();
-  await page.getByRole("button", { name: "新建工程", exact: true }).click();
-  const quickDialog = page.getByRole("dialog");
-  await quickDialog.getByLabel(/工程类型/).selectOption("tunnel");
-  await quickDialog.getByLabel(/工程名称/).fill("合成隧道快速工程");
-  await quickDialog.getByRole("button", { name: "下一步", exact: true }).click();
-  await quickDialog.getByLabel(/工程类别/).selectOption("rail");
-  await quickDialog.getByLabel(/施工工法/).selectOption("mining");
-  await quickDialog.getByLabel(/工程阶段/).selectOption("construction");
-  await quickDialog.getByLabel(/特殊地质条件/).selectOption("none");
-  await quickDialog.getByRole("button", { name: "下一步", exact: true }).click();
-  await quickDialog.getByLabel("报告日期", { exact: true }).fill("2026-11-03");
-  await quickDialog.getByRole("button", { name: "下一步", exact: true }).click();
-  await quickDialog.getByLabel("快速链路监测数据文件", { exact: true }).setInputFiles({
-    name: "SIMULATED_隧道监测.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(
-      "point_id,timestamp,metric_key,value,unit,data_origin\n" +
-      "SIM-01,2026-11-03 08:00:00,surface_settlement,1,mm,simulated\n" +
-      "SIM-01,2026-11-03 11:00:00,surface_settlement,2,mm,simulated\n",
-    ),
-  });
-  await quickDialog.getByRole("button", { name: "创建工程并识别文件", exact: true }).click();
-  await quickDialog.getByRole("heading", { name: "确认运行", exact: true }).waitFor();
-  await quickDialog.getByText(/无法可靠判定的风险将标为“未知”并进入人工复核/).waitFor();
-  await hasText(quickDialog.locator(".wb-project-summary"), /运行方式仅确定性计算/);
-  assert.equal(
-    await quickDialog.getByRole("button", { name: "运行分析并查看结果", exact: true }).isEnabled(),
-    true,
-  );
-  failNextQuickRun = true;
-  await quickDialog.getByRole("button", { name: "运行分析并查看结果", exact: true }).click();
-  await quickDialog.getByRole("alert").filter({ hasText: "合成快速运行故障" }).waitFor();
-  await quickDialog.getByRole("button", { name: "运行分析并查看结果", exact: true }).click();
-  await quickDialog.waitFor({ state: "detached" });
-  await resultInfo.waitFor();
-  assert.match(page.url(), /step=results&run=/);
-  const quickWrites = writes.slice(quickWritesStart);
-  assert.equal(quickWrites.filter(write => write.path === "/api/projects").length, 1);
-  assert.equal(quickWrites.filter(write => write.path === "/api/monitoring-files").length, 1);
-  const quickConfiguration = quickWrites.find(write =>
-    write.path === "/api/projects/current/engineering"
-  );
-  assert.equal(quickWrites.filter(write =>
-    write.path === "/api/projects/current/engineering"
-  ).length, 1);
-  assert.equal(quickWrites.filter(write => write.path === "/api/runs").length, 2);
-  assert.equal(quickConfiguration.body.parameters.metric_controls, undefined);
-  const quickRun = quickWrites.find(write => write.path === "/api/runs");
-  assert.equal(quickRun.body.context.construction_method, "mining");
-  assert.equal(quickRun.body.context.metric_controls, undefined);
-  assert.equal(quickRun.body.options.generate_report, false);
-  await hasText(resultInfo, /合成隧道快速工程/);
-  checks.push("新建隧道快速链路允许控制值留空，按未知待核提示运行；失败重试不重复保存配置并直达第四步");
+  await page.goto(`${origin}/workbench?step=conditions`);
+  await page.getByRole("heading", { name: "分析准备", exact: true }).waitFor();
+  assert.match(page.url(), /step=prepare/);
+  await page.goto(`${origin}/workbench?step=data`);
+  await page.getByRole("heading", { name: "分析准备", exact: true }).waitFor();
+  assert.match(page.url(), /step=prepare/);
+  checks.push("旧工程条件和数据链接统一兼容到分析准备");
 
   const legacyAudit = structuredClone(latest);
   legacyAudit.result.agent_run.state.report_mode = "ai";
@@ -618,9 +554,10 @@ try {
   await page.goto(`${origin}/workbench`);
   await resultInfo.waitFor();
   await page.getByText(/完整审查尚未通过/).waitFor();
+  await hasText(page.getByRole("region", { name: "工程师复核" }), /报告审查尚未通过/);
   assert.equal(await page.getByRole("button", { name: /下载 Excel/ }).count(), 0);
   assert.equal(await reason.count(), 0);
-  checks.push("旧AI报告仅文件校验通过时仍阻挡下载与人工接受，保留未完成审查提示");
+  checks.push("旧AI报告审查未完成时阻挡下载与复核提交，并在工程师复核区说明原因");
   assert.deepEqual(errors, []);
   checks.push("只读成员可读成果，无新建或复核入口；无页面运行时错误");
   console.log(JSON.stringify({ status: "passed", checks, interceptedWrites: writes.length }, null, 2));

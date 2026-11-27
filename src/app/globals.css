@@ -279,22 +279,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
 .wb-range-dialog::backdrop { background: rgb(15 35 27 / 45%); }
 .wb-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .wb-dialog-head h2 { font-size: 20px; }
-.wb-dialog-progress { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 22px 0; padding: 0; list-style: none; }
-.wb-dialog-progress li { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--muted); font-size: 11px; }
-.wb-dialog-progress li::after { content: ""; height: 1px; min-width: 8px; flex: 1; background: var(--border); }
-.wb-dialog-progress li:last-child::after { display: none; }
-.wb-dialog-progress li > span { display: grid; width: 22px; height: 22px; flex: 0 0 22px; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: #fafcf9; }
-.wb-dialog-progress li.active { color: var(--ink); font-weight: 700; }
-.wb-dialog-progress li.active > span { border-color: var(--accent); background: #eaf4ec; color: var(--accent); }
-.wb-dialog-progress li.done { color: #3c6f49; }
-.wb-dialog-progress li.done > span { border-color: #b9d3bf; background: #eaf4ec; }
 .wb-dialog-stage { min-height: 210px; }
-.wb-dialog-stage > [aria-label="监测参数确认"] { margin-top: 16px; }
-.wb-dialog-upload { margin-bottom: 14px; }
-.wb-dialog-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-content: start; }
-.wb-project-summary { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; margin: 18px 0 0; font-size: 12px; }
-.wb-project-summary dt { color: var(--muted); }
-.wb-project-summary dd { margin: 0; overflow-wrap: anywhere; }
 .wb-range-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 22px 0; }
 .wb-range-types button { border: 1px solid var(--border); background: #fafcf9; border-radius: 8px; padding: 15px 8px; color: var(--ink); cursor: pointer; }
 .wb-range-types button[aria-pressed="true"] { background: #eaf4ec; border-color: var(--accent); }
@@ -317,10 +302,6 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a2c663; outline-offs
   .wb-range-dialog { padding: 18px; }
   .wb-dialog-actions { bottom: -18px; }
   .wb-dialog-head h2 { font-size: 18px; }
-  .wb-dialog-progress { gap: 5px; }
-  .wb-dialog-progress li { font-size: 10px; gap: 4px; }
-  .wb-dialog-progress li::after { display: none; }
-  .wb-dialog-fields { grid-template-columns: 1fr; }
   .wb-dialog-stage { min-height: 0; }
 }
 .wb-history { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow: auto; margin-top: 12px; }

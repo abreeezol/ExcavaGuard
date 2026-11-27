@@ -354,6 +354,38 @@ describeWithPython("报告交付与独立审计 Skill", () => {
     if (!expected) expect(audit.issues.some(issue => issue.code === "UNSUPPORTED_PATROL_CONCLUSION")).toBe(true);
   });
 
+  it("冻结契约接受隧道定位与附加判定字段，同时继续拒绝未知字段", async () => {
+    const engine = engineSnapshot();
+    const payload = engine.payload as ReturnType<typeof dailyReportInput>;
+    Object.assign(payload.items[0], {
+      section_id: "DK1+200",
+      mileage: "DK1+200",
+      x: 123.4,
+      y: 56.7,
+      management_level: {
+        code: "III",
+        label: "加强监测",
+        utilization: 0.85,
+      },
+      stability: {
+        status: "not_stable",
+        consecutive_periods: 1,
+      },
+    });
+
+    const { draft } = await renderRunner.renderDailyReport({ engineSnapshot: engine });
+    trackArtifacts(draft);
+    expect((await validateRunner.validateReport({ draft, engineSnapshot: engine })).audit.valid).toBe(true);
+
+    const invalid = engineSnapshot();
+    Object.assign(
+      (invalid.payload as ReturnType<typeof dailyReportInput>).items[0],
+      { unexpected_tunnel_fact: true },
+    );
+    await expect(renderRunner.renderDailyReport({ engineSnapshot: invalid }))
+      .rejects.toThrow(/unexpected_tunnel_fact.*unexpected/);
+  });
+
   it("显式单位与日内峰值分别展示，篡改峰值并刷新哈希仍被逐格审计阻断", async () => {
     const engine = engineSnapshot();
     const payload = engine.payload as ReturnType<typeof dailyReportInput>;

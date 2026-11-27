@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FileCheck2, FileUp, LayoutDashboard, Settings2, ShieldCheck } from "lucide-react";
+import { FileCheck2, LayoutDashboard, Settings2, ShieldCheck } from "lucide-react";
 
 export const WORKBENCH_STEPS = [
   { id: "start", label: "工作台启动", description: "登录账号 · 选择工程", icon: LayoutDashboard },
-  { id: "conditions", label: "工程条件", description: "确认条件 · 选择范围", icon: Settings2 },
-  { id: "data", label: "数据与规范", description: "监测资料 · 补充判据", icon: FileUp },
+  { id: "prepare", label: "分析准备", description: "工程条件 · 数据与规范", icon: Settings2 },
   { id: "results", label: "分析与复核", description: "查看成果 · 工程师复核", icon: FileCheck2 },
 ] as const;
 export type WorkbenchStep = typeof WORKBENCH_STEPS[number]["id"];

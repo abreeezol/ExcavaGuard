@@ -58,7 +58,7 @@ def validate(payload: dict) -> list[str]:
 def _validate_without_lib(payload: dict) -> list[str]:
     """未安装 jsonschema 时的最小校验：顶层必填键 + 明细必填键 + 关键枚举。"""
     schema = load_schema()
-    problems: list[str] = []
+    problems = _validate_unknown_fields(payload, schema, schema)
     for k in schema.get("required", []):
         if k not in payload:
             problems.append(f"<root>: 缺少必填键 {k}")
@@ -73,6 +73,52 @@ def _validate_without_lib(payload: dict) -> list[str]:
             problems.append(f"items/{i}/data_origin: 非法取值 {it.get('data_origin')}")
         if it.get("risk_level") not in ("正常", "关注", "预警", "报警", "危险报警", "未知"):
             problems.append(f"items/{i}/risk_level: 非法取值 {it.get('risk_level')}")
+    return problems
+
+
+def _validate_unknown_fields(
+    value: object,
+    schema: dict,
+    root_schema: dict,
+    path: tuple[str | int, ...] = (),
+) -> list[str]:
+    """标准库降级校验也必须执行 additionalProperties=false 门禁。"""
+    reference = schema.get("$ref")
+    if isinstance(reference, str) and reference.startswith("#/"):
+        resolved = root_schema
+        for key in reference[2:].split("/"):
+            resolved = resolved[key]
+        schema = resolved
+
+    problems: list[str] = []
+    if isinstance(value, dict):
+        properties = schema.get("properties", {})
+        if schema.get("additionalProperties") is False:
+            unexpected = sorted(set(value) - set(properties))
+            if unexpected:
+                location = "/".join(str(part) for part in path) or "<root>"
+                problems.append(f"{location}: 存在未声明字段 {unexpected}")
+        for key, nested in value.items():
+            child_schema = properties.get(key)
+            if isinstance(child_schema, dict):
+                problems.extend(
+                    _validate_unknown_fields(
+                        nested,
+                        child_schema,
+                        root_schema,
+                        (*path, key),
+                    )
+                )
+    elif isinstance(value, list) and isinstance(schema.get("items"), dict):
+        for index, nested in enumerate(value):
+            problems.extend(
+                _validate_unknown_fields(
+                    nested,
+                    schema["items"],
+                    root_schema,
+                    (*path, index),
+                )
+            )
     return problems
 
 

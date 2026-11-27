@@ -541,12 +541,24 @@ check("阶段二结果乱序时计算值仍对应正确测点",
 # --- 可序列化与整体契约校验 ---
 check("载荷可 JSON 序列化", bool(json.dumps(p2, ensure_ascii=False, default=str)))
 try:
-    from validate_daily_report_input import validate as _contract_validate
+    from validate_daily_report_input import (
+        validate as _contract_validate,
+        _validate_without_lib as _contract_validate_without_lib,
+    )
 except ModuleNotFoundError:
     sys.path.insert(0, str(PIPE.parent / "tools"))
-    from validate_daily_report_input import validate as _contract_validate
+    from validate_daily_report_input import (
+        validate as _contract_validate,
+        _validate_without_lib as _contract_validate_without_lib,
+    )
 viol = _contract_validate(p2)
 check("载荷通过契约校验", not viol, "; ".join(viol[:5]))
+_unexpected = json.loads(json.dumps(p2, ensure_ascii=False, default=str))
+_unexpected["context"]["unexpected_preparation_field"] = 1
+_fallback_viol = _contract_validate_without_lib(_unexpected)
+check("无 jsonschema 时仍拒绝 context 未声明字段",
+      any("unexpected_preparation_field" in item for item in _fallback_viol),
+      "; ".join(_fallback_viol[:5]))
 
 
 # ===========================================================================
